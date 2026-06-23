@@ -30,6 +30,10 @@ export const builtinFields: FieldType[] = [
     default: () => ({ src: '' }),
   },
   {
+    name: 'text',
+    schema: { type: 'string', format: 'text' } as SchemaItem,
+  },
+  {
     name: 'color',
     schema: { type: 'string', format: 'color' } as SchemaItem,
   },
