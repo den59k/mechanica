@@ -306,3 +306,30 @@ body.mech-editing {
   border-radius: 4px 4px 0 0;
   white-space: nowrap;
 }
+
+/* Floating block toolbar (on the selected block) */
+.mech-toolbar {
+  position: fixed;
+  transform: translateX(-100%);
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--mech-fg);
+  border-radius: 7px;
+  z-index: 2147482500;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+}
+.mech-toolbar button {
+  border: none;
+  background: transparent;
+  color: #fff;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+.mech-toolbar button:hover {
+  background: rgba(255, 255, 255, 0.16);
+}

@@ -38,3 +38,56 @@ export function removeBlock(tree: ContentBlock[], id: string): boolean {
   }
   return false
 }
+
+/** Find the sibling list that directly contains `id`, plus its index. */
+export function findParentList(
+  tree: ContentBlock[],
+  id: string,
+): { list: ContentBlock[]; index: number } | null {
+  const index = tree.findIndex((block) => block.id === id)
+  if (index >= 0) return { list: tree, index }
+  for (const block of tree) {
+    for (const list of childLists(block)) {
+      const found = findParentList(list, id)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+/** Move a block within its sibling list by `delta` (no-op if out of range). */
+export function moveBlock(tree: ContentBlock[], id: string, delta: number): boolean {
+  const found = findParentList(tree, id)
+  if (!found) return false
+  const target = found.index + delta
+  if (target < 0 || target >= found.list.length) return false
+  const [block] = found.list.splice(found.index, 1)
+  found.list.splice(target, 0, block!)
+  return true
+}
+
+/** Deep-clone a block, assigning fresh ids throughout. */
+export function cloneBlock(block: ContentBlock): ContentBlock {
+  const clone: ContentBlock = {
+    id: uid(),
+    blockId: block.blockId,
+    data: JSON.parse(JSON.stringify(block.data)),
+  }
+  if (Array.isArray(block.children)) {
+    clone.children = block.children.map(cloneBlock)
+  } else if (block.children) {
+    clone.children = Object.fromEntries(
+      Object.entries(block.children).map(([slot, list]) => [slot, list.map(cloneBlock)]),
+    )
+  }
+  return clone
+}
+
+/** Insert a clone of `id` right after it. Returns the new block. */
+export function duplicateBlock(tree: ContentBlock[], id: string): ContentBlock | null {
+  const found = findParentList(tree, id)
+  if (!found) return null
+  const clone = cloneBlock(found.list[found.index]!)
+  found.list.splice(found.index + 1, 0, clone)
+  return clone
+}

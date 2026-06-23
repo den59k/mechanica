@@ -1,6 +1,6 @@
 import { reactive, computed, type InjectionKey } from 'vue'
 import type { Block, ContentBlock, State } from '@mechanica/shared'
-import { findBlock, removeBlock } from './content-tree'
+import { findBlock, removeBlock, moveBlock, duplicateBlock } from './content-tree'
 import { toBlockMeta, createContentBlock, type BlockComponent } from './block-meta'
 
 export interface EditorStore {
@@ -14,6 +14,8 @@ export interface EditorStore {
   select(id: string | null): void
   addBlock(blockId: string): void
   remove(id: string): void
+  move(id: string, delta: number): void
+  duplicate(id: string): void
 }
 
 export const editorStoreKey: InjectionKey<EditorStore> = Symbol('mech-editor')
@@ -59,6 +61,13 @@ export function createEditorStore(initial: State, components: BlockComponent[]):
     remove(id: string) {
       removeBlock(content, id)
       if (ui.selectedId === id) ui.selectedId = null
+    },
+    move(id: string, delta: number) {
+      moveBlock(content, id, delta)
+    },
+    duplicate(id: string) {
+      const clone = duplicateBlock(content, id)
+      if (clone) ui.selectedId = clone.id
     },
   })
 

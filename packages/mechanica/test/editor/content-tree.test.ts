@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { registerFieldSchemas } from '@mechanica/shared'
 import type { ContentBlock } from '@mechanica/shared'
-import { findBlock, removeBlock, uid } from '@/editor/content-tree'
+import { findBlock, removeBlock, moveBlock, duplicateBlock, uid } from '@/editor/content-tree'
 import { toBlockMeta, createContentBlock } from '@/editor/block-meta'
 
 registerFieldSchemas(() => {})
@@ -32,6 +32,27 @@ describe('content-tree', () => {
 
   it('generates unique ids', () => {
     expect(uid()).not.toBe(uid())
+  })
+
+  it('moves a block within its siblings and clamps at the edges', () => {
+    const t: ContentBlock[] = [
+      { id: '1', blockId: 'a', data: {} },
+      { id: '2', blockId: 'b', data: {} },
+      { id: '3', blockId: 'c', data: {} },
+    ]
+    expect(moveBlock(t, '3', -1)).toBe(true)
+    expect(t.map((b) => b.id)).toEqual(['1', '3', '2'])
+    expect(moveBlock(t, '1', -1)).toBe(false) // already first
+    expect(t.map((b) => b.id)).toEqual(['1', '3', '2'])
+  })
+
+  it('duplicates a block after itself with fresh ids and cloned data', () => {
+    const t: ContentBlock[] = [{ id: '1', blockId: 'a', data: { x: 1 } }]
+    const clone = duplicateBlock(t, '1')!
+    expect(t).toHaveLength(2)
+    expect(clone.id).not.toBe('1')
+    expect(clone.data).toEqual({ x: 1 })
+    expect(clone.data).not.toBe(t[0]!.data)
   })
 })
 
