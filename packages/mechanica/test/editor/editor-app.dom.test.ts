@@ -19,11 +19,12 @@ describe('EditorApp', () => {
   it('renders the panels and reports edits', async () => {
     const changes: { content: unknown[] }[] = []
     const el = document.createElement('div')
-    createApp(EditorApp, {
+    const app = createApp(EditorApp, {
       state: { content: [], data: {} },
       components,
       onChange: (snapshot: { content: unknown[] }) => changes.push(snapshot),
-    }).mount(el)
+    })
+    app.mount(el)
 
     expect(el.querySelector('.mech-editor')).not.toBeNull()
     expect(el.textContent).toContain('Hero') // palette item
@@ -33,5 +34,7 @@ describe('EditorApp', () => {
 
     expect(changes.length).toBeGreaterThan(0)
     expect(changes.at(-1)!.content).toHaveLength(1)
+
+    app.unmount() // stops the block-frame rAF loop + listeners
   })
 })

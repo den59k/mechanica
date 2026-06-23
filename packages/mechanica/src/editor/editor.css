@@ -265,3 +265,44 @@
   color: var(--mech-muted);
   margin-bottom: 8px;
 }
+
+/* Inset the page between the side panels while editing. */
+body.mech-editing {
+  box-sizing: border-box;
+  padding-left: var(--mech-panel-width);
+  padding-right: var(--mech-panel-width);
+}
+
+/* In-page hover / selection frames */
+.mech-frame {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  box-sizing: border-box;
+  z-index: 2147482000;
+  border-radius: 3px;
+  transition:
+    transform 0.06s linear,
+    width 0.06s linear,
+    height 0.06s linear;
+}
+.mech-frame--hover {
+  border: 1px solid rgba(47, 107, 255, 0.55);
+  background: rgba(47, 107, 255, 0.07);
+}
+.mech-frame--selected {
+  border: 2px solid var(--mech-accent);
+}
+.mech-frame__label {
+  position: absolute;
+  top: -20px;
+  left: -2px;
+  background: var(--mech-accent);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 4px 4px 0 0;
+  white-space: nowrap;
+}
