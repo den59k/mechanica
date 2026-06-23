@@ -121,18 +121,6 @@
   margin-bottom: 4px;
 }
 
-/* Dark theme */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --mech-bg: #1e1f24;
-    --mech-fg: #e8e9ec;
-    --mech-muted: #9aa0a8;
-    --mech-border: #34363d;
-    --mech-accent: #5b8bff;
-    --mech-accent-soft: #2a3350;
-  }
-}
-
 /* Palette */
 .mech-palette {
   display: flex;
