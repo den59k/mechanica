@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
-import PageSelector from '@/editor/PageSelector.vue'
+import PageSelector from '@/editor/components/PageSelector.vue'
 
 const flush = async () => {
   await new Promise((resolve) => setTimeout(resolve, 0))

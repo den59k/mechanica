@@ -6,7 +6,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { BlockRect } from './use-block-frames'
+import type { BlockRect } from '../lib/use-block-frames'
 
 const props = defineProps<{ rect: BlockRect; variant: 'hover' | 'selected'; label?: string }>()
 

@@ -32,8 +32,8 @@
 <script setup lang="ts">
 import { inject } from 'vue'
 import type { ContentBlock } from '@mechanica/shared'
-import { editorStoreKey } from './store'
-import { dragKey } from './drag-controller'
+import { editorStoreKey } from '../lib/store'
+import { dragKey } from '../lib/drag-controller'
 
 const props = defineProps<{ blocks?: ContentBlock[] }>()
 const store = inject(editorStoreKey)!

@@ -14,8 +14,8 @@
 
 <script setup lang="ts">
 import { computed, inject } from 'vue'
-import { editorStoreKey } from './store'
-import SchemaForm from './props-panel/SchemaForm.vue'
+import { editorStoreKey } from '../lib/store'
+import SchemaForm from '../props-panel/SchemaForm.vue'
 
 const store = inject(editorStoreKey)!
 const name = computed(() =>

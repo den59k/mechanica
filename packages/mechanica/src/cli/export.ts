@@ -2,7 +2,7 @@ import { readFile, writeFile, mkdir, rm, cp, readdir } from 'node:fs/promises'
 import { join, parse } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { generateProject, registerFieldSchemas, type Block } from '@mechanica/shared'
-import { toBlockMeta } from '../editor/block-meta'
+import { toBlockMeta } from '../editor/lib/block-meta'
 import { readSiteData, readFoldersData } from '../vite/dev/data-store'
 import { runBuild } from './build'
 

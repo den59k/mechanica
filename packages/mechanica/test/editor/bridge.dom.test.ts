@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mergeData, exposeRuntime, pushStateUpdate, hasRuntime } from '@/editor/bridge'
+import { mergeData, exposeRuntime, pushStateUpdate, hasRuntime } from '@/editor/lib/bridge'
 
 describe('mergeData', () => {
   it('updates values, adds new keys and drops removed ones', () => {

@@ -33,8 +33,8 @@
 import { computed, inject, ref } from 'vue'
 import { useSearch } from 'vuesix'
 import type { Block } from '@mechanica/shared'
-import { editorStoreKey } from './store'
-import { dragKey } from './drag-controller'
+import { editorStoreKey } from '../lib/store'
+import { dragKey } from '../lib/drag-controller'
 
 const store = inject(editorStoreKey)!
 const drag = inject(dragKey)!

@@ -8,7 +8,7 @@ import {
   type QueryResolver,
 } from './state'
 import { createRouter } from './router'
-import { exposeRuntime, mergeData } from '../editor/bridge'
+import { exposeRuntime, mergeData } from '../editor/lib/bridge'
 
 export interface CreateMechanicaOptions {
   /** Initial runtime state. Defaults to `window.state` (client hydration). */

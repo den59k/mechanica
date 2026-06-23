@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createApp, h } from 'vue'
 import { registerFieldSchemas } from '@mechanica/shared'
-import { createEditorStore, editorStoreKey, type EditorStore } from '@/editor/store'
-import { createDragController, dragKey } from '@/editor/drag-controller'
+import { createEditorStore, editorStoreKey, type EditorStore } from '@/editor/lib/store'
+import { createDragController, dragKey } from '@/editor/lib/drag-controller'
 import { registerBuiltinFieldEditors } from '@/editor/fields/builtin'
 import { clearFieldEditors } from '@/editor/fields/registry'
-import BlockPalette from '@/editor/BlockPalette.vue'
-import HierarchyTree from '@/editor/HierarchyTree.vue'
-import BlockSettings from '@/editor/BlockSettings.vue'
+import BlockPalette from '@/editor/components/BlockPalette.vue'
+import HierarchyTree from '@/editor/components/HierarchyTree.vue'
+import BlockSettings from '@/editor/components/BlockSettings.vue'
 
 beforeEach(() => {
   clearFieldEditors()

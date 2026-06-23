@@ -1,6 +1,6 @@
 import { unfoldSchema } from 'compact-json-schema'
 import { getDefaultValue, type Block, type ContentBlock } from '@mechanica/shared'
-import { humanize } from './props-panel/humanize'
+import { humanize } from '../props-panel/humanize'
 import { uid } from './content-tree'
 
 /** A compiled block component as exposed by the blocks virtual module. */

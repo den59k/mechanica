@@ -9,8 +9,8 @@ import {
   placeBlock,
   relocateBlock,
   uid,
-} from '@/editor/content-tree'
-import { toBlockMeta, createContentBlock } from '@/editor/block-meta'
+} from '@/editor/lib/content-tree'
+import { toBlockMeta, createContentBlock } from '@/editor/lib/block-meta'
 
 registerFieldSchemas(() => {})
 

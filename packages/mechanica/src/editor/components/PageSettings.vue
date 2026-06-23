@@ -28,7 +28,7 @@
 
 <script setup lang="ts">
 import { computed, inject, watchEffect } from 'vue'
-import { editorStoreKey } from './store'
+import { editorStoreKey } from '../lib/store'
 
 const store = inject(editorStoreKey)!
 const meta = computed<Record<string, any>>(() => (store.page.meta ??= {}))

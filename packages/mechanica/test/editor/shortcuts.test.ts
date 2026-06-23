@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveShortcut, type ShortcutEvent } from '@/editor/shortcuts'
+import { resolveShortcut, type ShortcutEvent } from '@/editor/lib/shortcuts'
 
 const ev = (e: Partial<ShortcutEvent>): ShortcutEvent => ({
   key: '',

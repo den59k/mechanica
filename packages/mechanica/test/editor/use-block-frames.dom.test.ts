@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { findBlockId, isEditorUI } from '@/editor/use-block-frames'
+import { findBlockId, isEditorUI } from '@/editor/lib/use-block-frames'
 
 describe('findBlockId', () => {
   it('finds the nearest data-block-id ancestor', () => {

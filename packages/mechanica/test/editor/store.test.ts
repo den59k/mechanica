@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { registerFieldSchemas, type DataEntry } from '@mechanica/shared'
-import { createEditorStore, compareDataEntries } from '@/editor/store'
+import { createEditorStore, compareDataEntries } from '@/editor/lib/store'
 
 registerFieldSchemas(() => {})
 
