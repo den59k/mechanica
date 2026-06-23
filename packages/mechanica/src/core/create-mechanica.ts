@@ -8,6 +8,7 @@ import {
   type QueryResolver,
 } from './state'
 import { createRouter } from './router'
+import { exposeRuntime, mergeData } from '../editor/bridge'
 
 export interface CreateMechanicaOptions {
   /** Initial runtime state. Defaults to `window.state` (client hydration). */
@@ -45,6 +46,16 @@ export function createMechanica(options: CreateMechanicaOptions = {}): Plugin {
       }
 
       app.provide(mechanicaKey, context)
+
+      // Expose the runtime so the in-page editor can drive it live.
+      if (mode !== 'server') {
+        exposeRuntime({
+          setContent: (next) => {
+            content.value = next
+          },
+          mergeData: (incoming) => mergeData(context.data, incoming),
+        })
+      }
     },
   }
 }
