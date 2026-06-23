@@ -4,7 +4,7 @@ import type { Connect } from 'vite'
 import { createPage, savePage, updatePageMeta, listPages, listFolders, PageExistsError } from './pages-store'
 import { saveUpload, listImages } from './assets-store'
 import { resolveDevQuery } from './query-dev'
-import { splitDataByScope, mergeSiteData } from './data-store'
+import { splitDataByScope, mergeSiteData, mergeFolderData, folderOf } from './data-store'
 
 /**
  * The `/@mechanica` dev middleware: page CRUD, asset upload/serve, folder list,
@@ -70,10 +70,14 @@ export function createDevMiddleware(mechDir: string): Connect.NextHandleFunction
         const pathParam = query.get('path')
         if (!pathParam) return json({ error: 'Missing path' }, 400)
         const body = JSON.parse((await readBody(req)).toString('utf-8'))
-        // Route site-scoped data to the shared store; the rest stays on the page.
-        const { page, site } = splitDataByScope(body.data ?? {}, body.dataScopes ?? {})
-        savePage(mechDir, pathParam, { content: body.content, data: page })
+        // Route site/folder data to their shared stores; the rest stays on the page.
+        const { page, site, folder } = splitDataByScope(body.data ?? {}, body.dataScopes ?? {})
+        const folderPath = folderOf(mechDir, pathParam)
+        // A root-level page has no folder, so its folder-scoped data stays local.
+        const pageData = folderPath ? page : { ...page, ...folder }
+        savePage(mechDir, pathParam, { content: body.content, data: pageData })
         mergeSiteData(mechDir, site)
+        mergeFolderData(mechDir, folderPath, folder)
         return json({ success: true })
       }
 

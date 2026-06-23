@@ -66,6 +66,27 @@ describe('dev middleware', () => {
     expect(site).toEqual({ header: { logo: 'a.svg' } })
   })
 
+  it('routes folder-scoped data to the shared folders file', async () => {
+    await fetch(`${base}/pages`, {
+      method: 'POST',
+      body: JSON.stringify({ path: '/post', name: 'Post', folderId: 'blog' }),
+    })
+    await fetch(`${base}/save?path=/blog/post`, {
+      method: 'POST',
+      body: JSON.stringify({
+        content: [],
+        data: { nav: { items: ['Home'] }, seo: { title: 'Post' } },
+        dataScopes: { nav: 'folder', seo: 'page' },
+      }),
+    })
+
+    const page = JSON.parse(fs.readFileSync(join(mechDir, 'pages', 'blog', 'post.json'), 'utf-8'))
+    expect(page.data).toEqual({ seo: { title: 'Post' } })
+
+    const folders = JSON.parse(fs.readFileSync(join(mechDir, 'folders.json'), 'utf-8'))
+    expect(folders).toEqual({ blog: { nav: { items: ['Home'] } } })
+  })
+
   it('uploads and serves an asset', async () => {
     const upload = await fetch(`${base}/upload`, {
       method: 'POST',

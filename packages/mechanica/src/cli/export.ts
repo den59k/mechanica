@@ -3,7 +3,7 @@ import { join, parse } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { generateProject, registerFieldSchemas, type Block } from '@mechanica/shared'
 import { toBlockMeta } from '../editor/block-meta'
-import { readSiteData } from '../vite/dev/data-store'
+import { readSiteData, readFoldersData } from '../vite/dev/data-store'
 import { runBuild } from './build'
 
 interface ExportPage {
@@ -14,7 +14,10 @@ interface ExportPage {
 }
 
 /** Read every page JSON under `<mech>/pages` as an exportable page. */
-async function readPages(pagesDir: string): Promise<ExportPage[]> {
+async function readPages(
+  pagesDir: string,
+  foldersData: Record<string, Record<string, any>> = {},
+): Promise<ExportPage[]> {
   let entries: string[]
   try {
     entries = (await readdir(pagesDir, { recursive: true })) as string[]
@@ -30,7 +33,9 @@ async function readPages(pagesDir: string): Promise<ExportPage[]> {
     const file = JSON.parse(await readFile(join(pagesDir, relative), 'utf-8'))
     const path =
       `/${dir}/${parsed.name === 'index' ? '' : parsed.name}`.replace('//', '/').replace(/\/$/, '') || '/'
-    pages.push({ path, content: file.content ?? [], data: file.data ?? {}, page: { meta: file.meta } })
+    // Fold this page's folder-scoped data in; site data is applied via projectData.
+    const data = { ...(dir ? foldersData[dir] : undefined), ...(file.data ?? {}) }
+    pages.push({ path, content: file.content ?? [], data, page: { meta: file.meta } })
   }
   return pages
 }
@@ -47,7 +52,7 @@ export async function runExport(): Promise<void> {
   const blocks: Block[] = ssr.blocksList.map(toBlockMeta)
   const blocksMap = new Map(blocks.map((block) => [block.id, block]))
 
-  const pages = await readPages(join(cwd, '.mech/pages'))
+  const pages = await readPages(join(cwd, '.mech/pages'), readFoldersData(join(cwd, '.mech')))
   const projectData = readSiteData(join(cwd, '.mech'))
   const exportDir = join(cwd, 'export')
   await rm(exportDir, { recursive: true, force: true })
