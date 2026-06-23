@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-ssr
+export
+coverage
+.vitest
+*.local
+*.log
+.DS_Store

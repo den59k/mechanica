@@ -1,0 +1,16 @@
+{
+  "name": "mechanica-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "bun run --filter '*' test",
+    "typecheck": "bun run --filter '*' typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

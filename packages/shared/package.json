@@ -1,0 +1,16 @@
+{
+  "name": "@mechanica/shared",
+  "version": "2.0.0-alpha.0",
+  "description": "DOM-free types, schema helpers and page-generation core shared across Mechanica",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}
