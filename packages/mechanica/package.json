@@ -4,6 +4,9 @@
   "description": "Build Vue 3 websites with a visual block editor",
   "license": "MIT",
   "type": "module",
+  "bin": {
+    "mechanica": "bin/mechanica.js"
+  },
   "exports": {
     ".": {
       "types": "./src/index.ts",

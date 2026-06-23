@@ -3,7 +3,7 @@ import type { Plugin } from 'vite'
 import { parseVueRequest } from '@vitejs/plugin-vue'
 import { compileBlock } from '../compiler/compile-block'
 import { collectBlocks } from './collect-blocks'
-import { generateClientEntry } from './entries'
+import { generateClientEntry, generateSsrEntry } from './entries'
 import { createDevMiddleware } from './dev/middleware'
 import { readPage } from './dev/pages-store'
 
@@ -11,9 +11,12 @@ import { readPage } from './dev/pages-store'
 export const BLOCKS_MODULE_ID = 'virtual:mechanica/blocks'
 /** Virtual module that mounts the user's app (generated client entry). */
 export const CLIENT_MODULE_ID = 'virtual:mechanica/client'
+/** Virtual module that exposes the SSR render contract. */
+export const SSR_MODULE_ID = 'virtual:mechanica/ssr'
 
 const RESOLVED_BLOCKS_ID = '\0' + BLOCKS_MODULE_ID
 const RESOLVED_CLIENT_ID = '\0' + CLIENT_MODULE_ID
+const RESOLVED_SSR_ID = '\0' + SSR_MODULE_ID
 
 export interface MechanicaPluginOptions {
   /** The user's `defineMechanicaApp` entry module, relative to the Vite root. */
@@ -63,6 +66,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
     resolveId(id) {
       if (id === BLOCKS_MODULE_ID) return RESOLVED_BLOCKS_ID
       if (id === CLIENT_MODULE_ID) return RESOLVED_CLIENT_ID
+      if (id === SSR_MODULE_ID) return RESOLVED_SSR_ID
     },
 
     load(id) {
@@ -71,6 +75,9 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       }
       if (id === RESOLVED_CLIENT_ID) {
         return generateClientEntry({ userEntry, mount, mode: isDev ? 'dev' : 'client' })
+      }
+      if (id === RESOLVED_SSR_ID) {
+        return generateSsrEntry({ userEntry })
       }
     },
 
@@ -81,7 +88,12 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
     transformIndexHtml: {
       order: 'pre',
       handler(html, ctx) {
-        if (!isDev) return html
+        // Production build: bundle the client entry so the built HTML hydrates.
+        if (!isDev) {
+          const clientScript = `<script type="module">import ${JSON.stringify(CLIENT_MODULE_ID)}</script>`
+          return html.replace('</body>', `${clientScript}\n</body>`)
+        }
+
         const urlPath = (ctx.originalUrl ?? '/').split('?')[0]!
         // Skip asset requests; only inject for page navigations.
         if (/\.\w+$/.test(urlPath)) return html
