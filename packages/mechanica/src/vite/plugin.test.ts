@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { tmpdir } from 'node:os'
 import { mechanica, BLOCKS_MODULE_ID } from './plugin'
 
 const block = `<template><div>{{ props.title }}</div></template>
@@ -38,5 +39,28 @@ describe('mechanica plugin', () => {
   it('resolves the blocks virtual module', () => {
     const out = callHook(mechanica().resolveId, BLOCKS_MODULE_ID)
     expect(out).toBe('\0' + BLOCKS_MODULE_ID)
+  })
+})
+
+describe('dev HTML injection', () => {
+  // No .mech here → readPage returns an empty page; injection still applies.
+  const root = tmpdir()
+
+  it('injects state, the client entry and the editor when serving', () => {
+    const plugin = mechanica()
+    callHook(plugin.configResolved, { root, command: 'serve' })
+    const html = callHook(plugin.transformIndexHtml, '<html><body></body></html>', { originalUrl: '/' })
+    expect(html).toContain('window.state=')
+    expect(html).toContain('virtual:mechanica/client')
+    expect(html).toContain('mechanica/editor')
+  })
+
+  it('injects only the client entry on build (no state, no editor)', () => {
+    const plugin = mechanica()
+    callHook(plugin.configResolved, { root, command: 'build' })
+    const html = callHook(plugin.transformIndexHtml, '<body></body>', { originalUrl: '/' })
+    expect(html).toContain('virtual:mechanica/client')
+    expect(html).not.toContain('window.state')
+    expect(html).not.toContain('mechanica/editor')
   })
 })
