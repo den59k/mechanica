@@ -26,6 +26,7 @@ export interface EditorStore {
   move(id: string, delta: number): void
   relocate(id: string, drop: DropPosition): void
   duplicate(id: string): void
+  replace(snapshot: { content: ContentBlock[]; data: Record<string, unknown> }): void
 }
 
 export const editorStoreKey: InjectionKey<EditorStore> = Symbol('mech-editor')
@@ -88,6 +89,12 @@ export function createEditorStore(initial: State, components: BlockComponent[]):
     duplicate(id: string) {
       const clone = duplicateBlock(content, id)
       if (clone) ui.selectedId = clone.id
+    },
+    replace(snapshot: { content: ContentBlock[]; data: Record<string, unknown> }) {
+      content.splice(0, content.length, ...(snapshot.content ?? []))
+      for (const key of Object.keys(data)) delete data[key]
+      Object.assign(data, snapshot.data ?? {})
+      ui.selectedId = null
     },
   })
 

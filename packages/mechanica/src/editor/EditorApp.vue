@@ -49,7 +49,13 @@
       </div>
 
       <aside class="mech-editor__panel mech-editor__panel--left">
-        <div class="mech-editor__heading">Page</div>
+        <div class="mech-editor__heading">
+          <span>Page</span>
+          <span class="mech-editor__history">
+            <button type="button" :disabled="!canUndo" title="Undo (Ctrl+Z)" @click="history.undo()">↶</button>
+            <button type="button" :disabled="!canRedo" title="Redo (Ctrl+Shift+Z)" @click="history.redo()">↷</button>
+          </span>
+        </div>
         <HierarchyTree v-if="store.content.length" />
         <p v-else class="mech-tree__empty">No blocks yet — add one from the right.</p>
       </aside>
@@ -75,6 +81,8 @@ import { computed, provide, ref, watch, watchEffect, onScopeDispose } from 'vue'
 import type { State } from '@mechanica/shared'
 import { createEditorStore, editorStoreKey } from './store'
 import { createDragController, dragKey } from './drag-controller'
+import { createHistory } from './history'
+import { resolveShortcut } from './shortcuts'
 import { pushStateUpdate } from './bridge'
 import { useBlockFrames } from './use-block-frames'
 import type { BlockComponent } from './block-meta'
@@ -95,6 +103,36 @@ provide(editorStoreKey, store)
 
 const drag = createDragController(store)
 provide(dragKey, drag)
+
+const history = createHistory(store)
+const { canUndo, canRedo } = history
+
+const onKeyDown = (event: KeyboardEvent) => {
+  const target = event.target as HTMLElement | null
+  const typing =
+    !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+  const action = resolveShortcut({
+    key: event.key,
+    metaKey: event.metaKey,
+    ctrlKey: event.ctrlKey,
+    shiftKey: event.shiftKey,
+    typing,
+    hasSelection: !!store.selectedId,
+  })
+  if (!action) return
+  if (action !== 'deselect') event.preventDefault()
+
+  if (action === 'undo') history.undo()
+  else if (action === 'redo') history.redo()
+  else if (action === 'deselect') store.select(null)
+  else if (action === 'delete' && store.selectedId) store.remove(store.selectedId)
+  else if (action === 'duplicate' && store.selectedId) store.duplicate(store.selectedId)
+}
+document.addEventListener('keydown', onKeyDown)
+onScopeDispose(() => {
+  document.removeEventListener('keydown', onKeyDown)
+  history.dispose()
+})
 
 const collapsed = ref(false)
 const tab = ref<'settings' | 'blocks'>('blocks')

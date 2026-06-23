@@ -37,11 +37,30 @@
   right: 0;
 }
 .mech-editor__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--mech-muted);
+}
+.mech-editor__history button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--mech-muted);
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 4px;
+}
+.mech-editor__history button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.mech-editor__history button:not(:disabled):hover {
+  color: var(--mech-accent);
 }
 
 .mech-editor__toggle {
