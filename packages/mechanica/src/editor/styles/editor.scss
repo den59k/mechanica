@@ -46,6 +46,11 @@
   color: var(--mech-muted);
 }
 
+// "Edit page data" launcher pins to the bottom of the left panel.
+.mech-editor__data {
+  margin-top: auto;
+}
+
 .mech-editor__history button {
   border: none;
   background: none;

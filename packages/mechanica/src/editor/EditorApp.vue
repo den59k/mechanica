@@ -61,6 +61,15 @@
         </div>
         <HierarchyTree v-if="store.content.length" />
         <p v-else class="mech-tree__empty">No blocks yet — add one from the right.</p>
+
+        <button
+          v-if="store.dataEntries.length"
+          type="button"
+          class="mech-button is-block mech-editor__data"
+          @click="openData"
+        >
+          Edit page data
+        </button>
       </aside>
 
       <aside class="mech-editor__panel mech-editor__panel--right">
@@ -71,21 +80,14 @@
           <button type="button" :class="{ 'is-active': tab === 'blocks' }" @click="tab = 'blocks'">
             Blocks
           </button>
-          <button
-            v-if="store.dataEntries.length"
-            type="button"
-            :class="{ 'is-active': tab === 'data' }"
-            @click="tab = 'data'"
-          >
-            Data
-          </button>
         </div>
         <BlockSettings v-show="tab === 'settings' && store.selectedId" />
         <PageSettings v-show="tab === 'settings' && !store.selectedId" />
         <BlockPalette v-show="tab === 'blocks'" />
-        <DataSettings v-if="store.dataEntries.length" v-show="tab === 'data'" />
       </aside>
     </template>
+
+    <VDialogHost />
   </div>
 </template>
 
@@ -100,13 +102,15 @@ import { pushStateUpdate } from './lib/bridge'
 import { useBlockFrames } from './lib/use-block-frames'
 import type { BlockComponent } from './lib/block-meta'
 import type { EditorSnapshot } from './lib/types'
+import { createDialogStore, dialogKey } from './ui/dialog'
+import VDialogHost from './ui/VDialogHost.vue'
+import DataDialog from './dialogs/DataDialog.vue'
 import HierarchyTree from './components/HierarchyTree.vue'
 import BlockPalette from './components/BlockPalette.vue'
 import BlockSettings from './components/BlockSettings.vue'
 import BlockFrame from './components/BlockFrame.vue'
 import PageSelector from './components/PageSelector.vue'
 import PageSettings from './components/PageSettings.vue'
-import DataSettings from './components/DataSettings.vue'
 
 const props = defineProps<{
   state: State
@@ -121,6 +125,10 @@ provide(editorStoreKey, store)
 
 const drag = createDragController(store)
 provide(dragKey, drag)
+
+const dialog = createDialogStore()
+provide(dialogKey, dialog)
+const openData = () => dialog.open(DataDialog)
 
 const history = createHistory(store)
 const { canUndo, canRedo } = history
@@ -158,7 +166,7 @@ onScopeDispose(() => {
 })
 
 const collapsed = ref(false)
-const tab = ref<'settings' | 'blocks' | 'data'>('blocks')
+const tab = ref<'settings' | 'blocks'>('blocks')
 const { hovered, selected } = useBlockFrames(store)
 
 // Show the settings tab automatically when a block is selected.

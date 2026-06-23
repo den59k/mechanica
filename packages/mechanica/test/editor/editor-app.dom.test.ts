@@ -45,7 +45,7 @@ describe('EditorApp', () => {
     app.unmount() // stops the block-frame rAF loop + listeners
   })
 
-  it('shows a Data tab and edits a data entry when entries are declared', async () => {
+  it('opens a Page data dialog and edits a data entry', async () => {
     const changes: { data: Record<string, unknown> }[] = []
     const el = document.createElement('div')
     const app = createApp(EditorApp, {
@@ -58,12 +58,13 @@ describe('EditorApp', () => {
     })
     app.mount(el)
 
-    const dataTab = [...el.querySelectorAll('.mech-tabs button')].find((b) => b.textContent?.trim() === 'Data')!
-    expect(dataTab).toBeTruthy()
-    dataTab.dispatchEvent(new Event('click', { bubbles: true }))
+    const launcher = [...el.querySelectorAll('.mech-button')].find((b) => b.textContent?.includes('Edit page data'))!
+    expect(launcher).toBeTruthy()
+    launcher.dispatchEvent(new Event('click', { bubbles: true }))
     await nextTick()
 
-    const input = el.querySelector('.mech-data input') as HTMLInputElement
+    // The dialog is teleported to <body>, so query the document, not `el`.
+    const input = document.querySelector('.mech-data input') as HTMLInputElement
     expect(input).toBeTruthy()
     input.value = 'Acme'
     input.dispatchEvent(new Event('input', { bubbles: true }))
@@ -99,12 +100,12 @@ describe('EditorApp', () => {
     app.unmount()
   })
 
-  it('hides the Data tab when no entries are declared', () => {
+  it('hides the data launcher when no entries are declared', () => {
     const el = document.createElement('div')
     const app = createApp(EditorApp, { state: { content: [], data: {} }, components })
     app.mount(el)
-    const labels = [...el.querySelectorAll('.mech-tabs button')].map((b) => b.textContent?.trim())
-    expect(labels).not.toContain('Data')
+    const labels = [...el.querySelectorAll('.mech-button')].map((b) => b.textContent?.trim())
+    expect(labels).not.toContain('Edit page data')
     app.unmount()
   })
 })
