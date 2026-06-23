@@ -72,6 +72,67 @@
   margin: 4px 0 0;
 }
 
+/* Right-panel tabs */
+.mech-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--mech-border);
+}
+.mech-tabs button {
+  border: none;
+  background: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--mech-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font: inherit;
+}
+.mech-tabs button.is-active {
+  color: var(--mech-fg);
+  border-bottom-color: var(--mech-accent);
+}
+
+/* Hierarchy row actions */
+.mech-tree__actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+}
+.mech-tree__row:hover .mech-tree__actions,
+.mech-tree__row.is-selected .mech-tree__actions {
+  opacity: 1;
+}
+.mech-tree__actions button {
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0 3px;
+}
+.mech-tree__actions button:hover {
+  opacity: 1;
+}
+
+.mech-palette__search {
+  margin-bottom: 4px;
+}
+
+/* Dark theme */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mech-bg: #1e1f24;
+    --mech-fg: #e8e9ec;
+    --mech-muted: #9aa0a8;
+    --mech-border: #34363d;
+    --mech-accent: #5b8bff;
+    --mech-accent-soft: #2a3350;
+  }
+}
+
 /* Palette */
 .mech-palette {
   display: flex;

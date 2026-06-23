@@ -7,9 +7,11 @@
         @click.stop="store.select(block.id)"
       >
         <span class="mech-tree__label">{{ labelOf(block) }}</span>
-        <button type="button" class="mech-tree__remove" title="Delete" @click.stop="store.remove(block.id)">
-          ×
-        </button>
+        <span class="mech-tree__actions">
+          <button type="button" title="Move up" @click.stop="store.move(block.id, -1)">↑</button>
+          <button type="button" title="Move down" @click.stop="store.move(block.id, 1)">↓</button>
+          <button type="button" title="Delete" @click.stop="store.remove(block.id)">×</button>
+        </span>
       </div>
       <HierarchyTree v-if="childrenOf(block).length" :blocks="childrenOf(block)" />
     </li>

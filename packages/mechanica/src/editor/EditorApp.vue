@@ -31,11 +31,16 @@
       </aside>
 
       <aside class="mech-editor__panel mech-editor__panel--right">
-        <BlockSettings />
-        <details class="mech-editor__palette" open>
-          <summary>Add block</summary>
-          <BlockPalette />
-        </details>
+        <div class="mech-tabs">
+          <button type="button" :class="{ 'is-active': tab === 'settings' }" @click="tab = 'settings'">
+            Settings
+          </button>
+          <button type="button" :class="{ 'is-active': tab === 'blocks' }" @click="tab = 'blocks'">
+            Blocks
+          </button>
+        </div>
+        <BlockSettings v-show="tab === 'settings'" />
+        <BlockPalette v-show="tab === 'blocks'" />
       </aside>
     </template>
   </div>
@@ -64,7 +69,16 @@ const store = createEditorStore(props.state, props.components)
 provide(editorStoreKey, store)
 
 const collapsed = ref(false)
+const tab = ref<'settings' | 'blocks'>('blocks')
 const { hovered, selected } = useBlockFrames(store)
+
+// Show the settings tab automatically when a block is selected.
+watch(
+  () => store.selectedId,
+  (id) => {
+    if (id) tab.value = 'settings'
+  },
+)
 
 const selectedName = computed(() =>
   store.selected ? store.blocksById.get(store.selected.blockId)?.name : '',

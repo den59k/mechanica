@@ -13,29 +13,6 @@
       }
     },
     {
-      "id": "b2",
-      "blockId": "features",
-      "data": {
-        "items": [
-          {
-            "title": "Fast",
-            "text": "Built on Vite 8 and Bun"
-          },
-          {
-            "title": "Visual",
-            "text": "Edit pages with the block editor"
-          }
-        ]
-      }
-    },
-    {
-      "id": "d9887e2f-e415-460d-ba2a-4ba3730c9f40",
-      "blockId": "features",
-      "data": {
-        "items": []
-      }
-    },
-    {
       "id": "c8704a57-f323-4309-978c-38ec457b8afc",
       "blockId": "hero",
       "data": {
@@ -48,6 +25,26 @@
       "blockId": "features",
       "data": {
         "items": []
+      }
+    },
+    {
+      "id": "0aab4a55-7317-43db-aa7d-1e3fbe644daa",
+      "blockId": "hero",
+      "data": {
+        "title": "Hello",
+        "subtitle": ""
+      }
+    },
+    {
+      "id": "d9887e2f-e415-460d-ba2a-4ba3730c9f40",
+      "blockId": "features",
+      "data": {
+        "items": [
+          {
+            "title": "qweqew",
+            "text": "qweqweqweqwe"
+          }
+        ]
       }
     }
   ],
