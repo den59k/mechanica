@@ -2,10 +2,11 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 
-// Resolve the workspace package to its source for tests (mirrors the tsconfig
-// `paths` mapping used by tsc).
+// Tests live under test/ and import source via the @/ alias; @mechanica/shared
+// resolves to its source (mirrors the tsconfig `paths`).
 const sharedSrc = fileURLToPath(new URL('../shared/src/index.ts', import.meta.url))
-const alias = { '@mechanica/shared': sharedSrc }
+const srcDir = fileURLToPath(new URL('./src', import.meta.url))
+const alias = { '@mechanica/shared': sharedSrc, '@': srcDir }
 
 export default defineConfig({
   test: {
@@ -16,8 +17,8 @@ export default defineConfig({
         test: {
           name: 'node',
           environment: 'node',
-          include: ['src/**/*.test.ts'],
-          exclude: ['src/**/*.dom.test.ts', '**/node_modules/**'],
+          include: ['test/**/*.test.ts'],
+          exclude: ['test/**/*.dom.test.ts', '**/node_modules/**'],
         },
       },
       {
@@ -26,7 +27,7 @@ export default defineConfig({
         test: {
           name: 'dom',
           environment: 'jsdom',
-          include: ['src/**/*.dom.test.ts'],
+          include: ['test/**/*.dom.test.ts'],
           passWithNoTests: true,
         },
       },

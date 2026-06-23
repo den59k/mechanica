@@ -1,20 +1,53 @@
 {
   "name": "Home",
-  "meta": { "title": "Mechanica dev-app" },
+  "meta": {
+    "title": "Mechanica dev-app"
+  },
   "content": [
     {
       "id": "b1",
       "blockId": "hero",
-      "data": { "title": "Welcome to Mechanica", "subtitle": "A visual block editor on Vite 8" }
+      "data": {
+        "title": "Welcome to Mechanica23312",
+        "subtitle": "A visual block editor on Vite 8"
+      }
     },
     {
       "id": "b2",
       "blockId": "features",
       "data": {
         "items": [
-          { "title": "Fast", "text": "Built on Vite 8 and Bun" },
-          { "title": "Visual", "text": "Edit pages with the block editor" }
+          {
+            "title": "Fast",
+            "text": "Built on Vite 8 and Bun"
+          },
+          {
+            "title": "Visual",
+            "text": "Edit pages with the block editor"
+          }
         ]
+      }
+    },
+    {
+      "id": "d9887e2f-e415-460d-ba2a-4ba3730c9f40",
+      "blockId": "features",
+      "data": {
+        "items": []
+      }
+    },
+    {
+      "id": "c8704a57-f323-4309-978c-38ec457b8afc",
+      "blockId": "hero",
+      "data": {
+        "title": "Hello",
+        "subtitle": ""
+      }
+    },
+    {
+      "id": "082190c9-5264-41e0-b6e4-d12028885a79",
+      "blockId": "features",
+      "data": {
+        "items": []
       }
     }
   ],

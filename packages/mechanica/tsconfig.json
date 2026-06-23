@@ -5,8 +5,9 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@mechanica/shared": ["../shared/src/index.ts"]
+      "@mechanica/shared": ["../shared/src/index.ts"],
+      "@/*": ["src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "test"]
 }
