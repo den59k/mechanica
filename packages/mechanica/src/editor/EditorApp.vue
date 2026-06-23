@@ -1,36 +1,48 @@
 <template>
-  <div class="mech-editor" data-mech-ui>
-    <BlockFrame v-if="hovered && hovered.id !== selected?.id" :rect="hovered" variant="hover" />
-    <BlockFrame v-if="selected" :rect="selected" variant="selected" :label="selectedName" />
-
-    <div
-      v-if="selected"
-      class="mech-toolbar"
-      :style="{ left: `${selected.left + selected.width}px`, top: `${toolbarTop}px` }"
+  <div class="mech-editor" :class="{ 'is-collapsed': collapsed }" data-mech-ui>
+    <button
+      class="mech-editor__toggle"
+      type="button"
+      :title="collapsed ? 'Open editor' : 'Hide editor'"
+      @click="collapsed = !collapsed"
     >
-      <button type="button" title="Move up" @click="store.move(selected.id, -1)">↑</button>
-      <button type="button" title="Move down" @click="store.move(selected.id, 1)">↓</button>
-      <button type="button" title="Duplicate" @click="store.duplicate(selected.id)">⧉</button>
-      <button type="button" title="Delete" @click="store.remove(selected.id)">✕</button>
-    </div>
+      {{ collapsed ? '☰' : '✕' }}
+    </button>
 
-    <aside class="mech-editor__panel mech-editor__panel--left">
-      <div class="mech-editor__heading">Page</div>
-      <HierarchyTree />
-    </aside>
+    <template v-if="!collapsed">
+      <BlockFrame v-if="hovered && hovered.id !== selected?.id" :rect="hovered" variant="hover" />
+      <BlockFrame v-if="selected" :rect="selected" variant="selected" :label="selectedName" />
 
-    <aside class="mech-editor__panel mech-editor__panel--right">
-      <BlockSettings />
-      <details class="mech-editor__palette">
-        <summary>Add block</summary>
-        <BlockPalette />
-      </details>
-    </aside>
+      <div
+        v-if="selected"
+        class="mech-toolbar"
+        :style="{ left: `${selected.left + selected.width}px`, top: `${toolbarTop}px` }"
+      >
+        <button type="button" title="Move up" @click="store.move(selected.id, -1)">↑</button>
+        <button type="button" title="Move down" @click="store.move(selected.id, 1)">↓</button>
+        <button type="button" title="Duplicate" @click="store.duplicate(selected.id)">⧉</button>
+        <button type="button" title="Delete" @click="store.remove(selected.id)">✕</button>
+      </div>
+
+      <aside class="mech-editor__panel mech-editor__panel--left">
+        <div class="mech-editor__heading">Page</div>
+        <HierarchyTree v-if="store.content.length" />
+        <p v-else class="mech-tree__empty">No blocks yet — add one from the right.</p>
+      </aside>
+
+      <aside class="mech-editor__panel mech-editor__panel--right">
+        <BlockSettings />
+        <details class="mech-editor__palette" open>
+          <summary>Add block</summary>
+          <BlockPalette />
+        </details>
+      </aside>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, provide, watch } from 'vue'
+import { computed, provide, ref, watch, watchEffect, onScopeDispose } from 'vue'
 import type { State } from '@mechanica/shared'
 import { createEditorStore, editorStoreKey } from './store'
 import { pushStateUpdate } from './bridge'
@@ -51,7 +63,9 @@ const props = defineProps<{
 const store = createEditorStore(props.state, props.components)
 provide(editorStoreKey, store)
 
+const collapsed = ref(false)
 const { hovered, selected } = useBlockFrames(store)
+
 const selectedName = computed(() =>
   store.selected ? store.blocksById.get(store.selected.blockId)?.name : '',
 )
@@ -60,6 +74,10 @@ const toolbarTop = computed(() => {
   if (!selected.value) return 0
   return selected.value.top > 36 ? selected.value.top - 32 : selected.value.top + 4
 })
+
+// Inset the page between the panels only while the editor is open.
+watchEffect(() => document.body.classList.toggle('mech-editing', !collapsed.value))
+onScopeDispose(() => document.body.classList.remove('mech-editing'))
 
 // On any edit: push a live preview to the page runtime and report the snapshot.
 watch(

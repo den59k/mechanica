@@ -33,7 +33,6 @@ const save = debounce((snapshot: EditorSnapshot) => {
 const mountPoint = document.createElement('div')
 mountPoint.id = 'mechanica-editor'
 document.body.appendChild(mountPoint)
-document.body.classList.add('mech-editing')
 
 const state: State = (window as { state?: State }).state ?? { content: [], data: {} }
 createApp(EditorApp, {
