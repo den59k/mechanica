@@ -18,3 +18,13 @@ export {
 } from './fields'
 
 export { getDefaultValue, passDefaultValue, walkTree, walkSchema } from './schema'
+
+export {
+  generatePage,
+  generateProject,
+  passDataToHTML,
+  getValueByPath,
+  type GeneratePageOptions,
+  type GenerateProjectOptions,
+  type PageState,
+} from './generate-page'
