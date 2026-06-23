@@ -1,10 +1,20 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
+// Resolve the workspace package to its source for tests (mirrors the tsconfig
+// `paths` mapping used by tsc).
+const sharedSrc = fileURLToPath(new URL('../shared/src/index.ts', import.meta.url))
+
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@mechanica/shared': sharedSrc,
+    },
+  },
   test: {
     projects: [
       {
-        // Compiler, dev server and other Node-side logic.
+        resolve: { alias: { '@mechanica/shared': sharedSrc } },
         test: {
           name: 'node',
           environment: 'node',
@@ -13,7 +23,7 @@ export default defineConfig({
         },
       },
       {
-        // Runtime, editor and component tests (added from Phase 3 on).
+        resolve: { alias: { '@mechanica/shared': sharedSrc } },
         test: {
           name: 'dom',
           environment: 'jsdom',

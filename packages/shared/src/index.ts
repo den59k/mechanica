@@ -3,6 +3,7 @@ export type {
   ContentBlock,
   DataEntry,
   DataScope,
+  PageMeta,
   State,
   PageLink,
 } from './types'

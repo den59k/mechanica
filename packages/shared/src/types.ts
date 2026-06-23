@@ -7,6 +7,13 @@
 /** Scope at which a {@link DataEntry} lives. */
 export type DataScope = 'site' | 'folder' | 'page'
 
+/** Metadata about the current page, exposed via `usePageData`. */
+export interface PageMeta {
+  title?: string
+  path?: string
+  meta?: Record<string, unknown>
+}
+
 /**
  * Editor-facing metadata describing a *block type* — its schema and palette
  * presentation, not its placed content. Produced by the block compiler from a
@@ -60,6 +67,10 @@ export interface State {
   query?: Record<string, unknown>
   /** Per-data-entry scope, used by the editor to split data on save. */
   dataScopes?: Record<string, DataScope>
+  /** Base URL the page is served under (for routing/link resolution). */
+  baseUrl?: string
+  /** Current page metadata. */
+  page?: PageMeta
 }
 
 /** A link target produced by the `smartLink` field type. */
