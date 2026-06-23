@@ -72,7 +72,7 @@ export function compileBlock(code: string, filename: string): CompileBlockResult
   const propsNode = hasDescriptor ? getProp(arg, 'props') : null
   const propKeys =
     propsNode?.type === 'ObjectExpression'
-      ? propsNode.properties.map(propKeyName).filter((k): k is string => !!k)
+      ? propsNode.properties.map(propKeyName).filter((k: string | null): k is string => k !== null)
       : []
 
   // Slots: respect an author-provided `slots`, otherwise detect from the template.
