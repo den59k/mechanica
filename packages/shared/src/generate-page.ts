@@ -64,7 +64,8 @@ export async function generatePage(options: GeneratePageOptions): Promise<string
 
   const rendered = await options.render(state, options.path ?? '')
 
-  let index = passDataToHTML(options.index, data)
+  // Template against data plus the page meta, so `{{ page.meta.title }}` works.
+  let index = passDataToHTML(options.index, { ...data, page: options.state.page })
 
   // Inject the rendered markup into the #app container.
   const appMatch = index.match(/(<div[^>]*\bid="app"[^>]*>)([\s\S]*?)<\/div>/)

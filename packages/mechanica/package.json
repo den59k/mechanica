@@ -26,6 +26,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@mechanica/shared": "workspace:*",
     "@vue/compiler-sfc": "^3.5.38",
     "compact-json-schema": "^0.1.4",
     "estree-walker": "^3.0.3",
