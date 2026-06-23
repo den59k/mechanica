@@ -87,6 +87,29 @@ describe('dev middleware', () => {
     expect(folders).toEqual({ blog: { nav: { items: ['Home'] } } })
   })
 
+  it('duplicates and deletes a page', async () => {
+    const create = (body: unknown) =>
+      fetch(`${base}/pages`, { method: 'POST', body: JSON.stringify(body) })
+    await create({ path: '/a', name: 'A' })
+    await fetch(`${base}/save?path=/a`, {
+      method: 'POST',
+      body: JSON.stringify({ content: [{ id: '1', blockId: 'x', data: {} }], data: {} }),
+    })
+
+    const dup = await fetch(`${base}/pages/duplicate?path=/a`, {
+      method: 'POST',
+      body: JSON.stringify({ path: '/b', name: 'B' }),
+    })
+    expect(dup.status).toBe(200)
+    const copy = JSON.parse(fs.readFileSync(join(mechDir, 'pages', 'b.json'), 'utf-8'))
+    expect(copy.content).toHaveLength(1)
+    expect(copy.name).toBe('B')
+
+    const del = await fetch(`${base}/pages?path=/a`, { method: 'DELETE' })
+    expect((await del.json()).success).toBe(true)
+    expect(fs.existsSync(join(mechDir, 'pages', 'a.json'))).toBe(false)
+  })
+
   it('uploads and serves an asset', async () => {
     const upload = await fetch(`${base}/upload`, {
       method: 'POST',

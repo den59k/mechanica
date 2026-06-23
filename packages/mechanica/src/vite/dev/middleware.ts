@@ -1,7 +1,16 @@
 import fs from 'node:fs'
 import { join } from 'node:path'
 import type { Connect } from 'vite'
-import { createPage, savePage, updatePageMeta, listPages, listFolders, PageExistsError } from './pages-store'
+import {
+  createPage,
+  duplicatePage,
+  deletePage,
+  savePage,
+  updatePageMeta,
+  listPages,
+  listFolders,
+  PageExistsError,
+} from './pages-store'
 import { saveUpload, listImages } from './assets-store'
 import { resolveDevQuery } from './query-dev'
 import { splitDataByScope, mergeSiteData, mergeFolderData, folderOf } from './data-store'
@@ -49,6 +58,25 @@ export function createDevMiddleware(mechDir: string): Connect.NextHandleFunction
       }
 
       if (pathname === '/pages' && req.method === 'GET') return json(listPages(mechDir))
+
+      if (pathname === '/pages' && req.method === 'DELETE') {
+        const pathParam = query.get('path')
+        if (!pathParam) return json({ error: 'Missing path' }, 400)
+        return json({ success: deletePage(mechDir, pathParam) })
+      }
+
+      if (pathname === '/pages/duplicate' && req.method === 'POST') {
+        const pathParam = query.get('path')
+        if (!pathParam) return json({ error: 'Missing path' }, 400)
+        const body = JSON.parse((await readBody(req)).toString('utf-8'))
+        if (!body.path || !body.name) return json({ error: 'path and name are required' }, 400)
+        try {
+          return json(duplicatePage(mechDir, pathParam, body))
+        } catch (error) {
+          if (error instanceof PageExistsError) return json({ error: { path: 'Page already exists' } }, 400)
+          throw error
+        }
+      }
 
       if (pathname === '/pages' && req.method === 'POST') {
         const body = JSON.parse((await readBody(req)).toString('utf-8'))

@@ -65,6 +65,44 @@ export function createPage(
   return { ...page, path: folderPrefix + input.path.trim() }
 }
 
+/** Copy a page's content/data to a new path, throwing if the target exists. */
+export function duplicatePage(
+  mechDir: string,
+  sourcePath: string,
+  input: { path: string; name: string; folderId?: string },
+): PageFile {
+  const source = readPage(mechDir, sourcePath)
+  const folderPrefix = typeof input.folderId === 'string' ? `/${input.folderId}` : ''
+  const file = getPagePath(mechDir, folderPrefix + input.path.trim())
+  if (fs.existsSync(file)) throw new PageExistsError(input.path)
+
+  fs.mkdirSync(dirname(file), { recursive: true })
+  const page: PageFile = {
+    content: source.content ?? [],
+    data: source.data ?? {},
+    meta: source.meta,
+    name: input.name,
+    path: input.path,
+  }
+  fs.writeFileSync(file, JSON.stringify(page, null, 2))
+
+  return { ...page, path: folderPrefix + input.path.trim() }
+}
+
+/** Delete a page; also removes a now-empty folder directory. Returns whether it existed. */
+export function deletePage(mechDir: string, urlPath: string): boolean {
+  const file = getPagePath(mechDir, urlPath)
+  if (!fs.existsSync(file)) return false
+  fs.rmSync(file)
+
+  const dir = dirname(file)
+  const pagesDir = join(mechDir, 'pages')
+  if (dir !== pagesDir && fs.existsSync(dir) && fs.readdirSync(dir).length === 0) {
+    fs.rmSync(dir, { recursive: true })
+  }
+  return true
+}
+
 /** Merge content/data into a page and persist it. */
 export function savePage(
   mechDir: string,

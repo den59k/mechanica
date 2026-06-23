@@ -62,4 +62,49 @@ describe('PageSelector', () => {
       expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'New', path: '/new' }) }),
     )
   })
+
+  it('duplicates the current page via the dev API', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/@mechanica/pages') return { ok: true, json: async () => [{ path: '/', name: 'Home' }] } as any
+      return { ok: true, json: async () => ({ path: '/home-copy' }) } as any
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const el = document.createElement('div')
+    createApp({ render: () => h(PageSelector) }).mount(el)
+    await flush()
+
+    const dupBtn = [...el.querySelectorAll('.mech-pages__action')].find((b) => b.textContent?.includes('Duplicate'))
+    ;(dupBtn as HTMLButtonElement).click()
+    await nextTick()
+
+    const [nameInput, pathInput] = el.querySelectorAll('.mech-pages__new input')
+    ;(pathInput as HTMLInputElement).value = '/home-copy'
+    pathInput!.dispatchEvent(new Event('input'))
+
+    el.querySelector<HTMLFormElement>('.mech-pages__new')!.dispatchEvent(new Event('submit'))
+    await flush()
+
+    expect((nameInput as HTMLInputElement).value).toContain('copy') // seeded default
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/@mechanica/pages/duplicate?path=%2F',
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+
+  it('deletes the current page after confirmation', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => [{ path: '/', name: 'Home' }] }) as any)
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('confirm', vi.fn(() => true))
+
+    const el = document.createElement('div')
+    createApp({ render: () => h(PageSelector) }).mount(el)
+    await flush()
+
+    const delBtn = [...el.querySelectorAll('.mech-pages__action')].find((b) => b.textContent?.includes('Delete'))
+    ;(delBtn as HTMLButtonElement).click()
+    await flush()
+
+    expect(fetchMock).toHaveBeenCalledWith('/@mechanica/pages?path=%2F', expect.objectContaining({ method: 'DELETE' }))
+  })
 })

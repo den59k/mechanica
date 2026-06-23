@@ -6,6 +6,8 @@ import {
   getPagePath,
   readPage,
   createPage,
+  duplicatePage,
+  deletePage,
   savePage,
   updatePageMeta,
   listFolders,
@@ -46,6 +48,39 @@ describe('createPage', () => {
     expect(page.name).toBe('About')
     expect(readPage(mechDir, '/about').name).toBe('About')
     expect(() => createPage(mechDir, { path: '/about', name: 'About' })).toThrow(PageExistsError)
+  })
+})
+
+describe('duplicatePage', () => {
+  it('copies content and data to a new path', () => {
+    createPage(mechDir, { path: '/a', name: 'A' })
+    savePage(mechDir, '/a', { content: [{ id: '1', blockId: 'x', data: {} }], data: { k: 1 } })
+    const copy = duplicatePage(mechDir, '/a', { path: '/b', name: 'B' })
+    expect(copy.name).toBe('B')
+    const page = readPage(mechDir, '/b')
+    expect(page.content).toHaveLength(1)
+    expect(page.data).toEqual({ k: 1 })
+  })
+
+  it('rejects duplicating onto an existing path', () => {
+    createPage(mechDir, { path: '/a', name: 'A' })
+    createPage(mechDir, { path: '/b', name: 'B' })
+    expect(() => duplicatePage(mechDir, '/a', { path: '/b', name: 'B2' })).toThrow(PageExistsError)
+  })
+})
+
+describe('deletePage', () => {
+  it('removes a page and reports whether it existed', () => {
+    createPage(mechDir, { path: '/gone', name: 'Gone' })
+    expect(deletePage(mechDir, '/gone')).toBe(true)
+    expect(fs.existsSync(getPagePath(mechDir, '/gone'))).toBe(false)
+    expect(deletePage(mechDir, '/gone')).toBe(false)
+  })
+
+  it('cleans up a folder directory once its last page is gone', () => {
+    createPage(mechDir, { path: '/post', name: 'Post', folderId: 'blog' })
+    deletePage(mechDir, '/blog/post')
+    expect(fs.existsSync(join(mechDir, 'pages', 'blog'))).toBe(false)
   })
 })
 

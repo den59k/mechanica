@@ -11,34 +11,48 @@
           {{ page.name }} — {{ page.path }}
         </option>
       </select>
-      <button type="button" class="mech-button mech-pages__add" title="New page" @click="creating = !creating">
+      <button type="button" class="mech-button mech-pages__add" title="New page" @click="open('create')">
         +
       </button>
     </div>
 
-    <form v-if="creating" class="mech-pages__new" @submit.prevent="create">
-      <input v-model="newName" class="mech-input" placeholder="Page name" />
-      <input v-model="newPath" class="mech-input" placeholder="/path" />
-      <button type="submit" class="mech-button">Create page</button>
+    <div class="mech-pages__actions">
+      <button type="button" class="mech-pages__action" @click="open('rename')">Rename</button>
+      <button type="button" class="mech-pages__action" @click="open('duplicate')">Duplicate</button>
+      <button type="button" class="mech-pages__action mech-pages__action--danger" @click="remove">
+        Delete
+      </button>
+    </div>
+
+    <form v-if="mode" class="mech-pages__new" @submit.prevent="submit">
+      <input v-model="formName" class="mech-input" placeholder="Page name" />
+      <input v-if="mode !== 'rename'" v-model="formPath" class="mech-input" placeholder="/path" />
+      <button type="submit" class="mech-button">{{ submitLabel }}</button>
       <p v-if="error" class="mech-pages__error">{{ error }}</p>
     </form>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 interface PageItem {
   path: string
   name: string
 }
 
+type FormMode = 'create' | 'duplicate' | 'rename'
+
 const pages = ref<PageItem[]>([])
 const current = ref(typeof location !== 'undefined' ? location.pathname : '/')
-const creating = ref(false)
-const newName = ref('')
-const newPath = ref('/')
+const mode = ref<FormMode | null>(null)
+const formName = ref('')
+const formPath = ref('/')
 const error = ref('')
+
+const submitLabel = computed(() =>
+  mode.value === 'rename' ? 'Rename' : mode.value === 'duplicate' ? 'Duplicate page' : 'Create page',
+)
 
 onMounted(load)
 
@@ -49,6 +63,8 @@ async function load() {
     /* dev server unavailable */
   }
 }
+
+const currentName = () => pages.value.find((p) => p.path === current.value)?.name ?? ''
 
 function navigate(path: string) {
   try {
@@ -62,13 +78,46 @@ function go(path: string) {
   if (path !== current.value) navigate(path)
 }
 
-async function create() {
+/** Open (or toggle off) an inline form, seeding sensible defaults per mode. */
+function open(next: FormMode) {
+  mode.value = mode.value === next ? null : next
   error.value = ''
-  const name = newName.value.trim()
-  const path = newPath.value.trim()
-  if (!name || !path) return
+  if (next === 'rename') {
+    formName.value = currentName()
+  } else if (next === 'duplicate') {
+    formName.value = `${currentName() || 'Page'} copy`
+    formPath.value = ''
+  } else {
+    formName.value = ''
+    formPath.value = '/'
+  }
+}
 
-  const response = await fetch('/@mechanica/pages', {
+async function submit() {
+  error.value = ''
+  const name = formName.value.trim()
+  if (!name) return
+
+  // Rename only updates the display name; the path stays put.
+  if (mode.value === 'rename') {
+    await fetch(`/@mechanica/pages?path=${encodeURIComponent(current.value)}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+    mode.value = null
+    await load()
+    return
+  }
+
+  const path = formPath.value.trim()
+  if (!path) return
+  const url =
+    mode.value === 'duplicate'
+      ? `/@mechanica/pages/duplicate?path=${encodeURIComponent(current.value)}`
+      : '/@mechanica/pages'
+
+  const response = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ name, path }),
@@ -76,6 +125,20 @@ async function create() {
   const data = await response.json().catch(() => ({}))
 
   if (response.ok) navigate(data.path ?? path)
-  else error.value = data?.error?.path ?? 'Could not create page'
+  else error.value = data?.error?.path ?? 'Could not save page'
+}
+
+async function remove() {
+  const label = currentName() || current.value
+  if (typeof confirm === 'function' && !confirm(`Delete "${label}"? This cannot be undone.`)) return
+
+  const response = await fetch(`/@mechanica/pages?path=${encodeURIComponent(current.value)}`, {
+    method: 'DELETE',
+  })
+  if (!response.ok) return
+
+  await load()
+  const next = pages.value.find((p) => p.path !== current.value)
+  navigate(next?.path ?? '/')
 }
 </script>
