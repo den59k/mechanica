@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 import { blocksList } from 'virtual:mechanica/blocks'
-import { registerFieldSchemas, type State } from '@mechanica/shared'
+import { registerFieldSchemas, type PageMeta, type State } from '@mechanica/shared'
 import { getDataEntries } from '../core/data-registry'
 import { registerBuiltinFieldEditors } from './fields/builtin'
 import EditorApp from './EditorApp.vue'
@@ -36,6 +36,14 @@ const save = debounce((snapshot: EditorSnapshot) => {
   })
 }, 500)
 
+const saveMeta = debounce((meta: PageMeta) => {
+  void fetch(`/@mechanica/pages?path=${encodeURIComponent(location.pathname)}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ title: meta.meta?.title, description: meta.meta?.description }),
+  })
+}, 500)
+
 const mountPoint = document.createElement('div')
 mountPoint.id = 'mechanica-editor'
 document.body.appendChild(mountPoint)
@@ -46,4 +54,5 @@ createApp(EditorApp, {
   components: blocksList as never,
   dataEntries,
   onChange: save,
+  onMetaChange: saveMeta,
 }).mount(mountPoint)

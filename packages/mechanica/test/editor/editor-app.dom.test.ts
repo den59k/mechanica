@@ -74,6 +74,31 @@ describe('EditorApp', () => {
     app.unmount()
   })
 
+  it('edits page settings when no block is selected and reports meta changes', async () => {
+    const metas: Array<{ meta?: Record<string, unknown> }> = []
+    const el = document.createElement('div')
+    const app = createApp(EditorApp, {
+      state: { content: [], data: {}, page: { path: '/', meta: { title: 'Home' } } },
+      components,
+      onMetaChange: (meta: { meta?: Record<string, unknown> }) => metas.push(meta),
+    })
+    app.mount(el)
+
+    // Nothing selected → the Settings tab shows page settings.
+    const settingsTab = [...el.querySelectorAll('.mech-tabs button')].find((b) => b.textContent?.trim() === 'Settings')!
+    settingsTab.dispatchEvent(new Event('click', { bubbles: true }))
+    await nextTick()
+
+    const input = el.querySelector('.mech-settings input') as HTMLInputElement
+    expect(input.value).toBe('Home')
+    input.value = 'Home Page'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await nextTick()
+
+    expect(metas.at(-1)!.meta).toMatchObject({ title: 'Home Page' })
+    app.unmount()
+  })
+
   it('hides the Data tab when no entries are declared', () => {
     const el = document.createElement('div')
     const app = createApp(EditorApp, { state: { content: [], data: {} }, components })

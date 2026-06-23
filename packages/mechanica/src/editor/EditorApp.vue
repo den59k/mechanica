@@ -80,7 +80,8 @@
             Data
           </button>
         </div>
-        <BlockSettings v-show="tab === 'settings'" />
+        <BlockSettings v-show="tab === 'settings' && store.selectedId" />
+        <PageSettings v-show="tab === 'settings' && !store.selectedId" />
         <BlockPalette v-show="tab === 'blocks'" />
         <DataSettings v-if="store.dataEntries.length" v-show="tab === 'data'" />
       </aside>
@@ -90,7 +91,7 @@
 
 <script setup lang="ts">
 import { computed, provide, ref, watch, watchEffect, onScopeDispose } from 'vue'
-import type { DataEntry, State } from '@mechanica/shared'
+import type { DataEntry, PageMeta, State } from '@mechanica/shared'
 import { createEditorStore, editorStoreKey } from './store'
 import { createDragController, dragKey } from './drag-controller'
 import { createHistory } from './history'
@@ -104,6 +105,7 @@ import BlockPalette from './BlockPalette.vue'
 import BlockSettings from './BlockSettings.vue'
 import BlockFrame from './BlockFrame.vue'
 import PageSelector from './PageSelector.vue'
+import PageSettings from './PageSettings.vue'
 import DataSettings from './DataSettings.vue'
 
 const props = defineProps<{
@@ -111,6 +113,7 @@ const props = defineProps<{
   components: BlockComponent[]
   dataEntries?: DataEntry[]
   onChange?: (snapshot: EditorSnapshot) => void
+  onMetaChange?: (meta: PageMeta) => void
 }>()
 
 const store = createEditorStore(props.state, props.components, props.dataEntries)
@@ -190,6 +193,13 @@ watch(
     pushStateUpdate(snapshot as never)
     props.onChange?.(snapshot)
   },
+  { deep: true },
+)
+
+// Page metadata persists separately (it's not part of the content snapshot).
+watch(
+  () => store.page,
+  () => props.onMetaChange?.(JSON.parse(JSON.stringify(store.page))),
   { deep: true },
 )
 </script>
