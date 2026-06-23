@@ -12,6 +12,9 @@
     "./plugin": {
       "types": "./src/vite/index.ts",
       "import": "./src/vite/index.ts"
+    },
+    "./editor": {
+      "import": "./src/editor/editor.ts"
     }
   },
   "scripts": {

@@ -77,7 +77,10 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
           data: page.data ?? {},
           page: { path: urlPath, meta: page.meta ?? {} },
         }
-        const inject = `<script>window.state=${JSON.stringify(state)}</script>`
+        const inject = [
+          `<script>window.state=${JSON.stringify(state)}</script>`,
+          `<script type="module">import 'mechanica/editor'</script>`,
+        ].join('\n')
         return html.replace('<body>', `<body>\n${inject}`)
       },
     },
