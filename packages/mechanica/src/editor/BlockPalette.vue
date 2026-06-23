@@ -15,7 +15,11 @@
         type="button"
         class="mech-palette__item"
         :title="block.description"
-        @click="store.addBlock(block.id)"
+        @pointerdown="
+          drag.begin({ kind: 'new', blockId: block.id, label: block.name }, $event, () =>
+            store.addBlock(block.id),
+          )
+        "
       >
         {{ block.name }}
       </button>
@@ -30,8 +34,10 @@ import { computed, inject, ref } from 'vue'
 import { useSearch } from 'vuesix'
 import type { Block } from '@mechanica/shared'
 import { editorStoreKey } from './store'
+import { dragKey } from './drag-controller'
 
 const store = inject(editorStoreKey)!
+const drag = inject(dragKey)!
 const search = ref('')
 
 const filtered = useSearch(

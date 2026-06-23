@@ -1,6 +1,14 @@
 import { reactive, computed, type InjectionKey } from 'vue'
 import type { Block, ContentBlock, State } from '@mechanica/shared'
-import { findBlock, removeBlock, moveBlock, duplicateBlock } from './content-tree'
+import {
+  findBlock,
+  removeBlock,
+  moveBlock,
+  duplicateBlock,
+  placeBlock,
+  relocateBlock,
+  type DropPosition,
+} from './content-tree'
 import { toBlockMeta, createContentBlock, type BlockComponent } from './block-meta'
 
 export interface EditorStore {
@@ -13,8 +21,10 @@ export interface EditorStore {
   readonly selectedSchema: Record<string, any> | null
   select(id: string | null): void
   addBlock(blockId: string): void
+  addBlockAt(blockId: string, drop: DropPosition): void
   remove(id: string): void
   move(id: string, delta: number): void
+  relocate(id: string, drop: DropPosition): void
   duplicate(id: string): void
 }
 
@@ -64,6 +74,16 @@ export function createEditorStore(initial: State, components: BlockComponent[]):
     },
     move(id: string, delta: number) {
       moveBlock(content, id, delta)
+    },
+    addBlockAt(blockId: string, drop: DropPosition) {
+      const meta = blocksById.get(blockId)
+      if (!meta) return
+      const block = createContentBlock(meta)
+      placeBlock(content, block, drop)
+      ui.selectedId = block.id
+    },
+    relocate(id: string, drop: DropPosition) {
+      relocateBlock(content, id, drop)
     },
     duplicate(id: string) {
       const clone = duplicateBlock(content, id)

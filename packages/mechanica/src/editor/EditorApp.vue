@@ -18,10 +18,34 @@
         class="mech-toolbar"
         :style="{ left: `${selected.left + selected.width}px`, top: `${toolbarTop}px` }"
       >
+        <button
+          type="button"
+          class="mech-toolbar__grip"
+          title="Drag to move"
+          @pointerdown="drag.begin({ kind: 'move', id: selected.id, label: selectedName ?? '' }, $event)"
+        >
+          ⠿
+        </button>
         <button type="button" title="Move up" @click="store.move(selected.id, -1)">↑</button>
         <button type="button" title="Move down" @click="store.move(selected.id, 1)">↓</button>
         <button type="button" title="Duplicate" @click="store.duplicate(selected.id)">⧉</button>
         <button type="button" title="Delete" @click="store.remove(selected.id)">✕</button>
+      </div>
+
+      <div
+        v-if="drag.indicator"
+        class="mech-drop"
+        :style="{
+          transform: `translate(${drag.indicator.left}px, ${drag.indicator.top}px)`,
+          width: `${drag.indicator.width}px`,
+        }"
+      />
+      <div
+        v-if="drag.payload"
+        class="mech-ghost"
+        :style="{ transform: `translate(${drag.x + 12}px, ${drag.y + 12}px)` }"
+      >
+        {{ drag.payload.label }}
       </div>
 
       <aside class="mech-editor__panel mech-editor__panel--left">
@@ -50,6 +74,7 @@
 import { computed, provide, ref, watch, watchEffect, onScopeDispose } from 'vue'
 import type { State } from '@mechanica/shared'
 import { createEditorStore, editorStoreKey } from './store'
+import { createDragController, dragKey } from './drag-controller'
 import { pushStateUpdate } from './bridge'
 import { useBlockFrames } from './use-block-frames'
 import type { BlockComponent } from './block-meta'
@@ -67,6 +92,9 @@ const props = defineProps<{
 
 const store = createEditorStore(props.state, props.components)
 provide(editorStoreKey, store)
+
+const drag = createDragController(store)
+provide(dragKey, drag)
 
 const collapsed = ref(false)
 const tab = ref<'settings' | 'blocks'>('blocks')

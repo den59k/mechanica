@@ -121,6 +121,41 @@
   margin-bottom: 4px;
 }
 
+/* Drag and drop */
+.mech-palette__item,
+.mech-tree__row {
+  user-select: none;
+  touch-action: none;
+}
+.mech-toolbar__grip {
+  cursor: grab;
+}
+.mech-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 2147483700;
+  padding: 5px 10px;
+  background: var(--mech-accent);
+  color: #fff;
+  font-size: 12px;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
+}
+.mech-drop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  margin-top: -1px;
+  background: var(--mech-accent);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 2147482400;
+}
+
 /* Palette */
 .mech-palette {
   display: flex;

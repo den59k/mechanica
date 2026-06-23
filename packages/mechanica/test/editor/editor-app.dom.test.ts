@@ -29,7 +29,14 @@ describe('EditorApp', () => {
     expect(el.querySelector('.mech-editor')).not.toBeNull()
     expect(el.textContent).toContain('Hero') // palette item
 
-    el.querySelector<HTMLButtonElement>('.mech-palette__item')!.click()
+    // Tap the palette item (pointerdown + release without moving).
+    const item = el.querySelector('.mech-palette__item')!
+    const down = new Event('pointerdown', { bubbles: true })
+    Object.assign(down, { clientX: 0, clientY: 0 })
+    item.dispatchEvent(down)
+    const up = new Event('pointerup')
+    Object.assign(up, { clientX: 0, clientY: 0 })
+    window.dispatchEvent(up)
     await nextTick()
 
     expect(changes.length).toBeGreaterThan(0)

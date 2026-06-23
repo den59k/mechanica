@@ -1,7 +1,15 @@
 import { describe, it, expect } from 'vitest'
 import { registerFieldSchemas } from '@mechanica/shared'
 import type { ContentBlock } from '@mechanica/shared'
-import { findBlock, removeBlock, moveBlock, duplicateBlock, uid } from '@/editor/content-tree'
+import {
+  findBlock,
+  removeBlock,
+  moveBlock,
+  duplicateBlock,
+  placeBlock,
+  relocateBlock,
+  uid,
+} from '@/editor/content-tree'
 import { toBlockMeta, createContentBlock } from '@/editor/block-meta'
 
 registerFieldSchemas(() => {})
@@ -53,6 +61,32 @@ describe('content-tree', () => {
     expect(clone.id).not.toBe('1')
     expect(clone.data).toEqual({ x: 1 })
     expect(clone.data).not.toBe(t[0]!.data)
+  })
+
+  it('places a block before/after an anchor or appends to root', () => {
+    const t: ContentBlock[] = [
+      { id: '1', blockId: 'a', data: {} },
+      { id: '2', blockId: 'b', data: {} },
+    ]
+    placeBlock(t, { id: 'x', blockId: 'c', data: {} }, { anchorId: '1', position: 'after' })
+    expect(t.map((b) => b.id)).toEqual(['1', 'x', '2'])
+    placeBlock(t, { id: 'y', blockId: 'd', data: {} }, { anchorId: null, position: 'after' })
+    expect(t.at(-1)!.id).toBe('y')
+    placeBlock(t, { id: 'z', blockId: 'e', data: {} }, { anchorId: '1', position: 'before' })
+    expect(t[0]!.id).toBe('z')
+  })
+
+  it('relocates across lists and refuses dropping a block into its own subtree', () => {
+    const t: ContentBlock[] = [
+      { id: '1', blockId: 'box', data: {}, children: [{ id: '2', blockId: 'a', data: {} }] },
+      { id: '3', blockId: 'b', data: {} },
+    ]
+    expect(relocateBlock(t, '3', { anchorId: '2', position: 'before' })).toBe(true)
+    expect(findBlock(t, '1')!.children).toEqual([
+      { id: '3', blockId: 'b', data: {} },
+      { id: '2', blockId: 'a', data: {} },
+    ])
+    expect(relocateBlock(t, '1', { anchorId: '2', position: 'before' })).toBe(false) // into own child
   })
 })
 

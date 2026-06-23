@@ -91,3 +91,36 @@ export function duplicateBlock(tree: ContentBlock[], id: string): ContentBlock |
   found.list.splice(found.index + 1, 0, clone)
   return clone
 }
+
+/** A drop location: before/after an anchor block, or appended to the root. */
+export interface DropPosition {
+  anchorId: string | null
+  position: 'before' | 'after'
+}
+
+/** Insert `block` at a drop position. */
+export function placeBlock(tree: ContentBlock[], block: ContentBlock, drop: DropPosition): void {
+  if (drop.anchorId === null) {
+    tree.push(block)
+    return
+  }
+  const found = findParentList(tree, drop.anchorId)
+  if (!found) {
+    tree.push(block)
+    return
+  }
+  const index = drop.position === 'before' ? found.index : found.index + 1
+  found.list.splice(index, 0, block)
+}
+
+/** Move an existing block to a drop position, refusing drops into its own subtree. */
+export function relocateBlock(tree: ContentBlock[], id: string, drop: DropPosition): boolean {
+  if (id === drop.anchorId) return false
+  const block = findBlock(tree, id)
+  if (!block) return false
+  // Can't drop a block inside itself.
+  if (drop.anchorId && findBlock([block], drop.anchorId)) return false
+  removeBlock(tree, id)
+  placeBlock(tree, block, drop)
+  return true
+}

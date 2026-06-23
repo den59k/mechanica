@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { createApp, h } from 'vue'
 import { registerFieldSchemas } from '@mechanica/shared'
 import { createEditorStore, editorStoreKey, type EditorStore } from '@/editor/store'
+import { createDragController, dragKey } from '@/editor/drag-controller'
 import { registerBuiltinFieldEditors } from '@/editor/fields/builtin'
 import { clearFieldEditors } from '@/editor/fields/registry'
 import BlockPalette from '@/editor/BlockPalette.vue'
@@ -22,26 +23,37 @@ function mount(component: any, store: EditorStore) {
   const el = document.createElement('div')
   const app = createApp({ render: () => h(component) })
   app.provide(editorStoreKey, store)
+  app.provide(dragKey, createDragController(store))
   app.mount(el)
   return el
 }
 
+/** Press and release without moving — the drag controller treats this as a tap. */
+function tap(element: Element) {
+  const down = new Event('pointerdown', { bubbles: true })
+  Object.assign(down, { clientX: 0, clientY: 0 })
+  element.dispatchEvent(down)
+  const up = new Event('pointerup')
+  Object.assign(up, { clientX: 0, clientY: 0 })
+  window.dispatchEvent(up)
+}
+
 describe('editor sidebar', () => {
-  it('palette adds a block when clicked', () => {
+  it('palette adds a block on tap', () => {
     const store = createEditorStore({ content: [], data: {} }, components)
     const el = mount(BlockPalette, store)
     expect(el.textContent).toContain('Content') // category title
-    el.querySelector<HTMLButtonElement>('.mech-palette__item')!.click()
+    tap(el.querySelector('.mech-palette__item')!)
     expect(store.content).toHaveLength(1)
   })
 
-  it('hierarchy lists blocks and selects on click', () => {
+  it('hierarchy lists blocks and selects on tap', () => {
     const store = createEditorStore({ content: [], data: {} }, components)
     store.addBlock('hero')
     store.select(null)
     const el = mount(HierarchyTree, store)
     expect(el.textContent).toContain('Hero')
-    el.querySelector<HTMLElement>('.mech-tree__row')!.click()
+    tap(el.querySelector('.mech-tree__row')!)
     expect(store.selectedId).toBe(store.content[0]!.id)
   })
 
