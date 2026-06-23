@@ -7,6 +7,7 @@ registerFieldSchemas(() => {})
 const components = [
   { blockId: 'hero', __name: 'Hero', blockSchema: { name: 'Hero', props: { title: 'string' } } },
   { blockId: 'spacer', __name: 'Spacer', blockSchema: { hidden: true } },
+  { blockId: 'section', __name: 'Section', blockSchema: { name: 'Section', slots: { default: true } } },
 ]
 
 const dataEntries: DataEntry[] = [
@@ -17,7 +18,7 @@ const dataEntries: DataEntry[] = [
 describe('editor store', () => {
   it('exposes visible block metadata only', () => {
     const store = createEditorStore({ content: [], data: {} }, components)
-    expect(store.blocks.map((b) => b.id)).toEqual(['hero'])
+    expect(store.blocks.map((b) => b.id)).toEqual(['hero', 'section'])
   })
 
   it('adds, selects and removes blocks', () => {
@@ -60,6 +61,15 @@ describe('editor store', () => {
     expect(store.content).toHaveLength(0)
     store.paste(null)
     expect(store.content).toHaveLength(1)
+  })
+
+  it('adds a block inside a container via an inside drop', () => {
+    const store = createEditorStore({ content: [], data: {} }, components)
+    store.addBlock('section')
+    const sectionId = store.content[0]!.id
+    store.addBlockAt('hero', { anchorId: sectionId, position: 'inside' })
+    expect(store.content).toHaveLength(1)
+    expect((store.content[0]!.children as Array<{ blockId: string }>)[0]!.blockId).toBe('hero')
   })
 
   it('exposes data entries sorted by scope and seeds missing values', () => {

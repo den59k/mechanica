@@ -92,14 +92,48 @@ export function duplicateBlock(tree: ContentBlock[], id: string): ContentBlock |
   return clone
 }
 
-/** A drop location: before/after an anchor block, or appended to the root. */
+/**
+ * A drop location: before/after a sibling, *inside* a container's slot, or
+ * (with `anchorId: null`) appended to the root.
+ */
 export interface DropPosition {
   anchorId: string | null
-  position: 'before' | 'after'
+  position: 'before' | 'after' | 'inside'
+  /** For `'inside'`: which named slot to append to (defaults to the default slot). */
+  slot?: string
+}
+
+/** Get (creating if needed) the child list for a block's slot. */
+export function ensureSlotList(parent: ContentBlock, slot = 'default'): ContentBlock[] {
+  // No children yet: a default slot is a bare array; a named slot is an object.
+  if (!parent.children) {
+    if (slot === 'default') return (parent.children = [])
+    const named: Record<string, ContentBlock[]> = { [slot]: [] }
+    parent.children = named
+    return named[slot]!
+  }
+  // An array represents the default slot.
+  if (Array.isArray(parent.children)) {
+    if (slot === 'default') return parent.children
+    // Need a named slot too → promote the array to the `default` key.
+    const named: Record<string, ContentBlock[]> = { default: parent.children, [slot]: [] }
+    parent.children = named
+    return named[slot]!
+  }
+  // Named-slot object.
+  const named = parent.children
+  return (named[slot] ??= [])
 }
 
 /** Insert `block` at a drop position. */
 export function placeBlock(tree: ContentBlock[], block: ContentBlock, drop: DropPosition): void {
+  if (drop.position === 'inside' && drop.anchorId) {
+    const parent = findBlock(tree, drop.anchorId)
+    if (parent) {
+      ensureSlotList(parent, drop.slot).push(block)
+      return
+    }
+  }
   if (drop.anchorId === null) {
     tree.push(block)
     return

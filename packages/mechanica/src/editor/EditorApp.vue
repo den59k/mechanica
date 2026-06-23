@@ -35,9 +35,11 @@
       <div
         v-if="drag.indicator"
         class="mech-drop"
+        :class="{ 'mech-drop--inside': drag.indicator.mode === 'inside' }"
         :style="{
           transform: `translate(${drag.indicator.left}px, ${drag.indicator.top}px)`,
           width: `${drag.indicator.width}px`,
+          height: drag.indicator.height ? `${drag.indicator.height}px` : undefined,
         }"
       />
       <div

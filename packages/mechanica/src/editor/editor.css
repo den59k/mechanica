@@ -205,6 +205,15 @@
   pointer-events: none;
   z-index: 2147482400;
 }
+/* Nesting drop: a filled outline around the container row instead of a line. */
+.mech-drop--inside {
+  height: auto;
+  margin-top: 0;
+  background: var(--mech-accent-soft);
+  border: 2px solid var(--mech-accent);
+  border-radius: var(--mech-radius);
+  box-sizing: border-box;
+}
 
 /* Palette */
 .mech-palette {

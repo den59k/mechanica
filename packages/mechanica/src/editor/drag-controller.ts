@@ -1,6 +1,6 @@
 import { reactive, type InjectionKey } from 'vue'
 import type { EditorStore } from './store'
-import type { DropPosition } from './content-tree'
+import { findBlock, type DropPosition } from './content-tree'
 import { isEditorUI } from './use-block-frames'
 
 export type DragPayload =
@@ -11,6 +11,9 @@ export interface DragIndicator {
   top: number
   left: number
   width: number
+  /** Set for an `'inside'` drop, so the editor draws a box rather than a line. */
+  height?: number
+  mode?: 'line' | 'inside'
 }
 
 export interface DragController {
@@ -72,7 +75,7 @@ export function createDragController(store: EditorStore): DragController {
     // Hierarchy rows are valid drop targets (even though they're editor UI).
     const row = element?.closest?.('[data-tree-id]') as HTMLElement | null
     if (row?.dataset.treeId) {
-      setDrop(row.getBoundingClientRect(), y, row.dataset.treeId)
+      setTreeDrop(row.getBoundingClientRect(), y, row.dataset.treeId)
       return
     }
 
@@ -92,14 +95,38 @@ export function createDragController(store: EditorStore): DragController {
   function setDrop(rect: DOMRect, y: number, anchorId: string) {
     const before = y < rect.top + rect.height / 2
     drop = { anchorId, position: before ? 'before' : 'after' }
-    state.indicator = { top: before ? rect.top : rect.bottom, left: rect.left, width: rect.width }
+    state.indicator = { top: before ? rect.top : rect.bottom, left: rect.left, width: rect.width, mode: 'line' }
+  }
+
+  /**
+   * Hierarchy-row drop with three zones: the outer thirds insert before/after
+   * the row, while the middle third nests *inside* it — but only when the target
+   * block declares a slot, so non-containers stay flat.
+   */
+  function setTreeDrop(rect: DOMRect, y: number, anchorId: string) {
+    const slots = slotNamesOf(anchorId)
+    const third = rect.height / 3
+    if (slots.length && y >= rect.top + third && y <= rect.bottom - third) {
+      drop = { anchorId, position: 'inside', slot: slots[0] }
+      state.indicator = { top: rect.top, left: rect.left, width: rect.width, height: rect.height, mode: 'inside' }
+      return
+    }
+    setDrop(rect, y, anchorId)
+  }
+
+  /** Slot names declared by the block behind a tree row (empty for non-containers). */
+  function slotNamesOf(blockId: string): string[] {
+    const block = findBlock(store.content, blockId)
+    if (!block) return []
+    const meta = store.blocksById.get(block.blockId)
+    return meta?.slots ? Object.keys(meta.slots) : []
   }
 
   function appendToRoot() {
     drop = { anchorId: null, position: 'after' }
     const app = (document.querySelector('#app') ?? document.body) as HTMLElement
     const rect = app.getBoundingClientRect()
-    state.indicator = { top: rect.bottom, left: rect.left, width: rect.width }
+    state.indicator = { top: rect.bottom, left: rect.left, width: rect.width, mode: 'line' }
   }
 
   function clearDrop() {

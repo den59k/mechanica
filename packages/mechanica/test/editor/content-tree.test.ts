@@ -88,6 +88,41 @@ describe('content-tree', () => {
     ])
     expect(relocateBlock(t, '1', { anchorId: '2', position: 'before' })).toBe(false) // into own child
   })
+
+  it('drops a block inside an empty container, creating a default slot', () => {
+    const t: ContentBlock[] = [{ id: '1', blockId: 'box', data: {} }]
+    placeBlock(t, { id: 'x', blockId: 'a', data: {} }, { anchorId: '1', position: 'inside' })
+    expect(t[0]!.children).toEqual([{ id: 'x', blockId: 'a', data: {} }])
+  })
+
+  it('appends into a container that already has a default slot', () => {
+    const t: ContentBlock[] = [
+      { id: '1', blockId: 'box', data: {}, children: [{ id: '2', blockId: 'a', data: {} }] },
+    ]
+    placeBlock(t, { id: 'x', blockId: 'b', data: {} }, { anchorId: '1', position: 'inside' })
+    expect((t[0]!.children as ContentBlock[]).map((b) => b.id)).toEqual(['2', 'x'])
+  })
+
+  it('drops into a named slot, promoting an existing array to the default key', () => {
+    const t: ContentBlock[] = [
+      { id: '1', blockId: 'box', data: {}, children: [{ id: '2', blockId: 'a', data: {} }] },
+    ]
+    placeBlock(t, { id: 'x', blockId: 'b', data: {} }, { anchorId: '1', position: 'inside', slot: 'footer' })
+    const children = t[0]!.children as Record<string, ContentBlock[]>
+    expect(children.default!.map((b) => b.id)).toEqual(['2'])
+    expect(children.footer!.map((b) => b.id)).toEqual(['x'])
+  })
+
+  it('relocates a block inside a container and refuses nesting into its own subtree', () => {
+    const t: ContentBlock[] = [
+      { id: '1', blockId: 'box', data: {} },
+      { id: '2', blockId: 'a', data: {} },
+    ]
+    expect(relocateBlock(t, '2', { anchorId: '1', position: 'inside' })).toBe(true)
+    expect(findBlock(t, '1')!.children).toEqual([{ id: '2', blockId: 'a', data: {} }])
+    expect(t).toHaveLength(1)
+    expect(relocateBlock(t, '1', { anchorId: '2', position: 'inside' })).toBe(false) // into own child
+  })
 })
 
 describe('block-meta', () => {
