@@ -6,6 +6,7 @@ import { collectBlocks } from './collect-blocks'
 import { generateClientEntry, generateSsrEntry } from './entries'
 import { createDevMiddleware } from './dev/middleware'
 import { readPage } from './dev/pages-store'
+import { readSiteData } from './dev/data-store'
 
 /** Virtual module exposing the collected block components. */
 export const BLOCKS_MODULE_ID = 'virtual:mechanica/blocks'
@@ -99,9 +100,10 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         if (/\.\w+$/.test(urlPath)) return html
 
         const page = readPage(mechDir, urlPath)
+        // Site-scoped data is shared across pages, so merge it over the page's own.
         const state = {
           content: page.content ?? [],
-          data: page.data ?? {},
+          data: { ...page.data, ...readSiteData(mechDir) },
           page: { path: urlPath, meta: page.meta ?? {} },
         }
         const inject = [

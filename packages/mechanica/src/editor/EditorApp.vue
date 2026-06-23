@@ -69,9 +69,18 @@
           <button type="button" :class="{ 'is-active': tab === 'blocks' }" @click="tab = 'blocks'">
             Blocks
           </button>
+          <button
+            v-if="store.dataEntries.length"
+            type="button"
+            :class="{ 'is-active': tab === 'data' }"
+            @click="tab = 'data'"
+          >
+            Data
+          </button>
         </div>
         <BlockSettings v-show="tab === 'settings'" />
         <BlockPalette v-show="tab === 'blocks'" />
+        <DataSettings v-if="store.dataEntries.length" v-show="tab === 'data'" />
       </aside>
     </template>
   </div>
@@ -79,7 +88,7 @@
 
 <script setup lang="ts">
 import { computed, provide, ref, watch, watchEffect, onScopeDispose } from 'vue'
-import type { State } from '@mechanica/shared'
+import type { DataEntry, State } from '@mechanica/shared'
 import { createEditorStore, editorStoreKey } from './store'
 import { createDragController, dragKey } from './drag-controller'
 import { createHistory } from './history'
@@ -93,14 +102,16 @@ import BlockPalette from './BlockPalette.vue'
 import BlockSettings from './BlockSettings.vue'
 import BlockFrame from './BlockFrame.vue'
 import PageSelector from './PageSelector.vue'
+import DataSettings from './DataSettings.vue'
 
 const props = defineProps<{
   state: State
   components: BlockComponent[]
+  dataEntries?: DataEntry[]
   onChange?: (snapshot: EditorSnapshot) => void
 }>()
 
-const store = createEditorStore(props.state, props.components)
+const store = createEditorStore(props.state, props.components, props.dataEntries)
 provide(editorStoreKey, store)
 
 const drag = createDragController(store)
@@ -142,7 +153,7 @@ onScopeDispose(() => {
 })
 
 const collapsed = ref(false)
-const tab = ref<'settings' | 'blocks'>('blocks')
+const tab = ref<'settings' | 'blocks' | 'data'>('blocks')
 const { hovered, selected } = useBlockFrames(store)
 
 // Show the settings tab automatically when a block is selected.

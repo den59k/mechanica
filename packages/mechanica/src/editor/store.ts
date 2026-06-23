@@ -1,5 +1,5 @@
 import { reactive, computed, type InjectionKey } from 'vue'
-import type { Block, ContentBlock, State } from '@mechanica/shared'
+import { getDefaultValue, type Block, type ContentBlock, type DataEntry, type State } from '@mechanica/shared'
 import {
   findBlock,
   removeBlock,
@@ -17,9 +17,13 @@ export interface EditorStore {
   data: Record<string, unknown>
   blocks: Block[]
   blocksById: Map<string, Block>
+  /** Editable `defineData` entries (site/folder/page scoped). */
+  dataEntries: DataEntry[]
   selectedId: string | null
   readonly selected: ContentBlock | null
   readonly selectedSchema: Record<string, any> | null
+  /** Ensure an entry's value object exists in `data` and return it for editing. */
+  dataValue(id: string): Record<string, unknown>
   select(id: string | null): void
   addBlock(blockId: string): void
   addBlockAt(blockId: string, drop: DropPosition): void
@@ -36,13 +40,23 @@ export interface EditorStore {
 export const editorStoreKey: InjectionKey<EditorStore> = Symbol('mech-editor')
 
 /** Build the reactive editor store from the initial page state and block set. */
-export function createEditorStore(initial: State, components: BlockComponent[]): EditorStore {
+export function createEditorStore(
+  initial: State,
+  components: BlockComponent[],
+  entries: DataEntry[] = [],
+): EditorStore {
   const blocks = components.map(toBlockMeta).filter((block) => !block.hidden)
   const blocksById = new Map(blocks.map((block) => [block.id, block]))
+  const dataEntries = [...entries].sort(compareDataEntries)
 
   const content = reactive<ContentBlock[]>((initial.content as ContentBlock[]) ?? [])
   const data = reactive<Record<string, unknown>>((initial.data as Record<string, unknown>) ?? {})
   const ui = reactive({ selectedId: null as string | null, clipboard: null as ContentBlock | null })
+
+  // Seed missing data values from their schema so the form always has an object to bind.
+  for (const entry of dataEntries) {
+    if (data[entry.id] == null) data[entry.id] = getDefaultValue(entry.props ?? emptySchema)
+  }
 
   const selected = computed(() => (ui.selectedId ? findBlock(content, ui.selectedId) : null))
   const selectedSchema = computed(() =>
@@ -54,6 +68,15 @@ export function createEditorStore(initial: State, components: BlockComponent[]):
     data,
     blocks,
     blocksById,
+    dataEntries,
+    dataValue(id: string): Record<string, unknown> {
+      const current = data[id]
+      if (current == null || typeof current !== 'object') {
+        const entry = dataEntries.find((e) => e.id === id)
+        data[id] = getDefaultValue(entry?.props ?? emptySchema)
+      }
+      return data[id] as Record<string, unknown>
+    },
     get selectedId() {
       return ui.selectedId
     },
@@ -124,4 +147,16 @@ export function createEditorStore(initial: State, components: BlockComponent[]):
   })
 
   return store as unknown as EditorStore
+}
+
+const emptySchema = { type: 'object', properties: {} }
+
+/** Scope ordering for the data panel: broadest (site) first, page-specific last. */
+const SCOPE_ORDER: Record<string, number> = { site: 0, folder: 1, page: 2 }
+
+/** Sort data entries by scope breadth, then alphabetically by title/id. */
+export function compareDataEntries(a: DataEntry, b: DataEntry): number {
+  const byScope = (SCOPE_ORDER[a.scope ?? 'page'] ?? 2) - (SCOPE_ORDER[b.scope ?? 'page'] ?? 2)
+  if (byScope !== 0) return byScope
+  return (a.title ?? a.id).localeCompare(b.title ?? b.id)
 }

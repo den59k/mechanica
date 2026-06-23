@@ -48,6 +48,24 @@ describe('dev middleware', () => {
     expect(pages.some((p: { path: string }) => p.path === '/about')).toBe(true)
   })
 
+  it('splits site-scoped data out of the page file on save', async () => {
+    await fetch(`${base}/pages`, { method: 'POST', body: JSON.stringify({ path: '/about', name: 'About' }) })
+    await fetch(`${base}/save?path=/about`, {
+      method: 'POST',
+      body: JSON.stringify({
+        content: [],
+        data: { header: { logo: 'a.svg' }, seo: { title: 'About' } },
+        dataScopes: { header: 'site', seo: 'page' },
+      }),
+    })
+
+    const page = JSON.parse(fs.readFileSync(join(mechDir, 'pages', 'about.json'), 'utf-8'))
+    expect(page.data).toEqual({ seo: { title: 'About' } })
+
+    const site = JSON.parse(fs.readFileSync(join(mechDir, 'data.json'), 'utf-8'))
+    expect(site).toEqual({ header: { logo: 'a.svg' } })
+  })
+
   it('uploads and serves an asset', async () => {
     const upload = await fetch(`${base}/upload`, {
       method: 'POST',

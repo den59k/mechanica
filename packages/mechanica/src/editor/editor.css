@@ -278,6 +278,42 @@
 .mech-settings__empty {
   color: var(--mech-muted);
 }
+
+/* Data panel */
+.mech-data {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.mech-data__entry {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--mech-border);
+}
+.mech-data__entry:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.mech-data__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mech-data__title {
+  font-weight: 600;
+}
+.mech-data__scope {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mech-muted);
+  background: var(--mech-accent-soft);
+  border-radius: var(--mech-radius);
+  padding: 2px 6px;
+}
 .mech-form {
   display: flex;
   flex-direction: column;

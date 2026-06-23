@@ -44,4 +44,42 @@ describe('EditorApp', () => {
 
     app.unmount() // stops the block-frame rAF loop + listeners
   })
+
+  it('shows a Data tab and edits a data entry when entries are declared', async () => {
+    const changes: { data: Record<string, unknown> }[] = []
+    const el = document.createElement('div')
+    const app = createApp(EditorApp, {
+      state: { content: [], data: {} },
+      components,
+      dataEntries: [
+        { id: 'site', title: 'Site', scope: 'site', props: { type: 'object', properties: { name: { type: 'string' } } } },
+      ],
+      onChange: (snapshot: { data: Record<string, unknown> }) => changes.push(snapshot),
+    })
+    app.mount(el)
+
+    const dataTab = [...el.querySelectorAll('.mech-tabs button')].find((b) => b.textContent?.trim() === 'Data')!
+    expect(dataTab).toBeTruthy()
+    dataTab.dispatchEvent(new Event('click', { bubbles: true }))
+    await nextTick()
+
+    const input = el.querySelector('.mech-data input') as HTMLInputElement
+    expect(input).toBeTruthy()
+    input.value = 'Acme'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await nextTick()
+
+    expect(changes.at(-1)!.data).toMatchObject({ site: { name: 'Acme' } })
+
+    app.unmount()
+  })
+
+  it('hides the Data tab when no entries are declared', () => {
+    const el = document.createElement('div')
+    const app = createApp(EditorApp, { state: { content: [], data: {} }, components })
+    app.mount(el)
+    const labels = [...el.querySelectorAll('.mech-tabs button')].map((b) => b.textContent?.trim())
+    expect(labels).not.toContain('Data')
+    app.unmount()
+  })
 })

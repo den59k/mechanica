@@ -3,6 +3,7 @@ import { join, parse } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { generateProject, registerFieldSchemas, type Block } from '@mechanica/shared'
 import { toBlockMeta } from '../editor/block-meta'
+import { readSiteData } from '../vite/dev/data-store'
 import { runBuild } from './build'
 
 interface ExportPage {
@@ -47,6 +48,7 @@ export async function runExport(): Promise<void> {
   const blocksMap = new Map(blocks.map((block) => [block.id, block]))
 
   const pages = await readPages(join(cwd, '.mech/pages'))
+  const projectData = readSiteData(join(cwd, '.mech'))
   const exportDir = join(cwd, 'export')
   await rm(exportDir, { recursive: true, force: true })
   await mkdir(exportDir, { recursive: true })
@@ -56,6 +58,7 @@ export async function runExport(): Promise<void> {
     index,
     blocksMap,
     dataEntries: ssr.dataEntries ?? [],
+    projectData,
     pages,
     render: (state: any) => ssr.render(state),
     onFile: (src: string) => src,

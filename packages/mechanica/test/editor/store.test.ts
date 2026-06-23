@@ -1,12 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { registerFieldSchemas } from '@mechanica/shared'
-import { createEditorStore } from '@/editor/store'
+import { registerFieldSchemas, type DataEntry } from '@mechanica/shared'
+import { createEditorStore, compareDataEntries } from '@/editor/store'
 
 registerFieldSchemas(() => {})
 
 const components = [
   { blockId: 'hero', __name: 'Hero', blockSchema: { name: 'Hero', props: { title: 'string' } } },
   { blockId: 'spacer', __name: 'Spacer', blockSchema: { hidden: true } },
+]
+
+const dataEntries: DataEntry[] = [
+  { id: 'header', title: 'Header', scope: 'site', props: { type: 'object', properties: { logo: { type: 'string' } } } },
+  { id: 'seo', title: 'SEO', scope: 'page', props: { type: 'object', properties: { title: { type: 'string' } } } },
 ]
 
 describe('editor store', () => {
@@ -55,5 +60,35 @@ describe('editor store', () => {
     expect(store.content).toHaveLength(0)
     store.paste(null)
     expect(store.content).toHaveLength(1)
+  })
+
+  it('exposes data entries sorted by scope and seeds missing values', () => {
+    const store = createEditorStore({ content: [], data: {} }, components, dataEntries)
+    // Site scope sorts before page scope.
+    expect(store.dataEntries.map((e) => e.id)).toEqual(['header', 'seo'])
+    // Missing values are seeded with an object so the form has something to bind.
+    expect(store.data.header).toEqual({})
+    expect(store.dataValue('seo')).toEqual({})
+  })
+
+  it('preserves existing data values instead of overwriting them', () => {
+    const store = createEditorStore(
+      { content: [], data: { header: { logo: 'logo.svg' } } },
+      components,
+      dataEntries,
+    )
+    expect(store.dataValue('header')).toEqual({ logo: 'logo.svg' })
+  })
+})
+
+describe('compareDataEntries', () => {
+  it('orders site → folder → page, then by title', () => {
+    const entries: DataEntry[] = [
+      { id: 'b', scope: 'page', title: 'B' },
+      { id: 'a', scope: 'site', title: 'A' },
+      { id: 'c', scope: 'folder', title: 'C' },
+      { id: 'd', scope: 'page', title: 'A' },
+    ]
+    expect([...entries].sort(compareDataEntries).map((e) => e.id)).toEqual(['a', 'c', 'd', 'b'])
   })
 })

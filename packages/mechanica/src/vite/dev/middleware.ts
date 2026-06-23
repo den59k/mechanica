@@ -4,6 +4,7 @@ import type { Connect } from 'vite'
 import { createPage, savePage, updatePageMeta, listPages, listFolders, PageExistsError } from './pages-store'
 import { saveUpload, listImages } from './assets-store'
 import { resolveDevQuery } from './query-dev'
+import { splitDataByScope, mergeSiteData } from './data-store'
 
 /**
  * The `/@mechanica` dev middleware: page CRUD, asset upload/serve, folder list,
@@ -69,7 +70,10 @@ export function createDevMiddleware(mechDir: string): Connect.NextHandleFunction
         const pathParam = query.get('path')
         if (!pathParam) return json({ error: 'Missing path' }, 400)
         const body = JSON.parse((await readBody(req)).toString('utf-8'))
-        savePage(mechDir, pathParam, { content: body.content, data: body.data })
+        // Route site-scoped data to the shared store; the rest stays on the page.
+        const { page, site } = splitDataByScope(body.data ?? {}, body.dataScopes ?? {})
+        savePage(mechDir, pathParam, { content: body.content, data: page })
+        mergeSiteData(mechDir, site)
         return json({ success: true })
       }
 
