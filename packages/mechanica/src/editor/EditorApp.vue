@@ -127,8 +127,13 @@ const onKeyDown = (event: KeyboardEvent) => {
   if (action === 'undo') history.undo()
   else if (action === 'redo') history.redo()
   else if (action === 'deselect') store.select(null)
-  else if (action === 'delete' && store.selectedId) store.remove(store.selectedId)
-  else if (action === 'duplicate' && store.selectedId) store.duplicate(store.selectedId)
+  else if (action === 'paste') store.paste(store.selectedId)
+  else if (store.selectedId) {
+    if (action === 'delete') store.remove(store.selectedId)
+    else if (action === 'duplicate') store.duplicate(store.selectedId)
+    else if (action === 'copy') store.copy(store.selectedId)
+    else if (action === 'cut') store.cut(store.selectedId)
+  }
 }
 document.addEventListener('keydown', onKeyDown)
 onScopeDispose(() => {

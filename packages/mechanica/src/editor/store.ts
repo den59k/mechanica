@@ -5,6 +5,7 @@ import {
   removeBlock,
   moveBlock,
   duplicateBlock,
+  cloneBlock,
   placeBlock,
   relocateBlock,
   type DropPosition,
@@ -26,6 +27,9 @@ export interface EditorStore {
   move(id: string, delta: number): void
   relocate(id: string, drop: DropPosition): void
   duplicate(id: string): void
+  copy(id: string): void
+  cut(id: string): void
+  paste(afterId: string | null): void
   replace(snapshot: { content: ContentBlock[]; data: Record<string, unknown> }): void
 }
 
@@ -38,7 +42,7 @@ export function createEditorStore(initial: State, components: BlockComponent[]):
 
   const content = reactive<ContentBlock[]>((initial.content as ContentBlock[]) ?? [])
   const data = reactive<Record<string, unknown>>((initial.data as Record<string, unknown>) ?? {})
-  const ui = reactive({ selectedId: null as string | null })
+  const ui = reactive({ selectedId: null as string | null, clipboard: null as ContentBlock | null })
 
   const selected = computed(() => (ui.selectedId ? findBlock(content, ui.selectedId) : null))
   const selectedSchema = computed(() =>
@@ -89,6 +93,27 @@ export function createEditorStore(initial: State, components: BlockComponent[]):
     duplicate(id: string) {
       const clone = duplicateBlock(content, id)
       if (clone) ui.selectedId = clone.id
+    },
+    copy(id: string) {
+      const block = findBlock(content, id)
+      if (block) ui.clipboard = cloneBlock(block)
+    },
+    cut(id: string) {
+      const block = findBlock(content, id)
+      if (!block) return
+      ui.clipboard = cloneBlock(block)
+      removeBlock(content, id)
+      if (ui.selectedId === id) ui.selectedId = null
+    },
+    paste(afterId: string | null) {
+      if (!ui.clipboard) return
+      const block = cloneBlock(ui.clipboard)
+      placeBlock(
+        content,
+        block,
+        afterId ? { anchorId: afterId, position: 'after' } : { anchorId: null, position: 'after' },
+      )
+      ui.selectedId = block.id
     },
     replace(snapshot: { content: ContentBlock[]; data: Record<string, unknown> }) {
       content.splice(0, content.length, ...(snapshot.content ?? []))

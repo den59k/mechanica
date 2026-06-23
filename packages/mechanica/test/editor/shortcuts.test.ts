@@ -22,6 +22,13 @@ describe('resolveShortcut', () => {
     expect(resolveShortcut(ev({ key: 'Delete', hasSelection: false }))).toBeNull()
   })
 
+  it('maps copy / cut / paste', () => {
+    expect(resolveShortcut(ev({ key: 'c', metaKey: true, hasSelection: true }))).toBe('copy')
+    expect(resolveShortcut(ev({ key: 'x', ctrlKey: true, hasSelection: true }))).toBe('cut')
+    expect(resolveShortcut(ev({ key: 'v', ctrlKey: true }))).toBe('paste') // paste needs no selection
+    expect(resolveShortcut(ev({ key: 'c', metaKey: true, hasSelection: false }))).toBeNull()
+  })
+
   it('always allows Escape but suppresses others while typing', () => {
     expect(resolveShortcut(ev({ key: 'Escape', typing: true }))).toBe('deselect')
     expect(resolveShortcut(ev({ key: 'z', metaKey: true, typing: true }))).toBeNull()

@@ -27,4 +27,33 @@ describe('editor store', () => {
     expect(store.content).toHaveLength(0)
     expect(store.selectedId).toBeNull()
   })
+
+  it('copies and pastes a block with fresh ids', () => {
+    const store = createEditorStore({ content: [], data: {} }, components)
+    store.addBlock('hero')
+    const original = store.content[0]!
+    original.data.title = 'Source'
+
+    store.copy(original.id)
+    store.paste(original.id)
+
+    expect(store.content).toHaveLength(2)
+    const pasted = store.content[1]!
+    expect(pasted.blockId).toBe('hero')
+    expect(pasted.id).not.toBe(original.id)
+    expect(pasted.data.title).toBe('Source')
+    // Editing the original must not affect the pasted clone.
+    original.data.title = 'Changed'
+    expect(pasted.data.title).toBe('Source')
+  })
+
+  it('cuts a block to the clipboard', () => {
+    const store = createEditorStore({ content: [], data: {} }, components)
+    store.addBlock('hero')
+    const id = store.content[0]!.id
+    store.cut(id)
+    expect(store.content).toHaveLength(0)
+    store.paste(null)
+    expect(store.content).toHaveLength(1)
+  })
 })

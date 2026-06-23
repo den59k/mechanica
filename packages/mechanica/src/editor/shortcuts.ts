@@ -1,4 +1,12 @@
-export type ShortcutAction = 'undo' | 'redo' | 'delete' | 'duplicate' | 'deselect'
+export type ShortcutAction =
+  | 'undo'
+  | 'redo'
+  | 'delete'
+  | 'duplicate'
+  | 'copy'
+  | 'cut'
+  | 'paste'
+  | 'deselect'
 
 export interface ShortcutEvent {
   key: string
@@ -25,10 +33,13 @@ export function resolveShortcut(event: ShortcutEvent): ShortcutAction | null {
 
   if (mod && key === 'z') return event.shiftKey ? 'redo' : 'undo'
   if (mod && key === 'y') return 'redo'
+  if (mod && key === 'v') return 'paste' // paste appends even with no selection
 
   if (!event.hasSelection) return null
   if (event.key === 'Delete' || event.key === 'Backspace') return 'delete'
   if (mod && key === 'd') return 'duplicate'
+  if (mod && key === 'c') return 'copy'
+  if (mod && key === 'x') return 'cut'
 
   return null
 }
