@@ -91,6 +91,37 @@
   margin: 4px 0 0;
 }
 
+/* Page selector */
+.mech-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--mech-border);
+}
+.mech-pages__row {
+  display: flex;
+  gap: 6px;
+}
+.mech-pages__select {
+  flex: 1;
+  min-width: 0;
+}
+.mech-pages__add {
+  flex: none;
+  width: 34px;
+}
+.mech-pages__new {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mech-pages__error {
+  color: #c0392b;
+  font-size: 12px;
+  margin: 0;
+}
+
 /* Right-panel tabs */
 .mech-tabs {
   display: flex;
