@@ -11,6 +11,14 @@
     }
   },
   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "compact-json-schema": "^0.1.4"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.9"
   }
 }
