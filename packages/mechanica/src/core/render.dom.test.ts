@@ -26,12 +26,14 @@ function mount(state: State, map: BlocksMap = blocks) {
 }
 
 describe('<Content> rendering', () => {
-  it('renders a flat block tree with props', () => {
+  it('renders a flat block tree with props and a data-block-id', () => {
     const el = mount({
       content: [{ id: '1', blockId: 'hero', data: { title: 'Hello' } }],
       data: {},
     })
-    expect(el.innerHTML).toContain('<h1>Hello</h1>')
+    const h1 = el.querySelector('h1')!
+    expect(h1.textContent).toBe('Hello')
+    expect(h1.getAttribute('data-block-id')).toBe('1')
   })
 
   it('renders nested blocks through default slots', () => {

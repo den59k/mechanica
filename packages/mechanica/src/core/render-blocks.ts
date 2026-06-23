@@ -18,7 +18,12 @@ export function renderBlocks(
     const component = map.get(item.blockId)
     if (!component) return null
 
-    const props = { ...item.data, key: baseKey ? baseKey + index : item.id }
+    const props = {
+      ...item.data,
+      key: baseKey ? baseKey + index : item.id,
+      // Lets the editor map a rendered element back to its content node.
+      'data-block-id': item.id,
+    }
 
     if (!item.children) return h(component, props)
 
