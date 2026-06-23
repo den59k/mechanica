@@ -1,0 +1,267 @@
+:root {
+  --mech-bg: #ffffff;
+  --mech-fg: #1c1d21;
+  --mech-muted: #6b6f76;
+  --mech-border: #e6e7ea;
+  --mech-accent: #2f6bff;
+  --mech-accent-soft: #eef2ff;
+  --mech-radius: 8px;
+  --mech-panel-width: 300px;
+}
+
+#mechanica-editor {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  color: var(--mech-fg);
+}
+
+.mech-editor__panel {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: var(--mech-panel-width);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  box-sizing: border-box;
+  background: var(--mech-bg);
+  z-index: 2147483000;
+  overflow-y: auto;
+  box-shadow: 0 0 0 1px var(--mech-border);
+}
+.mech-editor__panel--left {
+  left: 0;
+}
+.mech-editor__panel--right {
+  right: 0;
+}
+.mech-editor__heading {
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mech-muted);
+}
+
+/* Palette */
+.mech-palette {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mech-palette__group-title {
+  font-size: 11px;
+  color: var(--mech-muted);
+  margin-bottom: 4px;
+}
+.mech-palette__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid var(--mech-border);
+  border-radius: var(--mech-radius);
+  background: var(--mech-bg);
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+.mech-palette__item:hover {
+  border-color: var(--mech-accent);
+  background: var(--mech-accent-soft);
+}
+
+/* Hierarchy */
+.mech-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 10px;
+}
+.mech-editor__panel--left > .mech-tree {
+  padding-left: 0;
+}
+.mech-tree__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.mech-tree__row:hover {
+  background: var(--mech-accent-soft);
+}
+.mech-tree__row.is-selected {
+  background: var(--mech-accent);
+  color: #fff;
+}
+.mech-tree__remove {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.5;
+  font-size: 15px;
+  line-height: 1;
+}
+.mech-tree__remove:hover {
+  opacity: 1;
+}
+
+/* Settings + forms */
+.mech-settings__title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.mech-settings__empty {
+  color: var(--mech-muted);
+}
+.mech-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mech-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mech-field__label {
+  font-size: 12px;
+  color: var(--mech-muted);
+}
+.mech-field__hint {
+  font-size: 11px;
+  color: var(--mech-muted);
+  margin: 0;
+}
+
+.mech-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border: 1px solid var(--mech-border);
+  border-radius: 6px;
+  font: inherit;
+  background: var(--mech-bg);
+  color: var(--mech-fg);
+}
+.mech-input:focus {
+  outline: none;
+  border-color: var(--mech-accent);
+}
+.mech-textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+.mech-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.mech-color {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.mech-color input[type='color'] {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--mech-border);
+  border-radius: 6px;
+  background: none;
+}
+
+/* Nested object + array */
+.mech-fieldset {
+  border: 1px solid var(--mech-border);
+  border-radius: var(--mech-radius);
+  padding: 10px;
+  margin: 0;
+}
+.mech-fieldset legend {
+  padding: 0 6px;
+  font-size: 12px;
+  color: var(--mech-muted);
+}
+.mech-array {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mech-array__item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 8px;
+  border: 1px solid var(--mech-border);
+  border-radius: var(--mech-radius);
+}
+.mech-array__item > :first-child {
+  flex: 1;
+}
+.mech-array__remove,
+.mech-button,
+.mech-array__add {
+  border: 1px solid var(--mech-border);
+  background: var(--mech-bg);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font: inherit;
+}
+.mech-array__add:hover,
+.mech-button:hover {
+  border-color: var(--mech-accent);
+  color: var(--mech-accent);
+}
+
+/* Tags / multiselect */
+.mech-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.mech-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--mech-accent-soft);
+  border-radius: 999px;
+  font-size: 12px;
+}
+.mech-tag button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--mech-muted);
+}
+
+/* Image */
+.mech-image__preview {
+  display: block;
+  max-width: 100%;
+  max-height: 120px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+.mech-image__controls {
+  display: flex;
+  gap: 8px;
+}
+
+/* Add-block disclosure */
+.mech-editor__palette summary {
+  cursor: pointer;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mech-muted);
+  margin-bottom: 8px;
+}

@@ -4,6 +4,7 @@ import { registerFieldSchemas, type State } from '@mechanica/shared'
 import { registerBuiltinFieldEditors } from './fields/builtin'
 import EditorApp from './EditorApp.vue'
 import type { EditorSnapshot } from './types'
+import './editor.css'
 
 /**
  * Dev-only editor entry. Injected into the page by the Vite plugin: it mounts
