@@ -79,6 +79,26 @@ describe('editor store', () => {
     )
     expect(store.dataValue('header')).toEqual({ logo: 'logo.svg' })
   })
+
+  it('owns its state independently of the passed-in window state', () => {
+    // Regression: the runtime mutates window.state.data in place via the bridge.
+    // If the store aliased it, a stale echo could overwrite a field being typed.
+    const initial = {
+      content: [{ id: 'a', blockId: 'hero', data: { title: 'x' } }],
+      data: { header: { logo: 'a.svg' } },
+    }
+    const store = createEditorStore(initial, components, dataEntries)
+
+    // Editing through the store must not leak back into the original state...
+    ;(store.dataValue('header') as Record<string, unknown>).logo = 'b.svg'
+    store.content[0]!.data.title = 'y'
+    expect(initial.data.header.logo).toBe('a.svg')
+    expect(initial.content[0]!.data.title).toBe('x')
+
+    // ...and a later external mutation of the original must not reach the store.
+    initial.data.header.logo = 'c.svg'
+    expect((store.data.header as Record<string, unknown>).logo).toBe('b.svg')
+  })
 })
 
 describe('compareDataEntries', () => {

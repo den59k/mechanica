@@ -49,8 +49,12 @@ export function createEditorStore(
   const blocksById = new Map(blocks.map((block) => [block.id, block]))
   const dataEntries = [...entries].sort(compareDataEntries)
 
-  const content = reactive<ContentBlock[]>((initial.content as ContentBlock[]) ?? [])
-  const data = reactive<Record<string, unknown>>((initial.data as Record<string, unknown>) ?? {})
+  // Clone the incoming state so the editor owns it outright. The runtime reads
+  // the same `window.state` and mutates its data in place (via the bridge's
+  // mergeData); sharing those references would let a stale async echo write back
+  // into a field being typed in, causing the value to flicker.
+  const content = reactive<ContentBlock[]>(clone(initial.content) ?? [])
+  const data = reactive<Record<string, unknown>>(clone(initial.data) ?? {})
   const ui = reactive({ selectedId: null as string | null, clipboard: null as ContentBlock | null })
 
   // Seed missing data values from their schema so the form always has an object to bind.
@@ -150,6 +154,11 @@ export function createEditorStore(
 }
 
 const emptySchema = { type: 'object', properties: {} }
+
+/** Deep-clone JSON-serializable editor state, preserving `undefined`/missing input. */
+function clone<T>(value: T): T {
+  return value == null ? value : JSON.parse(JSON.stringify(value))
+}
 
 /** Scope ordering for the data panel: broadest (site) first, page-specific last. */
 const SCOPE_ORDER: Record<string, number> = { site: 0, folder: 1, page: 2 }
