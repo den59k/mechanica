@@ -1,20 +1,16 @@
-:root {
-  --mech-bg: #ffffff;
-  --mech-fg: #1c1d21;
-  --mech-muted: #6b6f76;
-  --mech-border: #e6e7ea;
-  --mech-accent: #2f6bff;
-  --mech-accent-soft: #eef2ff;
-  --mech-radius: 8px;
-  --mech-panel-width: 300px;
-}
+@use './variables';
+
+// Shared editor chrome + design-system primitives. Component-specific styles
+// (page selector, data panel, palette, hierarchy) live in their own .vue files.
 
 #mechanica-editor {
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: var(--mech-font);
   font-size: 13px;
   color: var(--mech-fg);
+  -webkit-font-smoothing: antialiased;
 }
 
+// ── Side panels ────────────────────────────────────────────────────────────
 .mech-editor__panel {
   position: fixed;
   top: 0;
@@ -22,20 +18,23 @@
   width: var(--mech-panel-width);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px;
+  gap: 14px;
+  padding: 16px 14px;
   box-sizing: border-box;
   background: var(--mech-bg);
   z-index: 2147483000;
   overflow-y: auto;
-  box-shadow: 0 0 0 1px var(--mech-border);
+
+  &--left {
+    left: 0;
+    border-right: 1px solid var(--mech-border);
+  }
+  &--right {
+    right: 0;
+    border-left: 1px solid var(--mech-border);
+  }
 }
-.mech-editor__panel--left {
-  left: 0;
-}
-.mech-editor__panel--right {
-  right: 0;
-}
+
 .mech-editor__heading {
   display: flex;
   align-items: center;
@@ -43,9 +42,10 @@
   font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--mech-muted);
 }
+
 .mech-editor__history button {
   border: none;
   background: none;
@@ -53,167 +53,452 @@
   color: var(--mech-muted);
   font-size: 15px;
   line-height: 1;
-  padding: 0 4px;
-}
-.mech-editor__history button:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-.mech-editor__history button:not(:disabled):hover {
-  color: var(--mech-accent);
+  padding: 2px 5px;
+  border-radius: var(--mech-radius-sm);
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+  &:not(:disabled):hover {
+    color: var(--mech-fg);
+    background: var(--mech-hover);
+  }
 }
 
+// ── Collapse toggle ─────────────────────────────────────────────────────────
 .mech-editor__toggle {
   position: fixed;
-  top: 12px;
+  top: 14px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 2147483600;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--mech-radius);
   border: 1px solid var(--mech-border);
   background: var(--mech-bg);
   color: var(--mech-fg);
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
-}
-.mech-editor__toggle:hover {
-  border-color: var(--mech-accent);
-  color: var(--mech-accent);
+  box-shadow: var(--mech-shadow-pop);
+
+  &:hover {
+    background: var(--mech-hover);
+  }
 }
 
-.mech-tree__empty {
-  color: var(--mech-muted);
-  font-size: 12px;
-  margin: 4px 0 0;
-}
-
-/* Page selector */
-.mech-pages {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--mech-border);
-}
-.mech-pages__row {
-  display: flex;
-  gap: 6px;
-}
-.mech-pages__select {
-  flex: 1;
-  min-width: 0;
-}
-.mech-pages__add {
-  flex: none;
-  width: 34px;
-}
-.mech-pages__new {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.mech-pages__actions {
-  display: flex;
-  gap: 4px;
-}
-.mech-pages__action {
-  flex: 1;
-  padding: 4px 6px;
-  font-size: 12px;
-  color: var(--mech-muted);
-  background: transparent;
-  border: 1px solid var(--mech-border);
-  border-radius: var(--mech-radius);
-  cursor: pointer;
-}
-.mech-pages__action:hover {
-  color: var(--mech-fg);
-  border-color: var(--mech-muted);
-}
-.mech-pages__action--danger:hover {
-  color: #c0392b;
-  border-color: #c0392b;
-}
-.mech-pages__error {
-  color: #c0392b;
-  font-size: 12px;
-  margin: 0;
-}
-
-/* Right-panel tabs */
+// ── Tabs (segmented) ────────────────────────────────────────────────────────
 .mech-tabs {
   display: flex;
   gap: 2px;
-  border-bottom: 1px solid var(--mech-border);
-}
-.mech-tabs button {
-  border: none;
-  background: none;
-  padding: 8px 12px;
-  cursor: pointer;
-  color: var(--mech-muted);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  font: inherit;
-}
-.mech-tabs button.is-active {
-  color: var(--mech-fg);
-  border-bottom-color: var(--mech-accent);
+  padding: 3px;
+  background: var(--mech-active);
+  border-radius: var(--mech-radius);
+
+  button {
+    flex: 1;
+    border: none;
+    background: none;
+    padding: 6px 10px;
+    cursor: pointer;
+    color: var(--mech-muted);
+    font: inherit;
+    font-weight: 500;
+    font-size: 12.5px;
+    border-radius: var(--mech-radius-sm);
+    transition:
+      background 0.12s,
+      color 0.12s;
+
+    &:hover {
+      color: var(--mech-fg);
+    }
+    &.is-active {
+      color: var(--mech-fg);
+      background: var(--mech-bg);
+      box-shadow: 0 1px 2px rgba(20, 23, 28, 0.08);
+    }
+  }
 }
 
-/* Hierarchy row actions */
-.mech-tree__actions {
+// ── Settings panels ─────────────────────────────────────────────────────────
+.mech-settings__title {
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.mech-settings__empty,
+.mech-tree__empty {
+  color: var(--mech-muted);
+  font-size: 12.5px;
+  margin: 4px 0 0;
+}
+
+// ── Forms ───────────────────────────────────────────────────────────────────
+.mech-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mech-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.mech-field__label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--mech-fg-alt);
+}
+.mech-field__hint {
+  font-size: 11.5px;
+  color: var(--mech-muted);
+  margin: 0;
+}
+
+.mech-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 36px;
+  padding: 0 11px;
+  border: 1px solid var(--mech-input-border);
+  border-radius: var(--mech-radius-sm);
+  font: inherit;
+  font-size: 13px;
+  background: var(--mech-bg);
+  color: var(--mech-fg);
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s;
+
+  &::placeholder {
+    color: var(--mech-placeholder);
+  }
+  &:focus,
+  &:focus-within {
+    outline: none;
+    border-color: var(--mech-accent);
+    box-shadow: 0 0 0 3px var(--mech-ring);
+  }
+}
+textarea.mech-input,
+.mech-textarea {
+  height: auto;
+  padding: 9px 11px;
+  line-height: 1.45;
+  resize: vertical;
+  min-height: 64px;
+}
+select.mech-input {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7177' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+.mech-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.mech-color {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+
+  input[type='color'] {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid var(--mech-input-border);
+    border-radius: var(--mech-radius-sm);
+    background: none;
+    cursor: pointer;
+  }
+}
+
+// ── Buttons ─────────────────────────────────────────────────────────────────
+.mech-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 16px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--mech-fg);
+  background: var(--mech-bg);
+  border: 1px solid var(--mech-border-strong);
+  border-radius: var(--mech-radius-pill);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
+
+  &:hover {
+    background: var(--mech-hover);
+  }
+  &:active {
+    background: var(--mech-active);
+  }
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--mech-ring);
+  }
+  &:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  // Black primary button.
+  &.is-primary {
+    background: var(--mech-button);
+    border-color: var(--mech-button);
+    color: var(--mech-button-text);
+
+    &:hover {
+      background: var(--mech-button-hover);
+      border-color: var(--mech-button-hover);
+    }
+    &:active {
+      background: var(--mech-button-active);
+      border-color: var(--mech-button-active);
+    }
+  }
+  &.is-danger {
+    color: var(--mech-error);
+    border-color: color-mix(in srgb, var(--mech-error) 45%, var(--mech-border-strong));
+
+    &:hover {
+      background: rgba(221, 40, 40, 0.06);
+    }
+  }
+  &.is-block {
+    width: 100%;
+  }
+}
+
+// ── Nested object + array fields ────────────────────────────────────────────
+.mech-fieldset {
+  border: 1px solid var(--mech-border);
+  border-radius: var(--mech-radius);
+  padding: 12px;
+  margin: 0;
+
+  legend {
+    padding: 0 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--mech-muted);
+  }
+}
+.mech-array {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &__item {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 10px;
+    border: 1px solid var(--mech-border);
+    border-radius: var(--mech-radius);
+
+    > :first-child {
+      flex: 1;
+    }
+  }
+  &__remove {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border: none;
+    background: var(--mech-active);
+    color: var(--mech-muted);
+    border-radius: var(--mech-radius-sm);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+
+    &:hover {
+      background: var(--mech-hover);
+      color: var(--mech-error);
+    }
+  }
+  &__add {
+    align-self: flex-start;
+    height: 32px;
+    padding: 0 14px;
+    font: inherit;
+    font-weight: 500;
+    color: var(--mech-fg-alt);
+    background: none;
+    border: 1px dashed var(--mech-border-strong);
+    border-radius: var(--mech-radius-pill);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--mech-fg);
+      border-color: var(--mech-muted);
+      background: var(--mech-hover);
+    }
+  }
+}
+
+// ── Tags / multiselect ──────────────────────────────────────────────────────
+.mech-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.mech-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px 3px 10px;
+  background: var(--mech-active);
+  border-radius: var(--mech-radius-pill);
+  font-size: 12px;
+
+  button {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--mech-muted);
+
+    &:hover {
+      color: var(--mech-error);
+    }
+  }
+}
+
+// ── Image field ─────────────────────────────────────────────────────────────
+.mech-image {
+  &__preview {
+    display: block;
+    max-width: 100%;
+    max-height: 130px;
+    border-radius: var(--mech-radius-sm);
+    margin-bottom: 8px;
+  }
+  &__controls {
+    display: flex;
+    gap: 8px;
+  }
+}
+
+// ── Add-block disclosure ────────────────────────────────────────────────────
+.mech-editor__palette summary {
+  cursor: pointer;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mech-muted);
+  margin-bottom: 8px;
+}
+
+// Inset the page between the side panels while editing.
+body.mech-editing {
+  box-sizing: border-box;
+  padding-left: var(--mech-panel-width);
+  padding-right: var(--mech-panel-width);
+}
+
+// ── In-page hover / selection frames ────────────────────────────────────────
+.mech-frame {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  box-sizing: border-box;
+  z-index: 2147482000;
+  border-radius: 4px;
+  transition:
+    transform 0.06s linear,
+    width 0.06s linear,
+    height 0.06s linear;
+
+  &--hover {
+    border: 1px solid color-mix(in srgb, var(--mech-accent) 55%, transparent);
+    background: color-mix(in srgb, var(--mech-accent) 7%, transparent);
+  }
+  &--selected {
+    border: 2px solid var(--mech-accent);
+  }
+  &__label {
+    position: absolute;
+    top: -21px;
+    left: -2px;
+    background: var(--mech-accent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    padding: 4px 7px;
+    border-radius: 5px 5px 0 0;
+    white-space: nowrap;
+  }
+}
+
+// ── Floating block toolbar ──────────────────────────────────────────────────
+.mech-toolbar {
+  position: fixed;
+  transform: translateX(-100%);
   display: flex;
   gap: 2px;
-  opacity: 0;
-}
-.mech-tree__row:hover .mech-tree__actions,
-.mech-tree__row.is-selected .mech-tree__actions {
-  opacity: 1;
-}
-.mech-tree__actions button {
-  border: none;
-  background: none;
-  color: inherit;
-  cursor: pointer;
-  opacity: 0.6;
-  font-size: 12px;
-  line-height: 1;
-  padding: 0 3px;
-}
-.mech-tree__actions button:hover {
-  opacity: 1;
+  padding: 4px;
+  background: var(--mech-button);
+  border-radius: var(--mech-radius);
+  z-index: 2147482500;
+  box-shadow: var(--mech-shadow-pop);
+
+  button {
+    border: none;
+    background: transparent;
+    color: #fff;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--mech-radius-sm);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+  }
+  &__grip {
+    cursor: grab;
+  }
 }
 
-.mech-palette__search {
-  margin-bottom: 4px;
-}
-
-/* Drag and drop */
-.mech-palette__item,
-.mech-tree__row {
-  user-select: none;
-  touch-action: none;
-}
-.mech-toolbar__grip {
-  cursor: grab;
-}
+// ── Drag ghost + drop indicator ─────────────────────────────────────────────
 .mech-ghost {
   position: fixed;
   top: 0;
   left: 0;
   pointer-events: none;
   z-index: 2147483700;
-  padding: 5px 10px;
-  background: var(--mech-accent);
+  padding: 6px 12px;
+  background: var(--mech-button);
   color: #fff;
   font-size: 12px;
-  border-radius: 6px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  font-weight: 500;
+  border-radius: var(--mech-radius-sm);
+  box-shadow: var(--mech-shadow-pop);
   white-space: nowrap;
 }
 .mech-drop {
@@ -226,339 +511,14 @@
   border-radius: 2px;
   pointer-events: none;
   z-index: 2147482400;
-}
-/* Nesting drop: a filled outline around the container row instead of a line. */
-.mech-drop--inside {
-  height: auto;
-  margin-top: 0;
-  background: var(--mech-accent-soft);
-  border: 2px solid var(--mech-accent);
-  border-radius: var(--mech-radius);
-  box-sizing: border-box;
-}
 
-/* Palette */
-.mech-palette {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.mech-palette__group-title {
-  font-size: 11px;
-  color: var(--mech-muted);
-  margin-bottom: 4px;
-}
-.mech-palette__item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 8px 10px;
-  border: 1px solid var(--mech-border);
-  border-radius: var(--mech-radius);
-  background: var(--mech-bg);
-  cursor: pointer;
-  margin-bottom: 4px;
-}
-.mech-palette__item:hover {
-  border-color: var(--mech-accent);
-  background: var(--mech-accent-soft);
-}
-
-/* Hierarchy */
-.mech-tree {
-  list-style: none;
-  margin: 0;
-  padding: 0 0 0 10px;
-}
-.mech-editor__panel--left > .mech-tree {
-  padding-left: 0;
-}
-.mech-tree__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.mech-tree__row:hover {
-  background: var(--mech-accent-soft);
-}
-.mech-tree__row.is-selected {
-  background: var(--mech-accent);
-  color: #fff;
-}
-.mech-tree__remove {
-  border: none;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  opacity: 0.5;
-  font-size: 15px;
-  line-height: 1;
-}
-.mech-tree__remove:hover {
-  opacity: 1;
-}
-
-/* Settings + forms */
-.mech-settings__title {
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-.mech-settings__empty {
-  color: var(--mech-muted);
-}
-
-/* Data panel */
-.mech-data {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.mech-data__entry {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--mech-border);
-}
-.mech-data__entry:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-.mech-data__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.mech-data__title {
-  font-weight: 600;
-}
-.mech-data__scope {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--mech-muted);
-  background: var(--mech-accent-soft);
-  border-radius: var(--mech-radius);
-  padding: 2px 6px;
-}
-.mech-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.mech-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.mech-field__label {
-  font-size: 12px;
-  color: var(--mech-muted);
-}
-.mech-field__hint {
-  font-size: 11px;
-  color: var(--mech-muted);
-  margin: 0;
-}
-
-.mech-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 7px 9px;
-  border: 1px solid var(--mech-border);
-  border-radius: 6px;
-  font: inherit;
-  background: var(--mech-bg);
-  color: var(--mech-fg);
-}
-.mech-input:focus {
-  outline: none;
-  border-color: var(--mech-accent);
-}
-.mech-textarea {
-  resize: vertical;
-  min-height: 60px;
-}
-.mech-checkbox {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-}
-.mech-color {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.mech-color input[type='color'] {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--mech-border);
-  border-radius: 6px;
-  background: none;
-}
-
-/* Nested object + array */
-.mech-fieldset {
-  border: 1px solid var(--mech-border);
-  border-radius: var(--mech-radius);
-  padding: 10px;
-  margin: 0;
-}
-.mech-fieldset legend {
-  padding: 0 6px;
-  font-size: 12px;
-  color: var(--mech-muted);
-}
-.mech-array {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.mech-array__item {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  padding: 8px;
-  border: 1px solid var(--mech-border);
-  border-radius: var(--mech-radius);
-}
-.mech-array__item > :first-child {
-  flex: 1;
-}
-.mech-array__remove,
-.mech-button,
-.mech-array__add {
-  border: 1px solid var(--mech-border);
-  background: var(--mech-bg);
-  border-radius: 6px;
-  padding: 6px 10px;
-  cursor: pointer;
-  font: inherit;
-}
-.mech-array__add:hover,
-.mech-button:hover {
-  border-color: var(--mech-accent);
-  color: var(--mech-accent);
-}
-
-/* Tags / multiselect */
-.mech-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-.mech-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  background: var(--mech-accent-soft);
-  border-radius: 999px;
-  font-size: 12px;
-}
-.mech-tag button {
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 13px;
-  line-height: 1;
-  color: var(--mech-muted);
-}
-
-/* Image */
-.mech-image__preview {
-  display: block;
-  max-width: 100%;
-  max-height: 120px;
-  border-radius: 6px;
-  margin-bottom: 8px;
-}
-.mech-image__controls {
-  display: flex;
-  gap: 8px;
-}
-
-/* Add-block disclosure */
-.mech-editor__palette summary {
-  cursor: pointer;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--mech-muted);
-  margin-bottom: 8px;
-}
-
-/* Inset the page between the side panels while editing. */
-body.mech-editing {
-  box-sizing: border-box;
-  padding-left: var(--mech-panel-width);
-  padding-right: var(--mech-panel-width);
-}
-
-/* In-page hover / selection frames */
-.mech-frame {
-  position: fixed;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  box-sizing: border-box;
-  z-index: 2147482000;
-  border-radius: 3px;
-  transition:
-    transform 0.06s linear,
-    width 0.06s linear,
-    height 0.06s linear;
-}
-.mech-frame--hover {
-  border: 1px solid rgba(47, 107, 255, 0.55);
-  background: rgba(47, 107, 255, 0.07);
-}
-.mech-frame--selected {
-  border: 2px solid var(--mech-accent);
-}
-.mech-frame__label {
-  position: absolute;
-  top: -20px;
-  left: -2px;
-  background: var(--mech-accent);
-  color: #fff;
-  font-size: 11px;
-  line-height: 1;
-  padding: 4px 6px;
-  border-radius: 4px 4px 0 0;
-  white-space: nowrap;
-}
-
-/* Floating block toolbar (on the selected block) */
-.mech-toolbar {
-  position: fixed;
-  transform: translateX(-100%);
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  background: var(--mech-fg);
-  border-radius: 7px;
-  z-index: 2147482500;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
-}
-.mech-toolbar button {
-  border: none;
-  background: transparent;
-  color: #fff;
-  width: 26px;
-  height: 26px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 13px;
-  line-height: 1;
-}
-.mech-toolbar button:hover {
-  background: rgba(255, 255, 255, 0.16);
+  // Nesting drop: a filled outline around the container instead of a line.
+  &--inside {
+    height: auto;
+    margin-top: 0;
+    background: color-mix(in srgb, var(--mech-accent) 8%, transparent);
+    border: 2px solid var(--mech-accent);
+    border-radius: var(--mech-radius);
+    box-sizing: border-box;
+  }
 }

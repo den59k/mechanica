@@ -27,7 +27,7 @@
     <form v-if="mode" class="mech-pages__new" @submit.prevent="submit">
       <input v-model="formName" class="mech-input" placeholder="Page name" />
       <input v-if="mode !== 'rename'" v-model="formPath" class="mech-input" placeholder="/path" />
-      <button type="submit" class="mech-button">{{ submitLabel }}</button>
+      <button type="submit" class="mech-button is-primary is-block">{{ submitLabel }}</button>
       <p v-if="error" class="mech-pages__error">{{ error }}</p>
     </form>
   </div>
@@ -142,3 +142,69 @@ async function remove() {
   navigate(next?.path ?? '/')
 }
 </script>
+
+<style lang="scss" scoped>
+.mech-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--mech-border);
+}
+.mech-pages__row {
+  display: flex;
+  gap: 6px;
+}
+.mech-pages__select {
+  flex: 1;
+  min-width: 0;
+}
+.mech-pages__add {
+  flex: none;
+  width: 36px;
+  padding: 0;
+  font-size: 17px;
+}
+.mech-pages__actions {
+  display: flex;
+  gap: 6px;
+}
+.mech-pages__action {
+  flex: 1;
+  height: 28px;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mech-muted);
+  background: none;
+  border: 1px solid var(--mech-border);
+  border-radius: var(--mech-radius-sm);
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    border-color 0.12s;
+
+  &:hover {
+    color: var(--mech-fg);
+    background: var(--mech-hover);
+    border-color: var(--mech-border-strong);
+  }
+  &--danger:hover {
+    color: var(--mech-error);
+    border-color: color-mix(in srgb, var(--mech-error) 45%, var(--mech-border));
+    background: rgba(221, 40, 40, 0.05);
+  }
+}
+.mech-pages__new {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mech-pages__error {
+  color: var(--mech-error);
+  font-size: 12px;
+  margin: 0;
+}
+</style>

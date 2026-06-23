@@ -46,3 +46,72 @@ const childrenOf = (block: ContentBlock): ContentBlock[] => {
   return Array.isArray(block.children) ? block.children : Object.values(block.children).flat()
 }
 </script>
+
+<style lang="scss" scoped>
+.mech-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  // Nested trees (child component roots inherit this scope) get indented.
+  .mech-tree {
+    padding-left: 12px;
+    border-left: 1px solid var(--mech-border);
+    margin-left: 7px;
+  }
+}
+.mech-tree__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: var(--mech-radius-sm);
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+
+  &:hover {
+    background: var(--mech-hover);
+  }
+  &.is-selected {
+    background: var(--mech-button);
+    color: var(--mech-button-text);
+  }
+}
+.mech-tree__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+.mech-tree__actions {
+  display: flex;
+  gap: 1px;
+  flex: none;
+  opacity: 0;
+
+  .mech-tree__row:hover &,
+  .mech-tree__row.is-selected & {
+    opacity: 1;
+  }
+
+  button {
+    border: none;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.7;
+    font-size: 13px;
+    line-height: 1;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+
+    &:hover {
+      opacity: 1;
+      background: rgba(127, 127, 127, 0.2);
+    }
+  }
+}
+</style>

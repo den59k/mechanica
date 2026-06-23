@@ -1,0 +1,49 @@
+// Design tokens for the editor, exposed as CSS custom properties so both the
+// global stylesheet and component-scoped styles can consume them via var(--mech-*).
+// Light theme only (a dark theme can be layered on later by overriding these).
+:root {
+  // Surfaces
+  --mech-app-bg: #fafafa;
+  --mech-bg: #ffffff; // panels / dialogs / "paper"
+  --mech-hover: rgba(0, 0, 0, 0.045);
+  --mech-active: #eef0f4;
+
+  // Text
+  --mech-fg: #171717;
+  --mech-fg-alt: #494949;
+  --mech-muted: #6b7177;
+  --mech-placeholder: #afafaf;
+
+  // Borders
+  --mech-border: #e4e6ef;
+  --mech-border-strong: #d9dbe9;
+  --mech-input-border: #d2d5dd;
+
+  // Accent — focus rings and selection only (not buttons)
+  --mech-accent: #0073e9;
+  --mech-accent-soft: #eaf3fe;
+  --mech-ring: rgba(0, 115, 233, 0.28);
+
+  // Buttons — black primary
+  --mech-button: #171717;
+  --mech-button-hover: #363636;
+  --mech-button-active: #000000;
+  --mech-button-text: #ffffff;
+
+  // Feedback
+  --mech-error: #dd2828;
+
+  // Shape
+  --mech-radius: 9px;
+  --mech-radius-sm: 7px;
+  --mech-radius-pill: 9999px;
+
+  // Elevation
+  --mech-shadow-panel: 0 0 0 1px var(--mech-border);
+  --mech-shadow-pop: 0 6px 24px rgba(20, 23, 28, 0.12), 0 1px 3px rgba(20, 23, 28, 0.08);
+  --mech-shadow-dialog: 0 24px 64px rgba(15, 18, 22, 0.24);
+
+  // Layout / type
+  --mech-panel-width: 300px;
+  --mech-font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
