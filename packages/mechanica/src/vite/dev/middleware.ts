@@ -53,7 +53,14 @@ export function createDevMiddleware(mechDir: string): Connect.NextHandleFunction
 
       if (pathname === '/upload' && req.method === 'POST') {
         const body = await readBody(req)
-        const name = (req.headers['x-file-name'] as string) ?? 'file'
+        const header = (req.headers['x-file-name'] as string) ?? 'file'
+        // The client percent-encodes the name so spaces/unicode survive the header.
+        let name = header
+        try {
+          name = decodeURIComponent(header)
+        } catch {
+          /* malformed encoding — keep the raw header value */
+        }
         return json(await saveUpload(mechDir, name, body))
       }
 

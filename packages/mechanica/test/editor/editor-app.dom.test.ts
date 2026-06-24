@@ -75,6 +75,53 @@ describe('EditorApp', () => {
     app.unmount()
   })
 
+  it('wires image fields to the upload + library pickers', async () => {
+    const el = document.createElement('div')
+    const app = createApp(EditorApp, {
+      state: { content: [], data: {} },
+      components: [
+        {
+          blockId: 'banner',
+          __name: 'Banner',
+          blockSchema: {
+            name: 'Banner',
+            category: 'Media',
+            props: {
+              image: { type: 'object', format: 'image', properties: { src: 'string', previewSrc: 'string?' } },
+            },
+          },
+        },
+      ],
+      uploadFile: async (file: File) => ({ src: `/up/${file.name}` }),
+      listImages: async () => [{ id: 'a', name: 'a.png', src: '/a.png' }],
+    })
+    app.mount(el)
+
+    // Tap the Banner palette item → adds + selects it → the settings panel opens.
+    const item = el.querySelector('.mech-palette__item')!
+    const down = new Event('pointerdown', { bubbles: true })
+    Object.assign(down, { clientX: 0, clientY: 0 })
+    item.dispatchEvent(down)
+    const up = new Event('pointerup')
+    Object.assign(up, { clientX: 0, clientY: 0 })
+    window.dispatchEvent(up)
+    await nextTick()
+
+    // The empty image field shows a drop zone instead of a URL input.
+    const dropzone = el.querySelector('.mech-image__dropzone') as HTMLButtonElement
+    expect(dropzone).toBeTruthy()
+
+    // Opening it surfaces the picker (teleported to <body>) listing project images,
+    // proving both uploadFile + listImages flow through EditorApp's provides.
+    dropzone.click()
+    await nextTick()
+    await new Promise((resolve) => setTimeout(resolve))
+    await nextTick()
+    expect(document.querySelector('.mech-image-picker__item')).toBeTruthy()
+
+    app.unmount()
+  })
+
   it('hides the data launcher when no entries are declared', () => {
     const el = document.createElement('div')
     const app = createApp(EditorApp, { state: { content: [], data: {} }, components })

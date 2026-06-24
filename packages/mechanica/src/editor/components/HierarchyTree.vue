@@ -12,17 +12,6 @@
         "
       >
         <span class="mech-tree__label">{{ labelOf(block) }}</span>
-        <span class="mech-tree__actions">
-          <button type="button" title="Move up" @pointerdown.stop @click.stop="store.move(block.id, -1)">
-            <VIcon name="arrow-up" />
-          </button>
-          <button type="button" title="Move down" @pointerdown.stop @click.stop="store.move(block.id, 1)">
-            <VIcon name="arrow-down" />
-          </button>
-          <button type="button" title="Delete" @pointerdown.stop @click.stop="store.remove(block.id)">
-            <VIcon name="trash" />
-          </button>
-        </span>
       </div>
       <HierarchyTree v-if="childrenOf(block).length" :blocks="childrenOf(block)" />
     </li>
@@ -34,7 +23,6 @@ import { inject } from 'vue'
 import type { ContentBlock } from '@mechanica/shared'
 import { editorStoreKey } from '../lib/store'
 import { dragKey } from '../lib/drag-controller'
-import VIcon from './VIcon.vue'
 
 const props = defineProps<{ blocks?: ContentBlock[] }>()
 const store = inject(editorStoreKey)!
@@ -64,7 +52,6 @@ const childrenOf = (block: ContentBlock): ContentBlock[] => {
 .mech-tree__row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 6px;
   padding: 6px 8px;
   border-radius: var(--mech-radius-sm);
@@ -75,9 +62,11 @@ const childrenOf = (block: ContentBlock): ContentBlock[] => {
   &:hover {
     background: var(--mech-hover);
   }
+  // Selection speaks one language across the editor: the accent blue, matching
+  // the in-page selection frame (reserve solid black for primary actions).
   &.is-selected {
-    background: var(--mech-button);
-    color: var(--mech-button-text);
+    background: var(--mech-accent-soft);
+    color: var(--mech-accent);
   }
 }
 .mech-tree__label {
@@ -85,40 +74,5 @@ const childrenOf = (block: ContentBlock): ContentBlock[] => {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12.5px;
-}
-.mech-tree__actions {
-  display: flex;
-  gap: 1px;
-  flex: none;
-  opacity: 0;
-
-  .mech-tree__row:hover &,
-  .mech-tree__row.is-selected & {
-    opacity: 1;
-  }
-
-  button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    background: none;
-    color: inherit;
-    cursor: pointer;
-    opacity: 0.7;
-    line-height: 1;
-    width: 22px;
-    height: 22px;
-    border-radius: 4px;
-
-    .vicon {
-      width: 13px;
-      height: 13px;
-    }
-    &:hover {
-      opacity: 1;
-      background: rgba(127, 127, 127, 0.2);
-    }
-  }
 }
 </style>

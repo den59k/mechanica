@@ -26,15 +26,17 @@ function mountField(schema: Record<string, unknown>, initial: unknown, provide: 
 }
 
 describe('formatted field editors', () => {
-  it('image: edits the src and exposes upload when an uploader is provided', () => {
+  it('image: an empty field drops a file onto its zone and uploads it', async () => {
     const { el, state } = mountField({ type: 'object', format: 'image' }, { src: '' }, {
-      mechFileUploader: async () => ({ src: '/up.png' }),
+      mechFileUploader: async (file: File) => ({ src: `/up/${file.name}` }),
     })
-    const input = el.querySelector('input[type="text"]')! as HTMLInputElement
-    input.value = '/a.png'
-    input.dispatchEvent(new Event('input'))
-    expect(state.value).toEqual({ src: '/a.png' })
-    expect([...el.querySelectorAll('button')].some((b) => b.textContent?.includes('Upload'))).toBe(true)
+    const dropzone = el.querySelector('.mech-image__dropzone')!
+    expect(dropzone).toBeTruthy() // no URL input — a drop zone instead
+    const drop = new Event('drop', { bubbles: true })
+    Object.assign(drop, { dataTransfer: { files: [new File(['x'], 'pic.png', { type: 'image/png' })] } })
+    dropzone.dispatchEvent(drop)
+    await new Promise((resolve) => setTimeout(resolve)) // let the uploader resolve
+    expect(state.value).toEqual({ src: '/up/pic.png', previewSrc: '/up/pic.png' })
   })
 
   it('smartLink: patches individual fields', () => {

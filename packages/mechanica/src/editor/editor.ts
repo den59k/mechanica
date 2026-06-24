@@ -36,6 +36,25 @@ const save = debounce((snapshot: EditorSnapshot) => {
   })
 }, 500)
 
+/** Upload a picked file to the dev server, returning its public src. */
+const uploadFile = async (file: File): Promise<{ src: string }> => {
+  const response = await fetch('/@mechanica/upload', {
+    method: 'POST',
+    headers: { 'x-file-name': encodeURIComponent(file.name) },
+    body: file,
+  })
+  if (!response.ok) throw new Error(`Upload failed (${response.status})`)
+  const { src } = (await response.json()) as { src: string }
+  return { src }
+}
+
+/** List images already uploaded under the project's `.mech/assets`. */
+const listImages = async (): Promise<{ id: string; name: string; src: string }[]> => {
+  const response = await fetch('/@mechanica/images')
+  if (!response.ok) return []
+  return (await response.json()) as { id: string; name: string; src: string }[]
+}
+
 const mountPoint = document.createElement('div')
 mountPoint.id = 'mechanica-editor'
 document.body.appendChild(mountPoint)
@@ -45,5 +64,7 @@ createApp(EditorApp, {
   state,
   components: blocksList as never,
   dataEntries,
+  uploadFile,
+  listImages,
   onChange: save,
 }).mount(mountPoint)

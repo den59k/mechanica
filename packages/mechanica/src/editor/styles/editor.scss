@@ -33,6 +33,59 @@
     right: 0;
     border-left: 1px solid var(--mech-border);
   }
+  // Block-settings panel: overlays the right palette (same right edge), wider,
+  // lifted off the page so it reads as a focused editing surface.
+  &--settings {
+    right: 0;
+    width: var(--mech-settings-width);
+    z-index: 2147483050; // above the palette it covers, below the collapse toggle
+    border-left: 1px solid var(--mech-border);
+    box-shadow: -10px 0 30px rgba(20, 23, 28, 0.05);
+  }
+}
+
+// ── Panel open/close animations ──────────────────────────────────────────────
+// Each side panel slides in from its own edge; the settings panel slides in over
+// the palette. Pure transforms — selecting a block never reflows the page.
+.mech-slide-left-enter-active,
+.mech-slide-left-leave-active,
+.mech-slide-right-enter-active,
+.mech-slide-right-leave-active {
+  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+.mech-slide-left-enter-from,
+.mech-slide-left-leave-to {
+  transform: translateX(-100%);
+}
+.mech-slide-right-enter-from,
+.mech-slide-right-leave-to {
+  transform: translateX(100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mech-slide-left-enter-active,
+  .mech-slide-left-leave-active,
+  .mech-slide-right-enter-active,
+  .mech-slide-right-leave-active {
+    transition: none;
+  }
+}
+
+// ── Block-settings panel header (title + close) ──────────────────────────────
+.mech-editor__settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mech-editor__settings-title {
+  flex: 1;
+  font-weight: 600;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mech-editor__heading {
@@ -51,28 +104,9 @@
   margin-top: auto;
 }
 
-.mech-editor__history button {
+.mech-editor__history {
   display: inline-flex;
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: var(--mech-muted);
-  line-height: 1;
-  padding: 4px;
-  border-radius: var(--mech-radius-sm);
-
-  .vicon {
-    width: 16px;
-    height: 16px;
-  }
-  &:disabled {
-    opacity: 0.3;
-    cursor: default;
-  }
-  &:not(:disabled):hover {
-    color: var(--mech-fg);
-    background: var(--mech-hover);
-  }
+  gap: 2px;
 }
 
 // ── Collapse toggle ─────────────────────────────────────────────────────────
@@ -103,45 +137,7 @@
   }
 }
 
-// ── Tabs (segmented) ────────────────────────────────────────────────────────
-.mech-tabs {
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  background: var(--mech-active);
-  border-radius: var(--mech-radius);
-
-  button {
-    flex: 1;
-    border: none;
-    background: none;
-    padding: 6px 10px;
-    cursor: pointer;
-    color: var(--mech-muted);
-    font: inherit;
-    font-weight: 500;
-    font-size: 12.5px;
-    border-radius: var(--mech-radius-sm);
-    transition:
-      background 0.12s,
-      color 0.12s;
-
-    &:hover {
-      color: var(--mech-fg);
-    }
-    &.is-active {
-      color: var(--mech-fg);
-      background: var(--mech-bg);
-      box-shadow: 0 1px 2px rgba(20, 23, 28, 0.08);
-    }
-  }
-}
-
 // ── Settings panels ─────────────────────────────────────────────────────────
-.mech-settings__title {
-  font-weight: 600;
-  margin-bottom: 10px;
-}
 .mech-settings__empty,
 .mech-tree__empty {
   color: var(--mech-muted);
@@ -237,6 +233,45 @@ select.mech-input {
 }
 
 // ── Buttons ─────────────────────────────────────────────────────────────────
+// Neutral icon button — the single shared style for every icon-only control
+// (panel history, settings close, the block toolbar). Size via the 28px box;
+// add `.is-danger` for destructive actions.
+.mech-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  border-radius: var(--mech-radius-sm);
+  color: var(--mech-muted);
+  cursor: pointer;
+  line-height: 1;
+  transition:
+    background 0.12s,
+    color 0.12s;
+
+  .vicon {
+    width: 16px;
+    height: 16px;
+  }
+  &:hover {
+    background: var(--mech-hover);
+    color: var(--mech-fg);
+  }
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+    pointer-events: none;
+  }
+  &.is-danger:hover {
+    color: var(--mech-error);
+    background: rgba(221, 40, 40, 0.08);
+  }
+}
+
 .mech-button {
   display: inline-flex;
   align-items: center;
@@ -411,21 +446,6 @@ select.mech-input {
   }
 }
 
-// ── Image field ─────────────────────────────────────────────────────────────
-.mech-image {
-  &__preview {
-    display: block;
-    max-width: 100%;
-    max-height: 130px;
-    border-radius: var(--mech-radius-sm);
-    margin-bottom: 8px;
-  }
-  &__controls {
-    display: flex;
-    gap: 8px;
-  }
-}
-
 // ── Add-block disclosure ────────────────────────────────────────────────────
 .mech-editor__palette summary {
   cursor: pointer;
@@ -436,12 +456,8 @@ select.mech-input {
   margin-bottom: 8px;
 }
 
-// Inset the page between the side panels while editing.
-body.mech-editing {
-  box-sizing: border-box;
-  padding-left: var(--mech-panel-width);
-  padding-right: var(--mech-panel-width);
-}
+// The side panels are fixed and opaque, so they overlay the page's edges rather
+// than insetting it — the page never moves when the editor opens or closes.
 
 // ── In-page hover / selection frames ────────────────────────────────────────
 .mech-frame {
@@ -480,40 +496,23 @@ body.mech-editing {
 }
 
 // ── Floating block toolbar ──────────────────────────────────────────────────
+// The single home for block commands (move / duplicate / delete + drag grip).
+// A light elevated popover — black is reserved for primary actions, not chrome.
 .mech-toolbar {
   position: fixed;
   transform: translateX(-100%);
   display: flex;
-  gap: 2px;
-  padding: 4px;
-  background: var(--mech-button);
+  gap: 1px;
+  padding: 3px;
+  background: var(--mech-bg);
+  border: 1px solid var(--mech-border);
   border-radius: var(--mech-radius);
   z-index: 2147482500;
   box-shadow: var(--mech-shadow-pop);
 
-  button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    background: transparent;
-    color: #fff;
-    width: 28px;
-    height: 28px;
-    border-radius: var(--mech-radius-sm);
-    cursor: pointer;
-    line-height: 1;
-
-    .vicon {
-      width: 16px;
-      height: 16px;
-    }
-    &:hover {
-      background: rgba(255, 255, 255, 0.18);
-    }
-  }
   &__grip {
     cursor: grab;
+    color: var(--mech-fg-alt);
   }
 }
 

@@ -14,15 +14,14 @@ export interface FieldType {
   default?: unknown | (() => unknown)
 }
 
-const placeholderImage =
-  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgZmlsbD0ibm9uZSI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjRjJGMkYyIiByeD0iOCIvPjxwYXRoIGZpbGw9IiM2RDZENkQiIGQ9Ik00MS42IDE5LjZIMjIuNEE0LjQgNC40IDAgMCAwIDE4IDI0djE2YTQuNCA0LjQgMCAwIDAgNC40IDQuNGgxOS4yQTQuNCA0LjQgMCAwIDAgNDYgNDBWMjRhNC40IDQuNCAwIDAgMC00LjQtNC40TTIyLjQgMjJoMTkuMmEyIDIgMCAwIDEgMiAydjEzLjEwNGwtNC4zNTItNC4zNTJhMS4xMiAxLjEyIDAgMCAwLS44OTYtLjM1MiAxLjI4IDEuMjggMCAwIDAtLjg4LjQzMmwtMi4wNjQgMi40OC03LjM2LTcuMzZhMS4xMiAxLjEyIDAgMCAwLS44NDgtLjM1MiAxLjI4IDEuMjggMCAwIDAtLjg4LjQzMmwtNS45MiA3LjA1NlYyNGEyIDIgMCAwIDEgMi0ybS0yIDE4di0xLjE2OGw2Ljg4LTguMjU2IDYuNTkyIDYuNTkyLTQuMDMyIDQuOEgyMi40YTIgMiAwIDAgMS0yLTEuOTY4bTIxLjIgMmgtOC42NGw1LjUyLTYuNjI0IDUuMDQgNS4wNEExLjk3IDEuOTcgMCAwIDEgNDEuNiA0MiIvPjwvc3ZnPg=='
-
 /** The field types registered by default. */
 export const builtinFields: FieldType[] = [
   {
     name: 'image',
     schema: { type: 'object', format: 'image', properties: { src: 'string', previewSrc: 'string?' } } as SchemaItem,
-    default: () => ({ src: placeholderImage, previewSrc: placeholderImage }),
+    // Start empty so the editor shows its upload/pick affordance rather than a
+    // placeholder image (and pages render nothing until an image is chosen).
+    default: () => ({ src: '' }),
   },
   {
     name: 'file',

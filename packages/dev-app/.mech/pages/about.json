@@ -1,11 +1,16 @@
 {
   "name": "About",
-  "meta": { "title": "About" },
+  "meta": {
+    "title": "About"
+  },
   "content": [
     {
       "id": "b3",
       "blockId": "hero",
-      "data": { "title": "About this project", "subtitle": "The v2 rewrite of Mechanica" }
+      "data": {
+        "title": "About this project",
+        "subtitle": "The v2 rewrite of Mechanica"
+      }
     }
   ],
   "data": {}

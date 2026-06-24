@@ -61,7 +61,7 @@ describe('editor sidebar', () => {
     const store = createEditorStore({ content: [], data: {} }, components)
     store.addBlock('hero')
     const el = mount(BlockSettings, store)
-    expect(el.textContent).toContain('Hero')
+    expect(el.textContent).toContain('Title') // humanized field label
     const input = el.querySelector('input')!
     input.value = 'New heading'
     input.dispatchEvent(new Event('input'))

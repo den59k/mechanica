@@ -16,20 +16,20 @@
       <div
         v-if="selected"
         class="mech-toolbar"
-        :style="{ left: `${selected.left + selected.width}px`, top: `${toolbarTop}px` }"
+        :style="{ left: `${toolbarLeft}px`, top: `${toolbarTop}px` }"
       >
         <button
           type="button"
-          class="mech-toolbar__grip"
+          class="mech-icon-button mech-toolbar__grip"
           title="Drag to move"
           @pointerdown="drag.begin({ kind: 'move', id: selected.id, label: selectedName ?? '' }, $event)"
         >
           <VIcon name="grip" />
         </button>
-        <button type="button" title="Move up" @click="store.move(selected.id, -1)"><VIcon name="arrow-up" /></button>
-        <button type="button" title="Move down" @click="store.move(selected.id, 1)"><VIcon name="arrow-down" /></button>
-        <button type="button" title="Duplicate" @click="store.duplicate(selected.id)"><VIcon name="copy" /></button>
-        <button type="button" title="Delete" @click="store.remove(selected.id)"><VIcon name="trash" /></button>
+        <button type="button" class="mech-icon-button" title="Move up" @click="store.move(selected.id, -1)"><VIcon name="arrow-up" /></button>
+        <button type="button" class="mech-icon-button" title="Move down" @click="store.move(selected.id, 1)"><VIcon name="arrow-down" /></button>
+        <button type="button" class="mech-icon-button" title="Duplicate" @click="store.duplicate(selected.id)"><VIcon name="copy" /></button>
+        <button type="button" class="mech-icon-button is-danger" title="Delete" @click="store.remove(selected.id)"><VIcon name="trash" /></button>
       </div>
 
       <div
@@ -49,14 +49,16 @@
       >
         {{ drag.payload.label }}
       </div>
+    </template>
 
-      <aside class="mech-editor__panel mech-editor__panel--left">
+    <Transition name="mech-slide-left">
+      <aside v-if="!collapsed" class="mech-editor__panel mech-editor__panel--left">
         <PageBar />
         <div class="mech-editor__heading">
           <span>Page</span>
           <span class="mech-editor__history">
-            <button type="button" :disabled="!canUndo" title="Undo (Ctrl+Z)" @click="history.undo()"><VIcon name="undo" /></button>
-            <button type="button" :disabled="!canRedo" title="Redo (Ctrl+Shift+Z)" @click="history.redo()"><VIcon name="redo" /></button>
+            <button type="button" class="mech-icon-button" :disabled="!canUndo" title="Undo (Ctrl+Z)" @click="history.undo()"><VIcon name="undo" /></button>
+            <button type="button" class="mech-icon-button" :disabled="!canRedo" title="Redo (Ctrl+Shift+Z)" @click="history.redo()"><VIcon name="redo" /></button>
           </span>
         </div>
         <HierarchyTree v-if="store.content.length" />
@@ -71,27 +73,41 @@
           Edit page data
         </button>
       </aside>
+    </Transition>
 
-      <aside class="mech-editor__panel mech-editor__panel--right">
-        <div class="mech-tabs">
-          <button type="button" :class="{ 'is-active': tab === 'settings' }" @click="tab = 'settings'">
-            Settings
-          </button>
-          <button type="button" :class="{ 'is-active': tab === 'blocks' }" @click="tab = 'blocks'">
-            Blocks
+    <Transition name="mech-slide-right">
+      <aside v-if="!collapsed" class="mech-editor__panel mech-editor__panel--right">
+        <div class="mech-editor__heading"><span>Blocks</span></div>
+        <BlockPalette />
+      </aside>
+    </Transition>
+
+    <Transition name="mech-slide-right">
+      <aside
+        v-if="!collapsed && store.selected"
+        class="mech-editor__panel mech-editor__panel--settings"
+      >
+        <div class="mech-editor__settings-head">
+          <span class="mech-editor__settings-title">{{ selectedName }}</span>
+          <button
+            type="button"
+            class="mech-icon-button"
+            title="Close"
+            @click="store.select(null)"
+          >
+            <VIcon name="close" />
           </button>
         </div>
-        <BlockSettings v-show="tab === 'settings'" />
-        <BlockPalette v-show="tab === 'blocks'" />
+        <BlockSettings />
       </aside>
-    </template>
+    </Transition>
 
     <VDialogHost />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, provide, ref, watch, watchEffect, onScopeDispose } from 'vue'
+import { computed, provide, ref, watch, onScopeDispose } from 'vue'
 import type { DataEntry, State } from '@mechanica/shared'
 import { createEditorStore, editorStoreKey } from './lib/store'
 import { createDragController, dragKey } from './lib/drag-controller'
@@ -115,11 +131,20 @@ const props = defineProps<{
   state: State
   components: BlockComponent[]
   dataEntries?: DataEntry[]
+  /** Persist a picked file and return its public src; enables image-field uploads. */
+  uploadFile?: (file: File) => Promise<{ src: string; previewSrc?: string }>
+  /** List images already uploaded to the project, for the reuse-an-image picker. */
+  listImages?: () => Promise<{ id: string; name: string; src: string }[]>
   onChange?: (snapshot: EditorSnapshot) => void
 }>()
 
 const store = createEditorStore(props.state, props.components, props.dataEntries)
 provide(editorStoreKey, store)
+
+// Image fields look these up: the uploader powers new uploads, the library lets
+// the picker reuse files already in the project. Null disables each feature.
+provide('mechFileUploader', props.uploadFile ?? null)
+provide('mechImageLibrary', props.listImages ?? null)
 
 const drag = createDragController(store)
 provide(dragKey, drag)
@@ -164,16 +189,7 @@ onScopeDispose(() => {
 })
 
 const collapsed = ref(false)
-const tab = ref<'settings' | 'blocks'>('blocks')
 const { hovered, selected } = useBlockFrames(store)
-
-// Show the settings tab automatically when a block is selected.
-watch(
-  () => store.selectedId,
-  (id) => {
-    if (id) tab.value = 'settings'
-  },
-)
 
 const selectedName = computed(() =>
   store.selected ? store.blocksById.get(store.selected.blockId)?.name : '',
@@ -183,10 +199,13 @@ const toolbarTop = computed(() => {
   if (!selected.value) return 0
   return selected.value.top > 36 ? selected.value.top - 32 : selected.value.top + 4
 })
-
-// Inset the page between the panels only while the editor is open.
-watchEffect(() => document.body.classList.toggle('mech-editing', !collapsed.value))
-onScopeDispose(() => document.body.classList.remove('mech-editing'))
+// Anchor the toolbar at the block's right edge, but keep it clear of the panel
+// that overlays the page on the right — the settings panel (--mech-settings-width,
+// 380px) is open whenever a block is selected.
+const toolbarLeft = computed(() => {
+  if (!selected.value) return 0
+  return Math.min(selected.value.left + selected.value.width, window.innerWidth - 380)
+})
 
 // On any edit: push a live preview to the page runtime and report the snapshot.
 watch(

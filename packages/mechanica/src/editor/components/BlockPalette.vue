@@ -78,27 +78,27 @@ const groups = computed(() => {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 9px 11px;
-  border: 1px solid var(--mech-border);
-  border-radius: var(--mech-radius);
-  background: var(--mech-bg);
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--mech-radius-sm);
+  background: none;
   color: var(--mech-fg);
   font: inherit;
   font-size: 13px;
   font-weight: 500;
   cursor: grab;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
   user-select: none;
   touch-action: none;
   transition:
     background 0.12s,
-    border-color 0.12s,
-    box-shadow 0.12s;
+    border-color 0.12s;
 
+  // Light by default so a long list reads as a calm menu; the drag ghost is the
+  // "lifted" representation, so items themselves don't need a hover shadow.
   &:hover {
-    border-color: var(--mech-border-strong);
     background: var(--mech-hover);
-    box-shadow: var(--mech-shadow-pop);
+    border-color: var(--mech-border);
   }
 }
 </style>
