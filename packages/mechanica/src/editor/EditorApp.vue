@@ -53,7 +53,18 @@
 
     <Transition name="mech-slide-left">
       <aside v-if="!collapsed" class="mech-editor__panel mech-editor__panel--left">
-        <PageBar />
+        <div class="mech-editor__pagerow">
+          <PageBar />
+          <button
+            v-if="store.dataEntries.length"
+            type="button"
+            class="mech-editor__data"
+            title="Edit page data"
+            @click="openData"
+          >
+            <VIcon name="sliders" />
+          </button>
+        </div>
         <div class="mech-editor__heading">
           <span>Page</span>
           <span class="mech-editor__history">
@@ -63,15 +74,6 @@
         </div>
         <HierarchyTree v-if="store.content.length" />
         <p v-else class="mech-tree__empty">No blocks yet — add one from the right.</p>
-
-        <button
-          v-if="store.dataEntries.length"
-          type="button"
-          class="mech-button is-block mech-editor__data"
-          @click="openData"
-        >
-          Edit page data
-        </button>
       </aside>
     </Transition>
 

@@ -2,7 +2,7 @@ import { readFile, writeFile, mkdir, rm, cp, readdir } from 'node:fs/promises'
 import { join, parse } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { generateProject, registerFieldSchemas, type Block } from '@mechanica/shared'
-import { toBlockMeta } from '../editor/lib/block-meta'
+import { toBlockMeta, type BlockComponent } from '../editor/lib/block-meta'
 import { readSiteData, readFoldersData } from '../vite/dev/data-store'
 import { runBuild } from './build'
 
@@ -40,25 +40,36 @@ async function readPages(
   return pages
 }
 
-/** Build the project, then statically render every page into `export/`. */
-export async function runExport(): Promise<void> {
-  await runBuild()
-  registerFieldSchemas()
+/** An already-built SSR bundle (`dist/ssr.js`) exposes these. */
+export interface SsrBundle {
+  render: (state: any, path?: string) => Promise<string> | string
+  blocksList: BlockComponent[]
+  dataEntries?: { id: string; props: any }[]
+}
 
-  const cwd = process.cwd()
+/**
+ * Statically render every page of an already-built project into `export/`,
+ * returning the generated page paths. This is the post-build core of
+ * {@link runExport}, isolated so it can be tested without a Vite build: it
+ * expects `<cwd>/dist` (index.html, assets, the loaded `ssr` bundle) and that
+ * field schemas have been registered; it reads pages + scoped data from
+ * `<cwd>/.mech`.
+ */
+export async function exportProject(cwd: string, ssr: SsrBundle): Promise<string[]> {
   const index = await readFile(join(cwd, 'dist/index.html'), 'utf-8')
-  const ssr = await import(pathToFileURL(join(cwd, 'dist/ssr.js')).href)
 
   const blocks: Block[] = ssr.blocksList.map(toBlockMeta)
   const blocksMap = new Map(blocks.map((block) => [block.id, block]))
 
   const pages = await readPages(join(cwd, '.mech/pages'), readFoldersData(join(cwd, '.mech')))
   const projectData = readSiteData(join(cwd, '.mech'))
+
   const exportDir = join(cwd, 'export')
   await rm(exportDir, { recursive: true, force: true })
   await mkdir(exportDir, { recursive: true })
   await cp(join(cwd, 'dist/assets'), join(exportDir, 'assets'), { recursive: true }).catch(() => {})
 
+  const written: string[] = []
   const iterator = generateProject({
     index,
     blocksMap,
@@ -73,8 +84,20 @@ export async function runExport(): Promise<void> {
     const dir = path === '/' ? exportDir : join(exportDir, path)
     await mkdir(dir, { recursive: true })
     await writeFile(join(dir, 'index.html'), html)
-    console.info('Generated', path)
+    written.push(path)
   }
+  return written
+}
 
-  console.info(`Exported ${pages.length} page(s) → export/`)
+/** Build the project, then statically render every page into `export/`. */
+export async function runExport(): Promise<void> {
+  await runBuild()
+  registerFieldSchemas()
+
+  const cwd = process.cwd()
+  const ssr = (await import(pathToFileURL(join(cwd, 'dist/ssr.js')).href)) as SsrBundle
+  const written = await exportProject(cwd, ssr)
+
+  for (const path of written) console.info('Generated', path)
+  console.info(`Exported ${written.length} page(s) → export/`)
 }

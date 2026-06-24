@@ -58,7 +58,7 @@ describe('EditorApp', () => {
     })
     app.mount(el)
 
-    const launcher = [...el.querySelectorAll('.mech-button')].find((b) => b.textContent?.includes('Edit page data'))!
+    const launcher = el.querySelector('.mech-editor__data')!
     expect(launcher).toBeTruthy()
     launcher.dispatchEvent(new Event('click', { bubbles: true }))
     await nextTick()
@@ -126,8 +126,7 @@ describe('EditorApp', () => {
     const el = document.createElement('div')
     const app = createApp(EditorApp, { state: { content: [], data: {} }, components })
     app.mount(el)
-    const labels = [...el.querySelectorAll('.mech-button')].map((b) => b.textContent?.trim())
-    expect(labels).not.toContain('Edit page data')
+    expect(el.querySelector('.mech-editor__data')).toBeNull()
     app.unmount()
   })
 })

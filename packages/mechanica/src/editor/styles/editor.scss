@@ -99,9 +99,38 @@
   color: var(--mech-muted);
 }
 
-// "Edit page data" launcher pins to the bottom of the left panel.
+// Page row: the page menu + a "Edit page data" launcher, grouped as page context.
+.mech-editor__pagerow {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+
+  .mech-pagebar {
+    flex: 1;
+    min-width: 0;
+  }
+}
 .mech-editor__data {
-  margin-top: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  border: 1px solid var(--mech-border-strong);
+  border-radius: var(--mech-radius);
+  background: var(--mech-bg);
+  color: var(--mech-muted);
+  cursor: pointer;
+
+  .vicon {
+    width: 17px;
+    height: 17px;
+  }
+  &:hover {
+    border-color: var(--mech-muted);
+    background: var(--mech-hover);
+    color: var(--mech-fg);
+  }
 }
 
 .mech-editor__history {
