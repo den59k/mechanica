@@ -1,4 +1,4 @@
-import { reactive, computed, type InjectionKey } from 'vue'
+import { reactive, computed, markRaw, type InjectionKey } from 'vue'
 import { getDefaultValue, type Block, type ContentBlock, type DataEntry, type State } from '@mechanica/shared'
 import {
   findBlock,
@@ -17,6 +17,8 @@ export interface EditorStore {
   data: Record<string, unknown>
   blocks: Block[]
   blocksById: Map<string, Block>
+  /** The live block components keyed by id, for rendering hover previews. */
+  componentsById: Map<string, BlockComponent>
   /** Editable `defineData` entries (site/folder/page scoped). */
   dataEntries: DataEntry[]
   selectedId: string | null
@@ -47,6 +49,11 @@ export function createEditorStore(
 ): EditorStore {
   const blocks = components.map(toBlockMeta).filter((block) => !block.hidden)
   const blocksById = new Map(blocks.map((block) => [block.id, block]))
+  // Keep the raw components so the palette can mount live previews. `markRaw`
+  // keeps Vue from proxying them — they're rendered as components, not data.
+  const componentsById = markRaw(
+    new Map(components.map((component) => [component.blockId ?? component.__name ?? 'block', markRaw(component)])),
+  )
   const dataEntries = [...entries].sort(compareDataEntries)
 
   // Clone the incoming state so the editor owns it outright. The runtime reads
@@ -72,6 +79,7 @@ export function createEditorStore(
     data,
     blocks,
     blocksById,
+    componentsById,
     dataEntries,
     dataValue(id: string): Record<string, unknown> {
       const current = data[id]
