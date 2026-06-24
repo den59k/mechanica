@@ -52,9 +52,9 @@
                 <span v-if="page.path === current" class="mech-pages-dialog__badge">Current</span>
               </button>
               <div class="mech-pages-dialog__actions">
-                <button type="button" title="Rename" @click="startRename(page)">✎</button>
-                <button type="button" title="Duplicate" @click="startDuplicate(page)">⧉</button>
-                <button type="button" title="Delete" class="is-danger" @click="remove(page)">✕</button>
+                <button type="button" title="Rename" @click="startRename(page)"><VIcon name="pencil" /></button>
+                <button type="button" title="Duplicate" @click="startDuplicate(page)"><VIcon name="copy" /></button>
+                <button type="button" title="Delete" class="is-danger" @click="remove(page)"><VIcon name="trash" /></button>
               </div>
             </template>
           </div>
@@ -70,6 +70,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, useTemplateRef } from 'vue'
 import VDialog from '../ui/VDialog.vue'
+import VIcon from '../components/VIcon.vue'
 import { filterPages, groupPagesByFolder, type PageItem } from '../lib/page-list'
 
 interface FormState {
@@ -299,16 +300,22 @@ async function remove(page: PageItem) {
   }
 
   button {
-    width: 28px;
-    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
     border: none;
     background: none;
     color: var(--mech-muted);
     border-radius: var(--mech-radius-sm);
     cursor: pointer;
-    font-size: 13px;
     line-height: 1;
 
+    .vicon {
+      width: 15px;
+      height: 15px;
+    }
     &:hover {
       background: var(--mech-active);
       color: var(--mech-fg);

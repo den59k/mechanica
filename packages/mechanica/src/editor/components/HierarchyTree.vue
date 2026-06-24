@@ -14,13 +14,13 @@
         <span class="mech-tree__label">{{ labelOf(block) }}</span>
         <span class="mech-tree__actions">
           <button type="button" title="Move up" @pointerdown.stop @click.stop="store.move(block.id, -1)">
-            ↑
+            <VIcon name="arrow-up" />
           </button>
           <button type="button" title="Move down" @pointerdown.stop @click.stop="store.move(block.id, 1)">
-            ↓
+            <VIcon name="arrow-down" />
           </button>
           <button type="button" title="Delete" @pointerdown.stop @click.stop="store.remove(block.id)">
-            ×
+            <VIcon name="trash" />
           </button>
         </span>
       </div>
@@ -34,6 +34,7 @@ import { inject } from 'vue'
 import type { ContentBlock } from '@mechanica/shared'
 import { editorStoreKey } from '../lib/store'
 import { dragKey } from '../lib/drag-controller'
+import VIcon from './VIcon.vue'
 
 const props = defineProps<{ blocks?: ContentBlock[] }>()
 const store = inject(editorStoreKey)!
@@ -97,17 +98,23 @@ const childrenOf = (block: ContentBlock): ContentBlock[] => {
   }
 
   button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border: none;
     background: none;
     color: inherit;
     cursor: pointer;
     opacity: 0.7;
-    font-size: 13px;
     line-height: 1;
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     border-radius: 4px;
 
+    .vicon {
+      width: 13px;
+      height: 13px;
+    }
     &:hover {
       opacity: 1;
       background: rgba(127, 127, 127, 0.2);

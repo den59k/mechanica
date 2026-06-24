@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
+import svgGlob from './src/svg-plugin'
 
 // Tests live under test/ and import source via the @/ alias; @mechanica/shared
 // resolves to its source (mirrors the tsconfig `paths`).
@@ -12,7 +13,7 @@ export default defineConfig({
   test: {
     projects: [
       {
-        plugins: [vue()],
+        plugins: [vue(), svgGlob()],
         resolve: { alias },
         test: {
           name: 'node',
@@ -22,7 +23,7 @@ export default defineConfig({
         },
       },
       {
-        plugins: [vue()],
+        plugins: [vue(), svgGlob()],
         resolve: { alias },
         test: {
           name: 'dom',

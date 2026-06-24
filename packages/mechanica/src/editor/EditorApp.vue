@@ -6,7 +6,7 @@
       :title="collapsed ? 'Open editor' : 'Hide editor'"
       @click="collapsed = !collapsed"
     >
-      {{ collapsed ? '☰' : '✕' }}
+      <VIcon :name="collapsed ? 'menu' : 'close'" />
     </button>
 
     <template v-if="!collapsed">
@@ -24,12 +24,12 @@
           title="Drag to move"
           @pointerdown="drag.begin({ kind: 'move', id: selected.id, label: selectedName ?? '' }, $event)"
         >
-          ⠿
+          <VIcon name="grip" />
         </button>
-        <button type="button" title="Move up" @click="store.move(selected.id, -1)">↑</button>
-        <button type="button" title="Move down" @click="store.move(selected.id, 1)">↓</button>
-        <button type="button" title="Duplicate" @click="store.duplicate(selected.id)">⧉</button>
-        <button type="button" title="Delete" @click="store.remove(selected.id)">✕</button>
+        <button type="button" title="Move up" @click="store.move(selected.id, -1)"><VIcon name="arrow-up" /></button>
+        <button type="button" title="Move down" @click="store.move(selected.id, 1)"><VIcon name="arrow-down" /></button>
+        <button type="button" title="Duplicate" @click="store.duplicate(selected.id)"><VIcon name="copy" /></button>
+        <button type="button" title="Delete" @click="store.remove(selected.id)"><VIcon name="trash" /></button>
       </div>
 
       <div
@@ -55,8 +55,8 @@
         <div class="mech-editor__heading">
           <span>Page</span>
           <span class="mech-editor__history">
-            <button type="button" :disabled="!canUndo" title="Undo (Ctrl+Z)" @click="history.undo()">↶</button>
-            <button type="button" :disabled="!canRedo" title="Redo (Ctrl+Shift+Z)" @click="history.redo()">↷</button>
+            <button type="button" :disabled="!canUndo" title="Undo (Ctrl+Z)" @click="history.undo()"><VIcon name="undo" /></button>
+            <button type="button" :disabled="!canRedo" title="Redo (Ctrl+Shift+Z)" @click="history.redo()"><VIcon name="redo" /></button>
           </span>
         </div>
         <HierarchyTree v-if="store.content.length" />
@@ -109,6 +109,7 @@ import BlockPalette from './components/BlockPalette.vue'
 import BlockSettings from './components/BlockSettings.vue'
 import BlockFrame from './components/BlockFrame.vue'
 import PageBar from './components/PageBar.vue'
+import VIcon from './components/VIcon.vue'
 
 const props = defineProps<{
   state: State

@@ -1,11 +1,11 @@
 <template>
   <button type="button" class="mech-pagebar" title="Browse pages" @click="openPages">
-    <span class="mech-pagebar__glyph">▤</span>
+    <VIcon name="book" class="mech-pagebar__glyph" />
     <span class="mech-pagebar__text">
       <span class="mech-pagebar__name">{{ currentName || 'Pages' }}</span>
       <span class="mech-pagebar__path">{{ current }}</span>
     </span>
-    <span class="mech-pagebar__chevron">⌄</span>
+    <VIcon name="chevron-down" class="mech-pagebar__chevron" />
   </button>
 </template>
 
@@ -13,6 +13,7 @@
 import { onMounted, ref } from 'vue'
 import { useDialog } from '../ui/dialog'
 import PagesDialog from '../dialogs/PagesDialog.vue'
+import VIcon from './VIcon.vue'
 import type { PageItem } from '../lib/page-list'
 
 const dialog = useDialog()
@@ -56,8 +57,9 @@ const openPages = () => dialog.open(PagesDialog)
 }
 .mech-pagebar__glyph {
   flex: none;
+  width: 17px;
+  height: 17px;
   color: var(--mech-muted);
-  font-size: 14px;
 }
 .mech-pagebar__text {
   flex: 1;
@@ -82,6 +84,8 @@ const openPages = () => dialog.open(PagesDialog)
 }
 .mech-pagebar__chevron {
   flex: none;
+  width: 16px;
+  height: 16px;
   color: var(--mech-muted);
 }
 </style>

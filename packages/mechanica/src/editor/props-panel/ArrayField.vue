@@ -10,10 +10,12 @@
         :schema="schema.items"
         @update:model-value="list[index] = $event"
       />
-      <button type="button" class="mech-array__remove" title="Remove" @click="remove(index)">×</button>
+      <button type="button" class="mech-array__remove" title="Remove" @click="remove(index)">
+        <VIcon name="close" />
+      </button>
     </div>
 
-    <button type="button" class="mech-array__add" @click="add">+ Add</button>
+    <button type="button" class="mech-array__add" @click="add"><VIcon name="plus" /> Add</button>
   </div>
 </template>
 
@@ -22,6 +24,7 @@ import { computed } from 'vue'
 import { getDefaultValue } from '@mechanica/shared'
 import SchemaForm from './SchemaForm.vue'
 import FieldControl from '../fields/FieldControl.vue'
+import VIcon from '../components/VIcon.vue'
 
 const props = defineProps<{
   model: Record<string, any>

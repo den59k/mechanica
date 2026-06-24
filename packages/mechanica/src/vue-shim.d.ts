@@ -6,3 +6,9 @@ declare module '*.vue' {
 
 declare module '*.css' {}
 declare module '*.scss' {}
+
+// Virtual module produced by the svg-glob plugin (e.g. `import … from '../icons?svg-glob'`).
+declare module '*?svg-glob' {
+  export const contents: Record<string, string>
+  export const attrs: Record<string, Record<string, string>>
+}

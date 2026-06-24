@@ -4,6 +4,7 @@ export {
   CLIENT_MODULE_ID,
   type MechanicaPluginOptions,
 } from './plugin'
+export { default as svgGlob } from '../svg-plugin'
 export { collectBlocks } from './collect-blocks'
 export {
   generateClientEntry,

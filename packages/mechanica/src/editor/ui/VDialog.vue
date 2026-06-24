@@ -3,7 +3,7 @@
     <header class="mech-modal__header">
       <h2 class="mech-modal__title"><slot name="header">{{ title }}</slot></h2>
       <button type="button" class="mech-modal__close" aria-label="Close" @click="dialog.back()">
-        ×
+        <VIcon name="close" />
       </button>
     </header>
     <div class="mech-modal__body">
@@ -17,6 +17,7 @@
 
 <script setup lang="ts">
 import { useDialog } from './dialog'
+import VIcon from '../components/VIcon.vue'
 
 withDefaults(defineProps<{ title?: string; size?: 'standard' | 'wide' }>(), { size: 'standard' })
 const dialog = useDialog()
@@ -56,17 +57,22 @@ const dialog = useDialog()
   letter-spacing: -0.01em;
 }
 .mech-modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-left: auto;
   width: 34px;
   height: 34px;
   border: none;
   background: none;
   color: var(--mech-muted);
-  font-size: 22px;
-  line-height: 1;
   border-radius: var(--mech-radius-pill);
   cursor: pointer;
 
+  .vicon {
+    width: 18px;
+    height: 18px;
+  }
   &:hover {
     background: var(--mech-hover);
     color: var(--mech-fg);

@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { mechanica } from 'mechanica/plugin'
+import { mechanica, svgGlob } from 'mechanica/plugin'
 
 export default defineConfig({
-  plugins: [mechanica(), vue()],
+  plugins: [mechanica(), svgGlob(), vue()],
   server: {
-    host: "127.0.0.1"
-  }
+    host: '127.0.0.1',
+  },
 })

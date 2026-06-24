@@ -52,15 +52,19 @@
 }
 
 .mech-editor__history button {
+  display: inline-flex;
   border: none;
   background: none;
   cursor: pointer;
   color: var(--mech-muted);
-  font-size: 15px;
   line-height: 1;
-  padding: 2px 5px;
+  padding: 4px;
   border-radius: var(--mech-radius-sm);
 
+  .vicon {
+    width: 16px;
+    height: 16px;
+  }
   &:disabled {
     opacity: 0.3;
     cursor: default;
@@ -78,6 +82,9 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 2147483600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 36px;
   height: 36px;
   border-radius: var(--mech-radius);
@@ -85,10 +92,12 @@
   background: var(--mech-bg);
   color: var(--mech-fg);
   cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
   box-shadow: var(--mech-shadow-pop);
 
+  .vicon {
+    width: 17px;
+    height: 17px;
+  }
   &:hover {
     background: var(--mech-hover);
   }
@@ -325,6 +334,9 @@ select.mech-input {
   }
   &__remove {
     flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 26px;
     height: 26px;
     border: none;
@@ -332,9 +344,11 @@ select.mech-input {
     color: var(--mech-muted);
     border-radius: var(--mech-radius-sm);
     cursor: pointer;
-    font-size: 16px;
-    line-height: 1;
 
+    .vicon {
+      width: 14px;
+      height: 14px;
+    }
     &:hover {
       background: var(--mech-hover);
       color: var(--mech-error);
@@ -342,6 +356,9 @@ select.mech-input {
   }
   &__add {
     align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     height: 32px;
     padding: 0 14px;
     font: inherit;
@@ -352,6 +369,10 @@ select.mech-input {
     border-radius: var(--mech-radius-pill);
     cursor: pointer;
 
+    .vicon {
+      width: 14px;
+      height: 14px;
+    }
     &:hover {
       color: var(--mech-fg);
       border-color: var(--mech-muted);
@@ -471,16 +492,22 @@ body.mech-editing {
   box-shadow: var(--mech-shadow-pop);
 
   button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border: none;
     background: transparent;
     color: #fff;
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     border-radius: var(--mech-radius-sm);
     cursor: pointer;
-    font-size: 13px;
     line-height: 1;
 
+    .vicon {
+      width: 16px;
+      height: 16px;
+    }
     &:hover {
       background: rgba(255, 255, 255, 0.18);
     }
