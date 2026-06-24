@@ -9,7 +9,7 @@ import {
   duplicatePage,
   deletePage,
   savePage,
-  updatePageMeta,
+  renamePage,
   listFolders,
   listPages,
   PageExistsError,
@@ -84,7 +84,7 @@ describe('deletePage', () => {
   })
 })
 
-describe('savePage / updatePageMeta', () => {
+describe('savePage / renamePage', () => {
   it('merges content and data', () => {
     createPage(mechDir, { path: '/p', name: 'P' })
     savePage(mechDir, '/p', { content: [{ id: '1', blockId: 'x', data: {} }], data: { a: 1 } })
@@ -93,12 +93,13 @@ describe('savePage / updatePageMeta', () => {
     expect(page.data).toEqual({ a: 1 })
     expect(page.name).toBe('P') // preserved
   })
-  it('updates name and meta', () => {
+  it('renames a page without touching its content', () => {
     createPage(mechDir, { path: '/p', name: 'P' })
-    updatePageMeta(mechDir, '/p', { name: 'Renamed', title: 'T', description: 'D' })
+    savePage(mechDir, '/p', { content: [{ id: '1', blockId: 'x', data: {} }], data: {} })
+    renamePage(mechDir, '/p', 'Renamed')
     const page = readPage(mechDir, '/p')
     expect(page.name).toBe('Renamed')
-    expect(page.meta).toEqual({ title: 'T', description: 'D' })
+    expect(page.content).toHaveLength(1) // preserved
   })
 })
 

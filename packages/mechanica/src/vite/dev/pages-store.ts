@@ -117,16 +117,15 @@ export function savePage(
   fs.writeFileSync(file, JSON.stringify(page, null, 2))
 }
 
-/** Update a page's name and meta. */
-export function updatePageMeta(
-  mechDir: string,
-  urlPath: string,
-  meta: { name?: string; title?: string; description?: string },
-): void {
+/**
+ * Update a page's display name (its label in the editor's page list). Per-page
+ * <head> metadata (title, description, …) is no longer stored here — it lives in
+ * a page-scoped `defineData` entry templated into the HTML.
+ */
+export function renamePage(mechDir: string, urlPath: string, name: string): void {
   const file = getPagePath(mechDir, urlPath)
   const page = fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, 'utf-8')) as PageFile) : emptyPage()
-  if (meta.name !== undefined) page.name = meta.name
-  page.meta = { ...page.meta, title: meta.title, description: meta.description }
+  page.name = name
   fs.mkdirSync(dirname(file), { recursive: true })
   fs.writeFileSync(file, JSON.stringify(page, null, 2))
 }

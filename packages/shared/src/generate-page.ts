@@ -11,9 +11,22 @@ export function getValueByPath(data: any, path: string): unknown {
   return value
 }
 
-/** Substitute `{{ a.b }}` placeholders in an HTML string with data values. */
+const HTML_ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }
+
+/** Escape a templated value so it's safe in element text and attribute values. */
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"]/g, (char) => HTML_ESCAPES[char]!)
+}
+
+/**
+ * Substitute `{{ a.b }}` placeholders in an HTML string with data values. Used to
+ * template the `<head>` (title, meta, Open Graph, …) from `defineData` values and
+ * the current page. Resolved values are HTML-escaped.
+ */
 export function passDataToHTML(html: string, data: any): string {
-  return html.replace(/\{\{(.+?)\}\}/g, (_match, expr) => String(getValueByPath(data, expr.trim()) ?? ''))
+  return html.replace(/\{\{(.+?)\}\}/g, (_match, expr) =>
+    escapeHtml(String(getValueByPath(data, expr.trim()) ?? '')),
+  )
 }
 
 export interface PageState {

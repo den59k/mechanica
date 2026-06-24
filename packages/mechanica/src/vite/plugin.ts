@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 import type { Plugin } from 'vite'
 import { parseVueRequest } from '@vitejs/plugin-vue'
+import { passDataToHTML } from '@mechanica/shared'
 import { compileBlock } from '../compiler/compile-block'
 import { collectBlocks } from './collect-blocks'
 import { generateClientEntry, generateSsrEntry } from './entries'
@@ -113,7 +114,11 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
           `import 'mechanica/editor'`,
           `</script>`,
         ].join('\n')
-        return html.replace('<body>', `<body>\n${inject}`)
+        // Resolve `{{ … }}` head placeholders the same way the build does, so the
+        // dev preview shows real <title>/<meta> values. Template before injecting
+        // the state script (whose JSON must not be touched).
+        const templated = passDataToHTML(html, { ...state.data, page: state.page })
+        return templated.replace('<body>', `<body>\n${inject}`)
       },
     },
   }

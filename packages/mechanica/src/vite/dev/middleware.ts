@@ -6,7 +6,7 @@ import {
   duplicatePage,
   deletePage,
   savePage,
-  updatePageMeta,
+  renamePage,
   listPages,
   listFolders,
   PageExistsError,
@@ -82,7 +82,7 @@ export function createDevMiddleware(mechDir: string): Connect.NextHandleFunction
         const body = JSON.parse((await readBody(req)).toString('utf-8'))
         const pathParam = query.get('path')
         if (pathParam) {
-          updatePageMeta(mechDir, pathParam, { name: body.name, title: body.title, description: body.description })
+          if (body.name) renamePage(mechDir, pathParam, body.name)
           return json({ success: true })
         }
         if (!body.path || !body.name) return json({ error: 'path and name are required' }, 400)

@@ -90,20 +90,6 @@ describe('editor store', () => {
     expect(store.dataValue('header')).toEqual({ logo: 'logo.svg' })
   })
 
-  it('exposes page metadata, defaulting meta and cloning it', () => {
-    const initial = { content: [], data: {}, page: { path: '/about', meta: { title: 'About' } } }
-    const store = createEditorStore(initial, components)
-    expect(store.page.meta!.title).toBe('About')
-    // Editing through the store must not mutate the original window state.
-    ;(store.page.meta as Record<string, unknown>).title = 'Changed'
-    expect(initial.page.meta.title).toBe('About')
-  })
-
-  it('defaults page meta to an empty object when absent', () => {
-    const store = createEditorStore({ content: [], data: {} }, components)
-    expect(store.page.meta).toEqual({})
-  })
-
   it('owns its state independently of the passed-in window state', () => {
     // Regression: the runtime mutates window.state.data in place via the bridge.
     // If the store aliased it, a stale echo could overwrite a field being typed.

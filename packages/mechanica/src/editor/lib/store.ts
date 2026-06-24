@@ -1,12 +1,5 @@
 import { reactive, computed, type InjectionKey } from 'vue'
-import {
-  getDefaultValue,
-  type Block,
-  type ContentBlock,
-  type DataEntry,
-  type PageMeta,
-  type State,
-} from '@mechanica/shared'
+import { getDefaultValue, type Block, type ContentBlock, type DataEntry, type State } from '@mechanica/shared'
 import {
   findBlock,
   removeBlock,
@@ -26,8 +19,6 @@ export interface EditorStore {
   blocksById: Map<string, Block>
   /** Editable `defineData` entries (site/folder/page scoped). */
   dataEntries: DataEntry[]
-  /** Current page's metadata (title, description, custom meta). */
-  page: PageMeta
   selectedId: string | null
   readonly selected: ContentBlock | null
   readonly selectedSchema: Record<string, any> | null
@@ -64,8 +55,6 @@ export function createEditorStore(
   // into a field being typed in, causing the value to flicker.
   const content = reactive<ContentBlock[]>(clone(initial.content) ?? [])
   const data = reactive<Record<string, unknown>>(clone(initial.data) ?? {})
-  const page = reactive<PageMeta>(clone(initial.page) ?? {})
-  if (!page.meta) page.meta = {}
   const ui = reactive({ selectedId: null as string | null, clipboard: null as ContentBlock | null })
 
   // Seed missing data values from their schema so the form always has an object to bind.
@@ -81,7 +70,6 @@ export function createEditorStore(
   const store = reactive({
     content,
     data,
-    page,
     blocks,
     blocksById,
     dataEntries,

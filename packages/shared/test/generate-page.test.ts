@@ -18,6 +18,12 @@ describe('passDataToHTML', () => {
     expect(passDataToHTML('{{ missing.x }}', {})).toBe('')
     expect(getValueByPath({ a: { b: 1 } }, 'a.b')).toBe(1)
   })
+
+  it('html-escapes resolved values (safe for <title>/<meta content>)', () => {
+    const html = '<meta content="{{ seo.description }}" />'
+    const out = passDataToHTML(html, { seo: { description: 'A & B <i> "q"' } })
+    expect(out).toBe('<meta content="A &amp; B &lt;i&gt; &quot;q&quot;" />')
+  })
 })
 
 describe('generatePage', () => {

@@ -9,10 +9,19 @@
 </template>
 
 <script setup lang="ts">
+import { watchEffect } from 'vue'
 import { Content } from 'mechanica'
 import { useSiteSettings } from './data/site'
+import { useHead } from './data/head'
 
 const site = useSiteSettings()
+
+// Keep the document title in sync with the page-head data (live in the editor
+// and across client-side navigation); the build templates it into index.html.
+const head = useHead()
+watchEffect(() => {
+  if (typeof document !== 'undefined' && head.title) document.title = head.title
+})
 </script>
 
 <style>

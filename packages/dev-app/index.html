@@ -3,7 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{ page.meta.title }}</title>
+
+    <!--
+      <head> metadata is templated from a page-scoped `defineData` entry (see
+      src/data/head.ts), edited per page in the editor's "Edit page data" window.
+      Small landing pages can skip this and just hardcode their <title> here.
+    -->
+    <title>{{ head.title }}</title>
+    <meta name="description" content="{{ head.description }}" />
+    <meta property="og:title" content="{{ head.title }}" />
+    <meta property="og:description" content="{{ head.description }}" />
   </head>
   <body>
     <div id="app"></div>
