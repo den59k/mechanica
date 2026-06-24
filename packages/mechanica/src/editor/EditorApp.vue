@@ -51,7 +51,7 @@
       </div>
 
       <aside class="mech-editor__panel mech-editor__panel--left">
-        <PageSelector />
+        <PageBar />
         <div class="mech-editor__heading">
           <span>Page</span>
           <span class="mech-editor__history">
@@ -108,7 +108,7 @@ import HierarchyTree from './components/HierarchyTree.vue'
 import BlockPalette from './components/BlockPalette.vue'
 import BlockSettings from './components/BlockSettings.vue'
 import BlockFrame from './components/BlockFrame.vue'
-import PageSelector from './components/PageSelector.vue'
+import PageBar from './components/PageBar.vue'
 
 const props = defineProps<{
   state: State

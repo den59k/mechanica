@@ -1,0 +1,36 @@
+/** A page as returned by the dev server's `/@mechanica/pages` endpoint. */
+export interface PageItem {
+  path: string
+  name: string
+  folderPath?: string | null
+}
+
+/** Filter pages by a free-text query matched against both name and path. */
+export function filterPages<T extends PageItem>(pages: T[], query: string): T[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return pages
+  return pages.filter((page) => `${page.name} ${page.path}`.toLowerCase().includes(q))
+}
+
+/** A folder section: its folder path (null = root) and the pages inside it. */
+export interface PageGroup<T extends PageItem = PageItem> {
+  folder: string | null
+  pages: T[]
+}
+
+/**
+ * Group pages by folder for display: root-level pages first (folder `null`),
+ * then each folder alphabetically. Page order within a group is preserved (the
+ * server already sorts them).
+ */
+export function groupPagesByFolder<T extends PageItem>(pages: T[]): PageGroup<T>[] {
+  const groups = new Map<string | null, T[]>()
+  for (const page of pages) {
+    const folder = page.folderPath ?? null
+    if (!groups.has(folder)) groups.set(folder, [])
+    groups.get(folder)!.push(page)
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => (a === null ? -1 : b === null ? 1 : a.localeCompare(b)))
+    .map(([folder, items]) => ({ folder, pages: items }))
+}
