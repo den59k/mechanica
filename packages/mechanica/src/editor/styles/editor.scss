@@ -138,12 +138,12 @@
   gap: 2px;
 }
 
-// ── Collapse toggle ─────────────────────────────────────────────────────────
+// ── Panel toggle (side handle) ───────────────────────────────────────────────
+// One button docked to the left or right edge. Collapsed it sits at the screen
+// edge; open it slides to the sidebar's inner edge. Draggable between sides and
+// vertically; its spot is remembered. Position is set inline by PanelToggle.
 .mech-editor__toggle {
   position: fixed;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
   z-index: 2147483600;
   display: flex;
   align-items: center;
@@ -154,8 +154,9 @@
   border: 1px solid var(--mech-border);
   background: var(--mech-bg);
   color: var(--mech-fg);
-  cursor: pointer;
+  cursor: grab;
   box-shadow: var(--mech-shadow-pop);
+  touch-action: none; // pointer-drag without scrolling
 
   .vicon {
     width: 17px;
@@ -163,6 +164,39 @@
   }
   &:hover {
     background: var(--mech-hover);
+  }
+  // Eases between its collapsed/open spots; follows the cursor while dragging.
+  transition:
+    left 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    top 0.18s ease;
+  &.is-dragging {
+    cursor: grabbing;
+    transition: none;
+    box-shadow: 0 10px 28px rgba(20, 23, 28, 0.26);
+  }
+}
+
+// Magnet targets shown while dragging the handle; the nearest one lights up.
+.mech-dock-targets {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483590;
+  pointer-events: none;
+}
+.mech-dock-target {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px; // centre the dot on its point
+  border-radius: 50%;
+  background: var(--mech-border-strong);
+  transition:
+    transform 0.12s ease,
+    background 0.12s ease;
+
+  &.is-near {
+    background: var(--mech-accent);
+    transform: scale(1.9);
   }
 }
 

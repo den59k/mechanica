@@ -1,13 +1,10 @@
 <template>
   <div class="mech-editor" :class="{ 'is-collapsed': collapsed }" data-mech-ui>
-    <button
-      class="mech-editor__toggle"
-      type="button"
-      :title="collapsed ? 'Open editor' : 'Hide editor'"
-      @click="collapsed = !collapsed"
-    >
-      <VIcon :name="collapsed ? 'menu' : 'close'" />
-    </button>
+    <PanelToggle
+      :collapsed="collapsed"
+      :right-panel="store.selected ? 380 : 300"
+      @toggle="collapsed = !collapsed"
+    />
 
     <template v-if="!collapsed">
       <BlockFrame v-if="hovered && hovered.id !== selected?.id" :rect="hovered" variant="hover" />
@@ -127,6 +124,7 @@ import BlockPalette from './components/BlockPalette.vue'
 import BlockSettings from './components/BlockSettings.vue'
 import BlockFrame from './components/BlockFrame.vue'
 import PageBar from './components/PageBar.vue'
+import PanelToggle from './components/PanelToggle.vue'
 import VIcon from './components/VIcon.vue'
 
 const props = defineProps<{
@@ -162,6 +160,22 @@ const onKeyDown = (event: KeyboardEvent) => {
   const target = event.target as HTMLElement | null
   const typing =
     !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+
+  // Space hides/reveals the panels — but only when it isn't being typed into a
+  // field, "used" by a focused control (button, link, …), or while a dialog is up.
+  if ((event.key === ' ' || event.code === 'Space') && !typing && dialog.stack.length === 0) {
+    const active = document.activeElement as HTMLElement | null
+    const usesSpace =
+      !!active &&
+      active !== document.body &&
+      !!active.closest('button, a, select, input, textarea, [contenteditable], [role="button"], [tabindex]')
+    if (!usesSpace) {
+      event.preventDefault()
+      collapsed.value = !collapsed.value
+      return
+    }
+  }
+
   const action = resolveShortcut({
     key: event.key,
     metaKey: event.metaKey,

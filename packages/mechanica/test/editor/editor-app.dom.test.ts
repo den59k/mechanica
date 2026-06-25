@@ -129,4 +129,40 @@ describe('EditorApp', () => {
     expect(el.querySelector('.mech-editor__data')).toBeNull()
     app.unmount()
   })
+
+  it('toggles the panels with the spacebar', async () => {
+    const el = document.createElement('div')
+    const app = createApp(EditorApp, { state: { content: [], data: {} }, components })
+    app.mount(el)
+    const root = el.querySelector('.mech-editor')!
+    expect(root.classList.contains('is-collapsed')).toBe(false)
+
+    // Space with nothing focused collapses, then reveals, the editor.
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }))
+    await nextTick()
+    expect(root.classList.contains('is-collapsed')).toBe(true)
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }))
+    await nextTick()
+    expect(root.classList.contains('is-collapsed')).toBe(false)
+
+    app.unmount()
+  })
+
+  it('ignores the spacebar while typing in a field', async () => {
+    const el = document.createElement('div')
+    const app = createApp(EditorApp, { state: { content: [], data: {} }, components })
+    app.mount(el)
+    const root = el.querySelector('.mech-editor')!
+
+    const input = document.createElement('input')
+    document.body.appendChild(input)
+    input.focus()
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }))
+    await nextTick()
+    expect(root.classList.contains('is-collapsed')).toBe(false) // unaffected
+
+    input.remove()
+    app.unmount()
+  })
 })
