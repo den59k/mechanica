@@ -9,13 +9,9 @@
         <a v-if="props.primaryLabel" :href="props.primaryHref || '#'" class="mc-btn mc-btn--primary">
           {{ props.primaryLabel }}
         </a>
-        <Link
-          v-if="props.secondary && props.secondary.url"
-          :to="props.secondary"
-          class="mc-btn mc-btn--ghost"
-        >
-          {{ props.secondaryLabel || props.secondary.title }}
-        </Link>
+        <!-- A smartLink carries its own display text (its title), so the link
+             label comes from the link itself — no separate label prop. -->
+        <Link v-if="props.secondary?.url" :to="props.secondary" class="mc-btn mc-btn--ghost" />
       </div>
 
       <p v-if="props.note" class="hero__note">{{ props.note }}</p>
@@ -60,7 +56,6 @@ const props = defineBlock({
     subtitle: 'text',
     primaryLabel: { type: 'string', default: 'Start building' },
     primaryHref: { type: 'string', default: '#get-started' },
-    secondaryLabel: { type: 'string', default: 'Read the docs' },
     secondary: 'smartLink',
     note: 'string',
   },

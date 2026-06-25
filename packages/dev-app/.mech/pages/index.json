@@ -22,7 +22,7 @@
           },
           {
             "label": "Docs",
-            "href": "#"
+            "href": "/docs"
           }
         ],
         "ctaLabel": "Get started",
@@ -38,12 +38,11 @@
         "subtitle": "Author blocks as real Vue components. Arrange them on the page in a live in-browser editor. Export a static site today — render on a server tomorrow.",
         "primaryLabel": "Start building",
         "primaryHref": "#get-started",
-        "secondaryLabel": "Read the docs",
         "secondary": {
-          "url": "https://github.com",
+          "url": "/docs",
           "title": "Read the docs",
-          "external": true,
-          "openNewTab": false
+          "external": false,
+          "openNewTab": true
         },
         "note": "Open source · MIT licensed"
       }
