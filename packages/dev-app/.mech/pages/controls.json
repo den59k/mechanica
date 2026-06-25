@@ -1,0 +1,26 @@
+{
+  "name": "Controls demo",
+  "meta": {
+    "title": "Field controls — Mechanica dev-app"
+  },
+  "content": [
+    {
+      "id": "demo",
+      "blockId": "fields-demo",
+      "data": {
+        "title": "Checkboxes & dropdowns",
+        "text": "Open this block in the editor — the Tone and Size dropdowns and the two checkboxes restyle this card live.",
+        "tone": "brand",
+        "size": "md",
+        "bordered": true,
+        "rounded": true
+      }
+    }
+  ],
+  "data": {
+    "head": {
+      "title": "Field controls — Mechanica dev-app",
+      "description": ""
+    }
+  }
+}

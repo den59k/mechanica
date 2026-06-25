@@ -208,6 +208,18 @@
       }
     },
     {
+      "id": "65a61345-b9ef-4b21-80a2-36cc7aad0a5f",
+      "blockId": "fields-demo",
+      "data": {
+        "title": "Checkboxes & dropdowns",
+        "text": "Open this block in the editor — the Tone and Size dropdowns and the two checkboxes restyle this card live.",
+        "tone": "brand",
+        "size": "sm",
+        "bordered": true,
+        "rounded": true
+      }
+    },
+    {
       "id": "cta",
       "blockId": "cta-band",
       "data": {

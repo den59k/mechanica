@@ -3,6 +3,7 @@ import StringField from './editors/StringField.vue'
 import TextField from './editors/TextField.vue'
 import NumberField from './editors/NumberField.vue'
 import BooleanField from './editors/BooleanField.vue'
+import EnumField from './editors/EnumField.vue'
 import ColorField from './editors/ColorField.vue'
 import ImageField from './editors/ImageField.vue'
 import SmartLinkField from './editors/SmartLinkField.vue'
@@ -17,6 +18,8 @@ export function registerBuiltinFieldEditors(): void {
   registerFieldEditor('number', NumberField)
   registerFieldEditor('integer', NumberField)
   registerFieldEditor('boolean', BooleanField)
+  // enum → dropdown (checked before `type` in resolveFieldEditor)
+  registerFieldEditor('enum', EnumField)
   // formats
   registerFieldEditor('color', ColorField)
   registerFieldEditor('image', ImageField)
