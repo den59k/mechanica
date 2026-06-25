@@ -53,7 +53,7 @@ export const builtinFields: FieldType[] = [
     schema: {
       type: 'object',
       format: 'smartLink',
-      properties: { url: 'string', title: 'string', external: 'boolean' },
+      properties: { url: 'string', title: 'string', external: 'boolean', openNewTab: 'boolean' },
     },
   },
   {

@@ -8,7 +8,7 @@
       @keydown.down.prevent="open ? move(1) : openMenu()"
       @keydown.up.prevent="open ? move(-1) : openMenu()"
       @keydown.enter.prevent="open && active >= 0 ? choose(options[active]) : openMenu()"
-      @keydown.esc="close"
+      @keydown.esc="close()"
     >
       <span class="mech-select__value">{{ hasValue ? labelOf(modelValue) : placeholder }}</span>
       <VIcon name="chevron-down" class="mech-select__chevron" />
@@ -43,8 +43,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
+import { computed, ref } from 'vue'
 import VIcon from '../../components/VIcon.vue'
+import { useAnchoredMenu } from '../use-anchored-menu'
 
 const props = defineProps<{ modelValue?: unknown; schema: Record<string, any> }>()
 const emit = defineEmits<{ 'update:modelValue': [unknown] }>()
@@ -69,55 +70,17 @@ const isSelected = (option: unknown) => option === props.modelValue
 
 const rootEl = ref<HTMLElement | null>(null)
 const menuEl = ref<HTMLElement | null>(null)
-const open = ref(false)
 const active = ref(-1)
-const menuStyle = ref<Record<string, string>>({})
 
-/** Anchor the teleported menu to the trigger, flipping above when space is tight. */
-function position() {
-  const el = rootEl.value
-  if (!el) return
-  const r = el.getBoundingClientRect()
-  const GAP = 6
-  const MARGIN = 8
-  const MAX = 280
-  const spaceBelow = window.innerHeight - r.bottom - MARGIN
-  const spaceAbove = r.top - MARGIN
-  const flip = spaceBelow < Math.min(MAX, 200) && spaceAbove > spaceBelow
-  const maxHeight = Math.max(120, Math.min(MAX, flip ? spaceAbove : spaceBelow))
-  menuStyle.value = {
-    position: 'fixed',
-    left: `${Math.round(r.left)}px`,
-    width: `${Math.round(r.width)}px`,
-    maxHeight: `${Math.round(maxHeight)}px`,
-    ...(flip ? { bottom: `${Math.round(window.innerHeight - r.top + GAP)}px` } : { top: `${Math.round(r.bottom + GAP)}px` }),
-  }
-}
-
-const onDocPointer = (event: PointerEvent) => {
-  const target = event.target as Node
-  if (rootEl.value?.contains(target) || menuEl.value?.contains(target)) return
-  close()
-}
-const onScroll = () => position()
+const { open, menuStyle, openMenu: openBase, close } = useAnchoredMenu(
+  () => rootEl.value,
+  () => menuEl.value,
+)
 
 async function openMenu() {
-  if (open.value || !options.value.length) return
-  open.value = true
+  if (!options.value.length) return
   active.value = options.value.findIndex(isSelected)
-  position()
-  await nextTick()
-  position()
-  window.addEventListener('pointerdown', onDocPointer, true)
-  window.addEventListener('scroll', onScroll, true)
-  window.addEventListener('resize', onScroll)
-}
-function close() {
-  if (!open.value) return
-  open.value = false
-  window.removeEventListener('pointerdown', onDocPointer, true)
-  window.removeEventListener('scroll', onScroll, true)
-  window.removeEventListener('resize', onScroll)
+  await openBase()
 }
 const toggle = () => (open.value ? close() : openMenu())
 const move = (delta: number) => {
@@ -128,8 +91,6 @@ const choose = (option: unknown) => {
   emit('update:modelValue', option)
   close()
 }
-
-onBeforeUnmount(close)
 </script>
 
 <style lang="scss" scoped>

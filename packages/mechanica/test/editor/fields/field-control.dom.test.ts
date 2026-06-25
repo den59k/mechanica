@@ -47,4 +47,14 @@ describe('FieldControl', () => {
     const { el } = mountField({ type: 'string', format: 'color' }, '#abcdef')
     expect(el.querySelector('input[type="color"]')).not.toBeNull()
   })
+
+  it('tags a smartLink field with a "SmartLink" chip beside the label', () => {
+    const { el } = mountField({ type: 'object', format: 'smartLink', label: 'Secondary' }, { url: '', title: '' })
+    expect(el.querySelector('.mech-field__chip')?.textContent).toBe('SmartLink')
+  })
+
+  it('does not tag plain fields with a chip', () => {
+    const { el } = mountField({ type: 'string', label: 'Title' }, 'hi')
+    expect(el.querySelector('.mech-field__chip')).toBeNull()
+  })
 })

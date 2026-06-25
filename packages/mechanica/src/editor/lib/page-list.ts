@@ -5,6 +5,21 @@ export interface PageItem {
   folderPath?: string | null
 }
 
+let pagesPromise: Promise<PageItem[]> | null = null
+
+/**
+ * Fetch the project's pages from the dev server, memoized for the session so
+ * many link fields share one request. Resolves to `[]` when unavailable.
+ */
+export function fetchPages(): Promise<PageItem[]> {
+  if (!pagesPromise) {
+    pagesPromise = fetch('/@mechanica/pages')
+      .then((response) => response.json())
+      .catch(() => [] as PageItem[])
+  }
+  return pagesPromise
+}
+
 /** Filter pages by a free-text query matched against both name and path. */
 export function filterPages<T extends PageItem>(pages: T[], query: string): T[] {
   const q = query.trim().toLowerCase()

@@ -185,10 +185,25 @@
   flex-direction: column;
   gap: 5px;
 }
+.mech-field__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .mech-field__label {
   font-size: 12.5px;
   font-weight: 500;
   color: var(--mech-fg-alt);
+}
+// Field-type tag (e.g. "SmartLink"). Mixed-case + accent-soft so it reads as a
+// calm identity tag, distinct from the uppercase value badges inside fields.
+.mech-field__chip {
+  padding: 1px 7px;
+  border-radius: var(--mech-radius-pill);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--mech-accent);
+  background: var(--mech-accent-soft);
 }
 .mech-field__hint {
   font-size: 11.5px;

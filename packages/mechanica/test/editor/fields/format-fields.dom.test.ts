@@ -39,12 +39,17 @@ describe('formatted field editors', () => {
     expect(state.value).toEqual({ src: '/up/pic.png', previewSrc: '/up/pic.png' })
   })
 
-  it('smartLink: patches individual fields', () => {
-    const { el, state } = mountField({ type: 'object', format: 'smartLink' }, { url: '', title: '' })
-    const url = el.querySelector('input[type="text"]')! as HTMLInputElement
-    url.value = '/pricing'
-    url.dispatchEvent(new Event('input'))
-    expect(state.value).toMatchObject({ url: '/pricing' })
+  it('smartLink: edits the visible title', () => {
+    // external links reveal the extra settings (title, new tab) by default.
+    const { el, state } = mountField(
+      { type: 'object', format: 'smartLink' },
+      { url: 'https://x.com', title: '', external: true },
+      { mechPages: [] },
+    )
+    const title = el.querySelector('.mech-smartlink__title input') as HTMLInputElement
+    title.value = 'Example'
+    title.dispatchEvent(new Event('input'))
+    expect(state.value).toMatchObject({ url: 'https://x.com', title: 'Example' })
   })
 
   it('multiselect: adds a tag on Enter', () => {
