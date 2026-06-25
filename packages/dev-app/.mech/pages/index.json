@@ -1,117 +1,256 @@
 {
   "name": "Home",
   "meta": {
-    "title": "Mechanica dev-app",
-    "description": ""
+    "title": "Mechanica — The visual block editor for Vue",
+    "description": "Build Vue sites with a visual block editor. Vite 8, Vue 3.5, Bun."
   },
   "content": [
     {
-      "id": "b1",
-      "blockId": "hero",
+      "id": "nav",
+      "blockId": "navbar",
       "data": {
-        "title": "Welcome to Mechanica",
-        "subtitle": "A visual block editor on Vite 8"
-      }
-    },
-    {
-      "id": "082190c9-5264-41e0-b6e4-d12028885a79",
-      "blockId": "features",
-      "data": {
-        "items": []
-      }
-    },
-    {
-      "id": "c8704a57-f323-4309-978c-38ec457b8afc",
-      "blockId": "hero",
-      "data": {
-        "title": "Hello 222",
-        "subtitle": ""
-      }
-    },
-    {
-      "id": "0aab4a55-7317-43db-aa7d-1e3fbe644daa",
-      "blockId": "hero",
-      "data": {
-        "title": "Hello 2333",
-        "subtitle": ""
-      }
-    },
-    {
-      "id": "51f83047-77c3-4beb-ba54-5ae2292f8fd7",
-      "blockId": "hero",
-      "data": {
-        "title": "Hello 23132231",
-        "subtitle": ""
-      }
-    },
-    {
-      "id": "d9887e2f-e415-460d-ba2a-4ba3730c9f40",
-      "blockId": "features",
-      "data": {
-        "items": [
+        "brand": "Mechanica",
+        "homeHref": "#",
+        "links": [
           {
-            "title": "qweqew",
-            "text": "qweqweqweqwe"
+            "label": "Features",
+            "href": "#features"
           },
           {
-            "title": "йцууйц",
-            "text": "йцйцуйцу"
+            "label": "Pricing",
+            "href": "#pricing"
+          },
+          {
+            "label": "Docs",
+            "href": "#"
+          }
+        ],
+        "ctaLabel": "Get started",
+        "ctaHref": "#get-started"
+      }
+    },
+    {
+      "id": "hero",
+      "blockId": "landing-hero",
+      "data": {
+        "eyebrow": "Vite 8 · Vue 3.5 · Bun",
+        "title": "Build Vue sites with a visual block editor",
+        "subtitle": "Author blocks as real Vue components. Arrange them on the page in a live in-browser editor. Export a static site today — render on a server tomorrow.",
+        "primaryLabel": "Start building",
+        "primaryHref": "#get-started",
+        "secondaryLabel": "Read the docs",
+        "secondary": {
+          "url": "https://github.com",
+          "title": "Read the docs",
+          "external": true,
+          "openNewTab": false
+        },
+        "note": "Open source · MIT licensed"
+      }
+    },
+    {
+      "id": "logos",
+      "blockId": "logo-strip",
+      "data": {
+        "label": "Built on a modern, fast toolchain",
+        "items": [
+          {
+            "name": "Vite 8"
+          },
+          {
+            "name": "Vue 3.5"
+          },
+          {
+            "name": "Bun"
+          },
+          {
+            "name": "Vitest 4"
+          },
+          {
+            "name": "TypeScript"
           }
         ]
       }
     },
     {
-      "id": "eb5ff6cd-1586-4823-a939-ccb76e962f13",
-      "blockId": "banner",
+      "id": "features",
+      "blockId": "feature-grid",
       "data": {
-        "image": {
-          "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgZmlsbD0ibm9uZSI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjRjJGMkYyIiByeD0iOCIvPjxwYXRoIGZpbGw9IiM2RDZENkQiIGQ9Ik00MS42IDE5LjZIMjIuNEE0LjQgNC40IDAgMCAwIDE4IDI0djE2YTQuNCA0LjQgMCAwIDAgNC40IDQuNGgxOS4yQTQuNCA0LjQgMCAwIDAgNDYgNDBWMjRhNC40IDQuNCAwIDAgMC00LjQtNC40TTIyLjQgMjJoMTkuMmEyIDIgMCAwIDEgMiAydjEzLjEwNGwtNC4zNTItNC4zNTJhMS4xMiAxLjEyIDAgMCAwLS44OTYtLjM1MiAxLjI4IDEuMjggMCAwIDAtLjg4LjQzMmwtMi4wNjQgMi40OC03LjM2LTcuMzZhMS4xMiAxLjEyIDAgMCAwLS44NDgtLjM1MiAxLjI4IDEuMjggMCAwIDAtLjg4LjQzMmwtNS45MiA3LjA1NlYyNGEyIDIgMCAwIDEgMi0ybS0yIDE4di0xLjE2OGw2Ljg4LTguMjU2IDYuNTkyIDYuNTkyLTQuMDMyIDQuOEgyMi40YTIgMiAwIDAgMS0yLTEuOTY4bTIxLjIgMmgtOC42NGw1LjUyLTYuNjI0IDUuMDQgNS4wNEExLjk3IDEuOTcgMCAwIDEgNDEuNiA0MiIvPjwvc3ZnPg==",
-          "previewSrc": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgZmlsbD0ibm9uZSI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjRjJGMkYyIiByeD0iOCIvPjxwYXRoIGZpbGw9IiM2RDZENkQiIGQ9Ik00MS42IDE5LjZIMjIuNEE0LjQgNC40IDAgMCAwIDE4IDI0djE2YTQuNCA0LjQgMCAwIDAgNC40IDQuNGgxOS4yQTQuNCA0LjQgMCAwIDAgNDYgNDBWMjRhNC40IDQuNCAwIDAgMC00LjQtNC40TTIyLjQgMjJoMTkuMmEyIDIgMCAwIDEgMiAydjEzLjEwNGwtNC4zNTItNC4zNTJhMS4xMiAxLjEyIDAgMCAwLS44OTYtLjM1MiAxLjI4IDEuMjggMCAwIDAtLjg4LjQzMmwtMi4wNjQgMi40OC03LjM2LTcuMzZhMS4xMiAxLjEyIDAgMCAwLS44NDgtLjM1MiAxLjI4IDEuMjggMCAwIDAtLjg4LjQzMmwtNS45MiA3LjA1NlYyNGEyIDIgMCAwIDEgMi0ybS0yIDE4di0xLjE2OGw2Ljg4LTguMjU2IDYuNTkyIDYuNTkyLTQuMDMyIDQuOEgyMi40YTIgMiAwIDAgMS0yLTEuOTY4bTIxLjIgMmgtOC42NGw1LjUyLTYuNjI0IDUuMDQgNS4wNEExLjk3IDEuOTcgMCAwIDEgNDEuNiA0MiIvPjwvc3ZnPg=="
-        },
-        "heading": "Banner headings",
-        "caption": "qweqwe"
+        "anchor": "features",
+        "eyebrow": "Why Mechanica",
+        "title": "Everything is a Vue component",
+        "subtitle": "No proprietary block format. Your blocks are real SFCs — typed, testable, and yours.",
+        "items": [
+          {
+            "icon": "🪄",
+            "title": "Live in-browser editor",
+            "text": "Drag, drop, nest and edit props on the real page with instant preview."
+          },
+          {
+            "icon": "🗂️",
+            "title": "Scoped data",
+            "text": "Site, folder and page data — authored once, shared correctly."
+          },
+          {
+            "icon": "🧩",
+            "title": "Author in SFCs",
+            "text": "A block is a Vue component that calls defineBlock. No DSL, no lock-in."
+          },
+          {
+            "icon": "🧱",
+            "title": "Slots & containers",
+            "text": "Blocks nest. Drop a block inside a card or section like any layout."
+          },
+          {
+            "icon": "📦",
+            "title": "Static export",
+            "text": "Render every page to HTML with SEO head templating. SSR later."
+          },
+          {
+            "icon": "⚡",
+            "title": "Vite 8 + Bun",
+            "text": "Source-level compile, no string surgery. Fast dev, fast builds."
+          }
+        ]
       }
     },
     {
-      "id": "1e3b90bc-1385-495a-b08e-0060f1680701",
-      "blockId": "section",
+      "id": "quote",
+      "blockId": "testimonial",
       "data": {
-        "muted": false
-      }
-    },
-    {
-      "id": "ed84afa0-d25c-4adf-b40e-f7410ad59f29",
-      "blockId": "card",
-      "data": {
-        "title": "Card titleewwe"
-      },
-      "children": [
-        {
-          "id": "14dfa6fa-e5ee-4ce6-bccc-2fd7b9a4b71a",
-          "blockId": "section",
-          "data": {
-            "muted": true
-          }
-        },
-        {
-          "id": "b81eb857-80ed-4662-8f11-b42651d94756",
-          "blockId": "features",
-          "data": {
-            "items": [
-              {
-                "title": "qweeqw",
-                "text": "qweqwqweq"
-              }
-            ]
-          }
+        "quote": "We replaced a tangle of CMS templates with Mechanica blocks in an afternoon. Editors get a real visual tool; we keep plain Vue components in git.",
+        "author": "Alex Rivera",
+        "role": "Frontend Lead, Northwind",
+        "avatar": {
+          "src": ""
         }
-      ]
+      }
+    },
+    {
+      "id": "pricing",
+      "blockId": "pricing",
+      "data": {
+        "anchor": "pricing",
+        "eyebrow": "Pricing",
+        "title": "Start free. Scale when you ship.",
+        "subtitle": "The editor and static export are open source. Hosted rendering is on the way.",
+        "plans": [
+          {
+            "name": "Open source",
+            "price": "$0",
+            "period": "forever",
+            "description": "Everything you need to build and export a site.",
+            "features": [
+              {
+                "text": "Visual block editor"
+              },
+              {
+                "text": "Static site export"
+              },
+              {
+                "text": "Unlimited pages & blocks"
+              },
+              {
+                "text": "MIT licensed"
+              }
+            ],
+            "ctaLabel": "Get started",
+            "ctaHref": "#get-started",
+            "featured": false
+          },
+          {
+            "name": "Team",
+            "price": "$19",
+            "period": "/ editor / mo",
+            "description": "Collaboration and hosted rendering for growing teams.",
+            "features": [
+              {
+                "text": "Everything in Open source"
+              },
+              {
+                "text": "Hosted SSR rendering"
+              },
+              {
+                "text": "Shared asset library"
+              },
+              {
+                "text": "Roles & review"
+              }
+            ],
+            "ctaLabel": "Start free trial",
+            "ctaHref": "#get-started",
+            "featured": true
+          },
+          {
+            "name": "Enterprise",
+            "price": "Let's talk",
+            "period": "",
+            "description": "Security, SSO and support for large organizations.",
+            "features": [
+              {
+                "text": "Everything in Team"
+              },
+              {
+                "text": "SSO & audit logs"
+              },
+              {
+                "text": "Priority support"
+              },
+              {
+                "text": "On-prem option"
+              }
+            ],
+            "ctaLabel": "Contact sales",
+            "ctaHref": "#",
+            "featured": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "cta",
+      "blockId": "cta-band",
+      "data": {
+        "anchor": "get-started",
+        "title": "Ship your first block today",
+        "subtitle": "Clone the repo, run the dev server, and start arranging.",
+        "primaryLabel": "Start building",
+        "primaryHref": "#",
+        "note": "bun create mechanica@latest"
+      }
+    },
+    {
+      "id": "footer",
+      "blockId": "site-footer",
+      "data": {
+        "brand": "Mechanica",
+        "note": "The visual block editor for Vue.",
+        "links": [
+          {
+            "label": "Features",
+            "href": "#features"
+          },
+          {
+            "label": "Pricing",
+            "href": "#pricing"
+          },
+          {
+            "label": "Docs",
+            "href": "#"
+          },
+          {
+            "label": "GitHub",
+            "href": "#"
+          }
+        ],
+        "copyright": "© 2026 Mechanica. MIT licensed."
+      }
     }
   ],
   "data": {
     "head": {
-      "title": "Mechanica!!! It is my site!!!!",
-      "description": "Build Vue sites with a visual block editor."
+      "title": "Mechanica — The visual block editor for Vue",
+      "description": "Build Vue sites with a visual block editor. Vite 8, Vue 3.5, Bun."
     }
   }
 }

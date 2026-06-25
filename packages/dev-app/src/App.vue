@@ -1,11 +1,5 @@
 <template>
-  <main class="app">
-    <header class="app__header">
-      <strong>{{ site.name }}</strong>
-      <span v-if="site.tagline" class="app__tagline">{{ site.tagline }}</span>
-    </header>
-    <Content />
-  </main>
+  <Content />
 </template>
 
 <script setup lang="ts">
@@ -13,31 +7,20 @@ import { watchEffect } from 'vue'
 import { Content } from 'mechanica'
 import { useSiteSettings } from './data/site'
 import { useHead } from './data/head'
+import './styles/site.scss'
 
+// The shell is now intentionally bare: site chrome (nav, footer) is composed
+// from blocks, so every page is full-bleed and the blocks own their own width.
 const site = useSiteSettings()
-
-// Keep the document title in sync with the page-head data (live in the editor
-// and across client-side navigation); the build templates it into index.html.
 const head = useHead()
+
+// Keep the document title in sync with page-head data (live in the editor and
+// across SPA navigation); the build templates it into index.html too.
 watchEffect(() => {
   if (typeof document !== 'undefined' && head.title) document.title = head.title
 })
-</script>
 
-<style>
-.app {
-  max-width: 880px;
-  margin: 0 auto;
-  font-family: system-ui, sans-serif;
-}
-.app__header {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding: 16px 0;
-  border-bottom: 1px solid #e5e7eb;
-}
-.app__tagline {
-  color: #6b7280;
-}
-</style>
+// `site` is read by blocks (e.g. the Navbar brand); referenced here so this
+// entry always registers the site-scoped data entry.
+void site
+</script>

@@ -1,0 +1,150 @@
+// Global design system for the dev-app landing site: tokens, a small reset, and
+// the shared primitives (container, buttons, section rhythm) that the marketing
+// blocks compose with. Block-specific styling stays scoped inside each block.
+
+:root {
+  // Brand
+  --brand: #5b54f0;
+  --brand-strong: #4a42e4;
+  --brand-soft: #efeefe;
+
+  // Ink / surfaces
+  --ink: #14151a;
+  --ink-2: #3a3d47;
+  --muted: #6a6f7b;
+  --bg: #ffffff;
+  --surface: #f6f7fb;
+  --ink-section: #0f1016; // dark bands (CTA / footer)
+
+  --border: #e8e9f0;
+
+  // Shape / elevation
+  --radius: 16px;
+  --radius-sm: 10px;
+  --container: 1140px;
+  --shadow-sm: 0 1px 2px rgba(16, 18, 27, 0.06), 0 6px 20px rgba(16, 18, 27, 0.05);
+  --shadow-lg: 0 30px 70px rgba(16, 18, 27, 0.16);
+
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+blockquote {
+  margin: 0;
+}
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+// Sticky-nav offset for in-page anchor links (#features, #pricing, …).
+[id] {
+  scroll-margin-top: 88px;
+}
+
+// ── Shared primitives ────────────────────────────────────────────────────────
+.mc-container {
+  width: 100%;
+  max-width: var(--container);
+  margin: 0 auto;
+  padding-inline: 24px;
+}
+
+.mc-section {
+  padding: 92px 0;
+}
+
+.mc-eyebrow {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+
+// One button, used by every CTA across the blocks.
+.mc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 22px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+
+  &:active {
+    transform: translateY(1px);
+  }
+  &--primary {
+    background: var(--brand);
+    color: #fff;
+  }
+  &--primary:hover {
+    background: var(--brand-strong);
+  }
+  &--ghost {
+    background: transparent;
+    color: var(--ink);
+    border-color: var(--border);
+  }
+  &--ghost:hover {
+    border-color: var(--ink);
+  }
+  &--light {
+    background: #fff;
+    color: var(--ink);
+  }
+  &--light:hover {
+    background: #eeeef4;
+  }
+  &--sm {
+    height: 38px;
+    padding: 0 16px;
+    font-size: 14px;
+  }
+}
