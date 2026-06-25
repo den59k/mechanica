@@ -48,14 +48,15 @@ describe('dev middleware', () => {
     expect(pages.some((p: { path: string }) => p.path === '/about')).toBe(true)
   })
 
-  it('splits site-scoped data out of the page file on save', async () => {
+  it('persists the data scope buckets to their stores on save', async () => {
     await fetch(`${base}/pages`, { method: 'POST', body: JSON.stringify({ path: '/about', name: 'About' }) })
     await fetch(`${base}/save?path=/about`, {
       method: 'POST',
       body: JSON.stringify({
         content: [],
-        data: { header: { logo: 'a.svg' }, seo: { title: 'About' } },
-        dataScopes: { header: 'site', seo: 'page' },
+        siteData: { header: { logo: 'a.svg' } },
+        folderData: {},
+        pageData: { seo: { title: 'About' } },
       }),
     })
 
@@ -66,7 +67,7 @@ describe('dev middleware', () => {
     expect(site).toEqual({ header: { logo: 'a.svg' } })
   })
 
-  it('routes folder-scoped data to the shared folders file', async () => {
+  it('routes folder-bucket data to the shared folders file', async () => {
     await fetch(`${base}/pages`, {
       method: 'POST',
       body: JSON.stringify({ path: '/post', name: 'Post', folderId: 'blog' }),
@@ -75,8 +76,9 @@ describe('dev middleware', () => {
       method: 'POST',
       body: JSON.stringify({
         content: [],
-        data: { nav: { items: ['Home'] }, seo: { title: 'Post' } },
-        dataScopes: { nav: 'folder', seo: 'page' },
+        siteData: {},
+        folderData: { nav: { items: ['Home'] } },
+        pageData: { seo: { title: 'Post' } },
       }),
     })
 

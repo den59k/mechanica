@@ -1,32 +1,11 @@
 import fs from 'node:fs'
 import { dirname, join, relative } from 'node:path'
-import type { DataScope } from '@mechanica/shared'
 import { getPagePath } from './pages-store'
 
 /** Site-wide data lives in a single file alongside the pages directory. */
 const SITE_DATA_FILE = 'data.json'
 /** Folder-scoped data for every folder lives in one file, keyed by folder path. */
 const FOLDERS_DATA_FILE = 'folders.json'
-
-/**
- * Split a flat `{ id → value }` data map into scope buckets. Site and folder
- * data are shared across pages, so they persist separately; anything else (page
- * scope, or an unknown scope) stays with the page that authored it.
- */
-export function splitDataByScope(
-  data: Record<string, unknown>,
-  scopes: Record<string, DataScope> = {},
-): { page: Record<string, unknown>; site: Record<string, unknown>; folder: Record<string, unknown> } {
-  const page: Record<string, unknown> = {}
-  const site: Record<string, unknown> = {}
-  const folder: Record<string, unknown> = {}
-  for (const [id, value] of Object.entries(data)) {
-    if (scopes[id] === 'site') site[id] = value
-    else if (scopes[id] === 'folder') folder[id] = value
-    else page[id] = value
-  }
-  return { page, site, folder }
-}
 
 /**
  * The folder a page belongs to — the directory holding its page file, relative

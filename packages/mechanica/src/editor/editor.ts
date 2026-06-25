@@ -24,15 +24,14 @@ function debounce<T extends (...args: any[]) => void>(fn: T, ms: number): T {
 }
 
 const dataEntries = getDataEntries()
-// Tell the dev server which scope each data id lives at, so it can split
-// site-wide data out of the page file on save.
-const dataScopes = Object.fromEntries(dataEntries.map((entry) => [entry.id, entry.scope ?? 'page']))
 
+// The snapshot already carries the scope buckets (site/folder/page); the dev
+// server persists each to its store.
 const save = debounce((snapshot: EditorSnapshot) => {
   void fetch(`/@mechanica/save?path=${encodeURIComponent(location.pathname)}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ ...snapshot, dataScopes }),
+    body: JSON.stringify(snapshot),
   })
 }, 500)
 

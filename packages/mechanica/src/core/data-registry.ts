@@ -1,10 +1,9 @@
 import { unfoldSchema } from 'compact-json-schema'
-import type { DataEntry, DataScope } from '@mechanica/shared'
+import type { DataEntry } from '@mechanica/shared'
 
 export interface DataEntryInput {
   id: string
   title?: string
-  scope?: DataScope
   props: unknown
 }
 
@@ -25,7 +24,6 @@ export function getDataEntries(): DataEntry[] {
   return entries.map((entry) => ({
     id: entry.id,
     title: entry.title,
-    scope: entry.scope,
     props: unfoldSchema(entry.props as never),
   }))
 }

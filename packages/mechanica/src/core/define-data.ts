@@ -1,6 +1,6 @@
 import { inject, isReactive, shallowReactive } from 'vue'
 import { unfoldSchema, type SchemaItem, type SchemaType } from 'compact-json-schema'
-import { passDefaultValue, type DataScope } from '@mechanica/shared'
+import { passDefaultValue } from '@mechanica/shared'
 import { mechanicaKey } from './state'
 import { registerDataEntry } from './data-registry'
 
@@ -9,8 +9,6 @@ export interface DataDefinition<Id extends string, T extends SchemaItem> {
   id: Id
   /** Display title in the editor. */
   title?: string
-  /** Scope the data lives at. Defaults to `'page'`. */
-  scope?: DataScope
   /** Data shape (compact-json-schema). */
   props: T
 }
@@ -23,11 +21,12 @@ export interface DataHook<Id extends string, T extends SchemaItem> {
 }
 
 /**
- * Declare shared, scoped data. An **imported function** (not a macro) used in a
- * standalone data module; returns a hook components call to read the data.
+ * Declare shared data. An **imported function** (not a macro) used in a
+ * standalone data module; returns a hook components call to read the data. The
+ * value's scope (site / folder / page) is chosen per page in the editor, not here.
  *
  *   // data/header.ts
- *   export const useHeader = defineData({ id: 'header', scope: 'site', props: {...} })
+ *   export const useHeader = defineData({ id: 'header', props: {...} })
  */
 export function defineData<Id extends string, T extends SchemaItem>(
   definition: DataDefinition<Id, T>,

@@ -1,5 +1,5 @@
 <template>
-  <VDialog title="Page data" size="standard">
+  <VDialog title="Page data" size="wide">
     <DataSettings />
     <template #actions>
       <button type="button" class="mech-button is-primary" @click="dialog.back()">Done</button>

@@ -11,8 +11,8 @@ const components = [
 ]
 
 const dataEntries: DataEntry[] = [
-  { id: 'header', title: 'Header', scope: 'site', props: { type: 'object', properties: { logo: { type: 'string' } } } },
-  { id: 'seo', title: 'SEO', scope: 'page', props: { type: 'object', properties: { title: { type: 'string' } } } },
+  { id: 'header', title: 'Header', props: { type: 'object', properties: { logo: { type: 'string' } } } },
+  { id: 'seo', title: 'SEO', props: { type: 'object', properties: { title: { type: 'string' } } } },
 ]
 
 describe('editor store', () => {
@@ -72,53 +72,75 @@ describe('editor store', () => {
     expect((store.content[0]!.children as Array<{ blockId: string }>)[0]!.blockId).toBe('hero')
   })
 
-  it('exposes data entries sorted by scope and seeds missing values', () => {
+  it('exposes data entries sorted by title and seeds a value on first edit', () => {
     const store = createEditorStore({ content: [], data: {} }, components, dataEntries)
-    // Site scope sorts before page scope.
     expect(store.dataEntries.map((e) => e.id)).toEqual(['header', 'seo'])
-    // Missing values are seeded with an object so the form has something to bind.
-    expect(store.data.header).toEqual({})
+    // A fresh entry defaults to "this page" scope; dataValue seeds it for binding.
     expect(store.dataValue('seo')).toEqual({})
+    expect(store.scopeOf('seo')).toBe('page')
   })
 
-  it('preserves existing data values instead of overwriting them', () => {
+  it('reads a value from the scope that holds it', () => {
     const store = createEditorStore(
-      { content: [], data: { header: { logo: 'logo.svg' } } },
+      { content: [], data: {}, siteData: { header: { logo: 'logo.svg' } } },
       components,
       dataEntries,
     )
+    expect(store.scopeOf('header')).toBe('site')
     expect(store.dataValue('header')).toEqual({ logo: 'logo.svg' })
   })
 
+  it('overrides per page and reverts to the site value via setScope', () => {
+    const store = createEditorStore(
+      { content: [], data: {}, siteData: { header: { logo: 'site.svg' } } },
+      components,
+      dataEntries,
+    )
+    expect(store.scopeOf('header')).toBe('site')
+
+    // Override for this page: a page copy is seeded from the site value, site kept.
+    store.setScope('header', 'page')
+    expect(store.scopeOf('header')).toBe('page')
+    ;(store.dataValue('header') as Record<string, unknown>).logo = 'page.svg'
+    expect(store.siteData.header).toEqual({ logo: 'site.svg' })
+    expect(store.effective.header).toEqual({ logo: 'page.svg' })
+
+    // Back to site: the override is dropped and the existing site value is used.
+    store.setScope('header', 'site')
+    expect(store.scopeOf('header')).toBe('site')
+    expect(store.pageData.header).toBeUndefined()
+    expect(store.effective.header).toEqual({ logo: 'site.svg' })
+  })
+
   it('owns its state independently of the passed-in window state', () => {
-    // Regression: the runtime mutates window.state.data in place via the bridge.
+    // Regression: the runtime mutates window.state in place via the bridge.
     // If the store aliased it, a stale echo could overwrite a field being typed.
     const initial = {
       content: [{ id: 'a', blockId: 'hero', data: { title: 'x' } }],
-      data: { header: { logo: 'a.svg' } },
+      data: {},
+      siteData: { header: { logo: 'a.svg' } },
     }
     const store = createEditorStore(initial, components, dataEntries)
 
     // Editing through the store must not leak back into the original state...
     ;(store.dataValue('header') as Record<string, unknown>).logo = 'b.svg'
     store.content[0]!.data.title = 'y'
-    expect(initial.data.header.logo).toBe('a.svg')
+    expect(initial.siteData.header.logo).toBe('a.svg')
     expect(initial.content[0]!.data.title).toBe('x')
 
     // ...and a later external mutation of the original must not reach the store.
-    initial.data.header.logo = 'c.svg'
-    expect((store.data.header as Record<string, unknown>).logo).toBe('b.svg')
+    initial.siteData.header.logo = 'c.svg'
+    expect((store.siteData.header as Record<string, unknown>).logo).toBe('b.svg')
   })
 })
 
 describe('compareDataEntries', () => {
-  it('orders site → folder → page, then by title', () => {
+  it('orders alphabetically by title (falling back to id)', () => {
     const entries: DataEntry[] = [
-      { id: 'b', scope: 'page', title: 'B' },
-      { id: 'a', scope: 'site', title: 'A' },
-      { id: 'c', scope: 'folder', title: 'C' },
-      { id: 'd', scope: 'page', title: 'A' },
+      { id: 'b', title: 'Zebra' },
+      { id: 'a', title: 'Apple' },
+      { id: 'c', title: 'Mango' },
     ]
-    expect([...entries].sort(compareDataEntries).map((e) => e.id)).toEqual(['a', 'c', 'd', 'b'])
+    expect([...entries].sort(compareDataEntries).map((e) => e.id)).toEqual(['a', 'c', 'b'])
   })
 })

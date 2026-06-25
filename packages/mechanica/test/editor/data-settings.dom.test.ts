@@ -13,8 +13,8 @@ beforeEach(() => {
 })
 
 const entries: DataEntry[] = [
-  { id: 'site', title: 'Site', scope: 'site', props: { type: 'object', properties: { name: { type: 'string' } } } },
-  { id: 'head', title: 'Head', scope: 'page', props: { type: 'object', properties: { title: { type: 'string' } } } },
+  { id: 'site', title: 'Site', props: { type: 'object', properties: { name: { type: 'string' } } } },
+  { id: 'head', title: 'Head', props: { type: 'object', properties: { title: { type: 'string' } } } },
 ]
 
 function mount(store: EditorStore) {
@@ -26,28 +26,49 @@ function mount(store: EditorStore) {
 }
 
 const labelsIn = (el: HTMLElement) => [...el.querySelectorAll('.mech-field__label')].map((l) => l.textContent)
+const rowFor = (el: HTMLElement, name: string) =>
+  [...el.querySelectorAll<HTMLButtonElement>('.mech-data__entry')].find(
+    (r) => r.querySelector('.mech-data__entry-name')?.textContent?.trim() === name,
+  )!
+const segFor = (el: HTMLElement, label: string) =>
+  [...el.querySelectorAll<HTMLButtonElement>('.mech-data__seg')].find((s) => s.textContent?.trim() === label)!
 
-describe('DataSettings tabs', () => {
-  it('renders one tab per entry and switches the active form', async () => {
+describe('DataSettings', () => {
+  it('lists every entry in the rail and switches the active form', async () => {
     const store = createEditorStore({ content: [], data: {} }, [], entries)
     const { el } = mount(store)
 
-    const tabs = [...el.querySelectorAll<HTMLButtonElement>('.mech-data__tab')]
-    expect(tabs.map((t) => t.textContent?.trim())).toEqual(['Site', 'Head'])
+    const names = [...el.querySelectorAll('.mech-data__entry-name')].map((n) => n.textContent?.trim())
+    expect(names).toEqual(['Head', 'Site']) // sorted by title
 
-    // First entry (broadest scope) is active by default → its "name" field shows.
-    expect(labelsIn(el)).toContain('Name')
-
-    tabs[1]!.click()
-    await nextTick()
+    // First entry (Head) is active by default → its "title" field shows.
     expect(labelsIn(el)).toContain('Title')
-    expect(labelsIn(el)).not.toContain('Name')
+
+    rowFor(el, 'Site').click()
+    await nextTick()
+    expect(labelsIn(el)).toContain('Name')
+    expect(labelsIn(el)).not.toContain('Title')
   })
 
-  it('omits the tab bar when there is a single entry', () => {
-    const store = createEditorStore({ content: [], data: {} }, [], [entries[0]!])
+  it('switches scope and warns when editing site-wide data', async () => {
+    const store = createEditorStore({ content: [], data: {}, siteData: { site: { name: 'Acme' } } }, [], entries)
     const { el } = mount(store)
-    expect(el.querySelector('.mech-data__tabs')).toBeNull()
-    expect(labelsIn(el)).toContain('Name')
+
+    rowFor(el, 'Site').click()
+    await nextTick()
+    // The Site entry resolves from site data → the warning banner shows.
+    expect(el.querySelector('.mech-data__note.is-warn')).not.toBeNull()
+
+    segFor(el, 'This page').click()
+    await nextTick()
+    expect(store.scopeOf('site')).toBe('page')
+    expect(el.querySelector('.mech-data__note.is-warn')).toBeNull()
+  })
+
+  it('hides the folder scope option when the page is not in a folder', () => {
+    const store = createEditorStore({ content: [], data: {} }, [], entries)
+    const { el } = mount(store)
+    const labels = [...el.querySelectorAll('.mech-data__seg')].map((s) => s.textContent?.trim())
+    expect(labels).toEqual(['Site', 'This page'])
   })
 })

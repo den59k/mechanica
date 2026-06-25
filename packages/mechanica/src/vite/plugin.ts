@@ -101,10 +101,20 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         if (/\.\w+$/.test(urlPath)) return html
 
         const page = readPage(mechDir, urlPath)
-        // Folder- and site-scoped data are shared, so merge them over the page's own.
+        // Resolve site < folder < page so a page (and its folder) override shared
+        // site data. The buckets are injected too, so the editor can edit each
+        // level and tell which entries this page overrides.
+        const folder = folderOf(mechDir, urlPath)
+        const siteData = readSiteData(mechDir)
+        const folderData = readFolderData(mechDir, folder)
+        const pageData = page.data ?? {}
         const state = {
           content: page.content ?? [],
-          data: { ...page.data, ...readFolderData(mechDir, folderOf(mechDir, urlPath)), ...readSiteData(mechDir) },
+          data: { ...siteData, ...folderData, ...pageData },
+          siteData,
+          folderData,
+          pageData,
+          folder,
           page: { path: urlPath, meta: page.meta ?? {} },
         }
         const inject = [

@@ -2,14 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import { dirname, join } from 'node:path'
-import {
-  splitDataByScope,
-  readSiteData,
-  mergeSiteData,
-  folderOf,
-  readFolderData,
-  mergeFolderData,
-} from '@/vite/dev/data-store'
+import { readSiteData, mergeSiteData, folderOf, readFolderData, mergeFolderData } from '@/vite/dev/data-store'
 
 let mechDir: string
 
@@ -24,26 +17,6 @@ function writePage(relative: string, data: unknown = { content: [], data: {} }) 
   fs.mkdirSync(dirname(file), { recursive: true })
   fs.writeFileSync(file, JSON.stringify(data))
 }
-
-describe('splitDataByScope', () => {
-  it('routes ids into site / folder / page buckets by scope', () => {
-    const { page, site, folder } = splitDataByScope(
-      { header: { logo: 'a' }, nav: { items: [] }, hero: { title: 'b' }, footer: { year: 2026 } },
-      { header: 'site', nav: 'folder', hero: 'page' },
-    )
-    expect(site).toEqual({ header: { logo: 'a' } })
-    expect(folder).toEqual({ nav: { items: [] } })
-    // `hero` is page-scoped and `footer` has no declared scope → both stay on the page.
-    expect(page).toEqual({ hero: { title: 'b' }, footer: { year: 2026 } })
-  })
-
-  it('keeps everything on the page when no scopes are given', () => {
-    const { page, site, folder } = splitDataByScope({ a: 1, b: 2 })
-    expect(page).toEqual({ a: 1, b: 2 })
-    expect(site).toEqual({})
-    expect(folder).toEqual({})
-  })
-})
 
 describe('folderOf', () => {
   it('returns null for root-level pages', () => {

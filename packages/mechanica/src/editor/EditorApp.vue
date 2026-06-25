@@ -223,17 +223,19 @@ const toolbarLeft = computed(() => {
   return Math.min(selected.value.left + selected.value.width, window.innerWidth - 380)
 })
 
-// On any edit: push a live preview to the page runtime and report the snapshot.
+// On any edit: push the effective data as a live preview to the runtime, and
+// report the snapshot (split into scope buckets) for the dev server to persist.
 watch(
-  () => [store.content, store.data],
+  () => [store.content, store.siteData, store.folderData, store.pageData],
   () => {
-    const snapshot: EditorSnapshot = {
-      content: JSON.parse(JSON.stringify(store.content)),
-      data: JSON.parse(JSON.stringify(store.data)),
-    }
-    pushStateUpdate(snapshot as never)
+    const snapshot: EditorSnapshot = store.snapshot() as EditorSnapshot
+    pushStateUpdate({ content: snapshot.content as never, data: clone(store.effective) })
     props.onChange?.(snapshot)
   },
   { deep: true },
 )
+
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value))
+}
 </script>

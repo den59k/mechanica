@@ -1,46 +1,27 @@
 <template>
   <header class="nav">
     <div class="mc-container nav__inner">
-      <a class="nav__brand" :href="props.homeHref || '#'">{{ brand }}</a>
+      <a class="nav__brand" :href="nav.homeHref || '/'">{{ nav.brand || 'Mechanica' }}</a>
 
       <nav class="nav__links">
-        <a v-for="(item, i) in props.links" :key="i" :href="item.href || '#'" class="nav__link">
+        <a v-for="(item, i) in nav.links || []" :key="i" :href="item.href || '#'" class="nav__link">
           {{ item.label }}
         </a>
       </nav>
 
-      <a v-if="props.ctaLabel" :href="props.ctaHref || '#'" class="mc-btn mc-btn--primary mc-btn--sm">
-        {{ props.ctaLabel }}
+      <a v-if="nav.ctaLabel" :href="nav.ctaHref || '#'" class="mc-btn mc-btn--primary mc-btn--sm">
+        {{ nav.ctaLabel }}
       </a>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useSiteSettings } from '../data/site'
+// Shared site header: reads the `navbar` data entry. Not a block — it's identical
+// on every page, so App.vue renders it once, outside the page content.
+import { useNavbar } from '../data/navbar'
 
-// Reads site-scoped data for a sensible brand fallback — a block consuming
-// shared data, not just its own props.
-const site = useSiteSettings()
-
-const props = defineBlock({
-  name: 'Navbar',
-  category: 'Marketing',
-  description: 'Sticky top bar: brand, nav links, primary CTA',
-  props: {
-    brand: 'string',
-    homeHref: { type: 'string', default: '#' },
-    links: {
-      type: 'array',
-      items: { label: 'string', href: 'string' },
-    },
-    ctaLabel: { type: 'string', default: 'Get started' },
-    ctaHref: { type: 'string', default: '#get-started' },
-  },
-})
-
-const brand = computed(() => props.brand || site.name || 'Mechanica')
+const nav = useNavbar()
 </script>
 
 <style scoped>

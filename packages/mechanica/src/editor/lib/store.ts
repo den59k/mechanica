@@ -1,5 +1,12 @@
 import { reactive, computed, markRaw, type InjectionKey } from 'vue'
-import { getDefaultValue, type Block, type ContentBlock, type DataEntry, type State } from '@mechanica/shared'
+import {
+  getDefaultValue,
+  type Block,
+  type ContentBlock,
+  type DataEntry,
+  type DataScope,
+  type State,
+} from '@mechanica/shared'
 import {
   findBlock,
   removeBlock,
@@ -12,19 +19,38 @@ import {
 } from './content-tree'
 import { toBlockMeta, createContentBlock, type BlockComponent } from './block-meta'
 
+/** The editable, undo-able slice of state (content + the three data scope buckets). */
+export interface EditableState {
+  content: ContentBlock[]
+  siteData: Record<string, unknown>
+  folderData: Record<string, unknown>
+  pageData: Record<string, unknown>
+}
+
 export interface EditorStore {
   content: ContentBlock[]
-  data: Record<string, unknown>
+  /** Data scope buckets. A value may exist in several at once (page overrides folder overrides site). */
+  siteData: Record<string, unknown>
+  folderData: Record<string, unknown>
+  pageData: Record<string, unknown>
   blocks: Block[]
   blocksById: Map<string, Block>
   /** The live block components keyed by id, for rendering hover previews. */
   componentsById: Map<string, BlockComponent>
-  /** Editable `defineData` entries (site/folder/page scoped). */
+  /** Editable `defineData` entries. */
   dataEntries: DataEntry[]
+  /** Whether the current page lives in a folder (so folder scope is offered). */
+  canFolder: boolean
   selectedId: string | null
   readonly selected: ContentBlock | null
   readonly selectedSchema: Record<string, any> | null
-  /** Ensure an entry's value object exists in `data` and return it for editing. */
+  /** Effective data per entry (site < folder < page, defaults filled) — for live preview. */
+  readonly effective: Record<string, unknown>
+  /** The scope an entry currently resolves from on this page (defaults to `page`). */
+  scopeOf(id: string): DataScope
+  /** Move an entry's value to a scope: narrower = override (keep broader), broader = use that level. */
+  setScope(id: string, scope: DataScope): void
+  /** The object the form edits — the value at the entry's current scope (seeded when empty). */
   dataValue(id: string): Record<string, unknown>
   select(id: string | null): void
   addBlock(blockId: string): void
@@ -36,7 +62,9 @@ export interface EditorStore {
   copy(id: string): void
   cut(id: string): void
   paste(afterId: string | null): void
-  replace(snapshot: { content: ContentBlock[]; data: Record<string, unknown> }): void
+  /** Clone the editable state (for history). */
+  snapshot(): EditableState
+  replace(snapshot: EditableState): void
 }
 
 export const editorStoreKey: InjectionKey<EditorStore> = Symbol('mech-editor')
@@ -56,18 +84,57 @@ export function createEditorStore(
   )
   const dataEntries = [...entries].sort(compareDataEntries)
 
-  // Clone the incoming state so the editor owns it outright. The runtime reads
-  // the same `window.state` and mutates its data in place (via the bridge's
-  // mergeData); sharing those references would let a stale async echo write back
-  // into a field being typed in, causing the value to flicker.
+  // Clone the incoming state so the editor owns it outright (see the typing-flicker
+  // note: the runtime mutates window.state in place via the bridge).
   const content = reactive<ContentBlock[]>(clone(initial.content) ?? [])
-  const data = reactive<Record<string, unknown>>(clone(initial.data) ?? {})
+  const siteData = reactive<Record<string, unknown>>(clone(initial.siteData) ?? {})
+  const folderData = reactive<Record<string, unknown>>(clone(initial.folderData) ?? {})
+  const pageData = reactive<Record<string, unknown>>(clone(initial.pageData) ?? {})
   const ui = reactive({ selectedId: null as string | null, clipboard: null as ContentBlock | null })
 
-  // Seed missing data values from their schema so the form always has an object to bind.
-  for (const entry of dataEntries) {
-    if (data[entry.id] == null) data[entry.id] = getDefaultValue(entry.props ?? emptySchema)
+  const buckets: Record<DataScope, Record<string, unknown>> = { site: siteData, folder: folderData, page: pageData }
+
+  const schemaOf = (id: string) => dataEntries.find((entry) => entry.id === id)?.props ?? emptySchema
+
+  /** The value a page resolves for an entry: page over folder over site, else default. */
+  function effectiveValue(id: string): unknown {
+    const value = pageData[id] ?? folderData[id] ?? siteData[id]
+    return value != null ? value : getDefaultValue(schemaOf(id))
   }
+
+  function scopeOf(id: string): DataScope {
+    if (id in pageData) return 'page'
+    if (id in folderData) return 'folder'
+    if (id in siteData) return 'site'
+    return 'page'
+  }
+
+  function setScope(id: string, scope: DataScope): void {
+    const seed = clone(effectiveValue(id))
+    // Narrower scopes are overrides (keep the broader values); the chosen scope
+    // is seeded from the current effective value only when it has nothing yet.
+    if (scope === 'page') {
+      if (pageData[id] == null) pageData[id] = seed
+    } else if (scope === 'folder') {
+      delete pageData[id]
+      if (folderData[id] == null) folderData[id] = seed
+    } else {
+      delete pageData[id]
+      delete folderData[id]
+      if (siteData[id] == null) siteData[id] = seed
+    }
+  }
+
+  function dataValue(id: string): Record<string, unknown> {
+    const bucket = buckets[scopeOf(id)]
+    const current = bucket[id]
+    if (current == null || typeof current !== 'object') bucket[id] = clone(effectiveValue(id))
+    return bucket[id] as Record<string, unknown>
+  }
+
+  const effective = computed<Record<string, unknown>>(() =>
+    Object.fromEntries(dataEntries.map((entry) => [entry.id, effectiveValue(entry.id)])),
+  )
 
   const selected = computed(() => (ui.selectedId ? findBlock(content, ui.selectedId) : null))
   const selectedSchema = computed(() =>
@@ -76,19 +143,20 @@ export function createEditorStore(
 
   const store = reactive({
     content,
-    data,
+    siteData,
+    folderData,
+    pageData,
     blocks,
     blocksById,
     componentsById,
     dataEntries,
-    dataValue(id: string): Record<string, unknown> {
-      const current = data[id]
-      if (current == null || typeof current !== 'object') {
-        const entry = dataEntries.find((e) => e.id === id)
-        data[id] = getDefaultValue(entry?.props ?? emptySchema)
-      }
-      return data[id] as Record<string, unknown>
+    canFolder: initial.folder != null,
+    get effective() {
+      return effective.value
     },
+    scopeOf,
+    setScope,
+    dataValue,
     get selectedId() {
       return ui.selectedId
     },
@@ -126,8 +194,8 @@ export function createEditorStore(
       relocateBlock(content, id, drop)
     },
     duplicate(id: string) {
-      const clone = duplicateBlock(content, id)
-      if (clone) ui.selectedId = clone.id
+      const copy = duplicateBlock(content, id)
+      if (copy) ui.selectedId = copy.id
     },
     copy(id: string) {
       const block = findBlock(content, id)
@@ -150,10 +218,19 @@ export function createEditorStore(
       )
       ui.selectedId = block.id
     },
-    replace(snapshot: { content: ContentBlock[]; data: Record<string, unknown> }) {
+    snapshot(): EditableState {
+      return {
+        content: clone(content),
+        siteData: clone(siteData),
+        folderData: clone(folderData),
+        pageData: clone(pageData),
+      }
+    },
+    replace(snapshot: EditableState) {
       content.splice(0, content.length, ...(snapshot.content ?? []))
-      for (const key of Object.keys(data)) delete data[key]
-      Object.assign(data, snapshot.data ?? {})
+      replaceInto(siteData, snapshot.siteData)
+      replaceInto(folderData, snapshot.folderData)
+      replaceInto(pageData, snapshot.pageData)
       ui.selectedId = null
     },
   })
@@ -163,17 +240,18 @@ export function createEditorStore(
 
 const emptySchema = { type: 'object', properties: {} }
 
+/** Replace the contents of a reactive object in place (keeps the same reference). */
+function replaceInto(target: Record<string, unknown>, source: Record<string, unknown> = {}): void {
+  for (const key of Object.keys(target)) delete target[key]
+  Object.assign(target, source ?? {})
+}
+
 /** Deep-clone JSON-serializable editor state, preserving `undefined`/missing input. */
 function clone<T>(value: T): T {
   return value == null ? value : JSON.parse(JSON.stringify(value))
 }
 
-/** Scope ordering for the data panel: broadest (site) first, page-specific last. */
-const SCOPE_ORDER: Record<string, number> = { site: 0, folder: 1, page: 2 }
-
-/** Sort data entries by scope breadth, then alphabetically by title/id. */
+/** Sort data entries alphabetically by title (falling back to id). */
 export function compareDataEntries(a: DataEntry, b: DataEntry): number {
-  const byScope = (SCOPE_ORDER[a.scope ?? 'page'] ?? 2) - (SCOPE_ORDER[b.scope ?? 'page'] ?? 2)
-  if (byScope !== 0) return byScope
   return (a.title ?? a.id).localeCompare(b.title ?? b.id)
 }

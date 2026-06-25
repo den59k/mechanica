@@ -2,36 +2,26 @@
   <footer class="footer">
     <div class="mc-container footer__inner">
       <div class="footer__brand">
-        <strong class="footer__name">{{ props.brand || 'Mechanica' }}</strong>
-        <p v-if="props.note" class="footer__note">{{ props.note }}</p>
+        <strong class="footer__name">{{ foot.brand || 'Mechanica' }}</strong>
+        <p v-if="foot.note" class="footer__note">{{ foot.note }}</p>
       </div>
       <nav class="footer__links">
-        <a v-for="(item, i) in props.links" :key="i" :href="item.href || '#'" class="footer__link">
+        <a v-for="(item, i) in foot.links || []" :key="i" :href="item.href || '#'" class="footer__link">
           {{ item.label }}
         </a>
       </nav>
     </div>
     <div class="mc-container footer__bottom">
-      <span>{{ props.copyright }}</span>
+      <span>{{ foot.copyright }}</span>
     </div>
   </footer>
 </template>
 
 <script setup lang="ts">
-const props = defineBlock({
-  name: 'Footer',
-  category: 'Marketing',
-  description: 'Site footer: brand, links and a copyright line',
-  props: {
-    brand: 'string',
-    note: 'text',
-    links: {
-      type: 'array',
-      items: { label: 'string', href: 'string' },
-    },
-    copyright: { type: 'string', default: '© 2026 Mechanica' },
-  },
-})
+// Shared site footer: reads the `footer` data entry (see SiteHeader).
+import { useFooter } from '../data/footer'
+
+const foot = useFooter()
 </script>
 
 <style scoped>

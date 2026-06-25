@@ -13,9 +13,9 @@ export interface History {
 }
 
 /**
- * Undo/redo over the editor state. Snapshots `{ content, data }` as JSON; rapid
- * edits (e.g. typing) coalesce into one entry via a trailing debounce. Restoring
- * sets the baseline to the restored snapshot so it never re-records itself.
+ * Undo/redo over the editor state. Snapshots content + data buckets as JSON;
+ * rapid edits (e.g. typing) coalesce into one entry via a trailing debounce.
+ * Restoring sets the baseline to the restored snapshot so it never re-records itself.
  */
 export function createHistory(store: EditorStore, delay = 350): History {
   const past: string[] = []
@@ -23,7 +23,7 @@ export function createHistory(store: EditorStore, delay = 350): History {
   const canUndo = ref(false)
   const canRedo = ref(false)
 
-  const snapshot = () => JSON.stringify({ content: store.content, data: store.data })
+  const snapshot = () => JSON.stringify(store.snapshot())
   let baseline = snapshot()
 
   const update = () => {
@@ -60,7 +60,7 @@ export function createHistory(store: EditorStore, delay = 350): History {
 
   let timer: ReturnType<typeof setTimeout> | undefined
   const stop = watch(
-    () => [store.content, store.data],
+    () => [store.content, store.siteData, store.folderData, store.pageData],
     () => {
       clearTimeout(timer)
       timer = setTimeout(commit, delay)

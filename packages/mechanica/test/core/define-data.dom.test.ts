@@ -11,10 +11,10 @@ beforeEach(() => clearDataEntries())
 
 describe('defineData', () => {
   it('registers an introspectable data entry', () => {
-    defineData({ id: 'header', scope: 'site', props: { title: 'string' } })
+    defineData({ id: 'header', title: 'Header', props: { title: 'string' } })
     const entries = getDataEntries()
     expect(entries).toHaveLength(1)
-    expect(entries[0]).toMatchObject({ id: 'header', scope: 'site' })
+    expect(entries[0]).toMatchObject({ id: 'header', title: 'Header' })
     expect(entries[0]!.props).toBeTypeOf('object')
   })
 

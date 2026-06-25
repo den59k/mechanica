@@ -46,15 +46,15 @@ describe('EditorApp', () => {
   })
 
   it('opens a Page data dialog and edits a data entry', async () => {
-    const changes: { data: Record<string, unknown> }[] = []
+    const changes: { pageData: Record<string, unknown> }[] = []
     const el = document.createElement('div')
     const app = createApp(EditorApp, {
       state: { content: [], data: {} },
       components,
       dataEntries: [
-        { id: 'site', title: 'Site', scope: 'site', props: { type: 'object', properties: { name: { type: 'string' } } } },
+        { id: 'site', title: 'Site', props: { type: 'object', properties: { name: { type: 'string' } } } },
       ],
-      onChange: (snapshot: { data: Record<string, unknown> }) => changes.push(snapshot),
+      onChange: (snapshot: { pageData: Record<string, unknown> }) => changes.push(snapshot),
     })
     app.mount(el)
 
@@ -70,7 +70,8 @@ describe('EditorApp', () => {
     input.dispatchEvent(new Event('input', { bubbles: true }))
     await nextTick()
 
-    expect(changes.at(-1)!.data).toMatchObject({ site: { name: 'Acme' } })
+    // A fresh entry defaults to "this page" scope, so the edit lands in pageData.
+    expect(changes.at(-1)!.pageData).toMatchObject({ site: { name: 'Acme' } })
 
     app.unmount()
   })

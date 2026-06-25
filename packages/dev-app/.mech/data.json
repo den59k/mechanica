@@ -2,5 +2,48 @@
   "site": {
     "name": "Mechanica!!! It is my site!!!!",
     "tagline": ""
+  },
+  "navbar": {
+    "brand": "Mechanicas",
+    "homeHref": "/",
+    "links": [
+      {
+        "label": "Features",
+        "href": "/#features"
+      },
+      {
+        "label": "Pricing",
+        "href": "/#pricing"
+      },
+      {
+        "label": "Docs",
+        "href": "/docs"
+      }
+    ],
+    "ctaLabel": "Get started",
+    "ctaHref": "/#get-started"
+  },
+  "footer": {
+    "brand": "Mechanica",
+    "note": "The visual block editor for Vue.",
+    "links": [
+      {
+        "label": "Features",
+        "href": "/#features"
+      },
+      {
+        "label": "Pricing",
+        "href": "/#pricing"
+      },
+      {
+        "label": "Docs",
+        "href": "/docs"
+      },
+      {
+        "label": "GitHub",
+        "href": "#"
+      }
+    ],
+    "copyright": "© 2026 Mechanica. MIT licensed."
   }
 }

@@ -13,7 +13,7 @@ import {
 } from './pages-store'
 import { saveUpload, listImages } from './assets-store'
 import { resolveDevQuery } from './query-dev'
-import { splitDataByScope, mergeSiteData, mergeFolderData, folderOf } from './data-store'
+import { mergeSiteData, mergeFolderData, folderOf } from './data-store'
 
 /**
  * The `/@mechanica` dev middleware: page CRUD, asset upload/serve, folder list,
@@ -105,14 +105,11 @@ export function createDevMiddleware(mechDir: string): Connect.NextHandleFunction
         const pathParam = query.get('path')
         if (!pathParam) return json({ error: 'Missing path' }, 400)
         const body = JSON.parse((await readBody(req)).toString('utf-8'))
-        // Route site/folder data to their shared stores; the rest stays on the page.
-        const { page, site, folder } = splitDataByScope(body.data ?? {}, body.dataScopes ?? {})
-        const folderPath = folderOf(mechDir, pathParam)
-        // A root-level page has no folder, so its folder-scoped data stays local.
-        const pageData = folderPath ? page : { ...page, ...folder }
-        savePage(mechDir, pathParam, { content: body.content, data: pageData })
-        mergeSiteData(mechDir, site)
-        mergeFolderData(mechDir, folderPath, folder)
+        // The editor pre-splits data into scope buckets; persist each to its store.
+        // Page overrides replace the page's data; site/folder merge into shared files.
+        savePage(mechDir, pathParam, { content: body.content, data: body.pageData ?? {} })
+        mergeSiteData(mechDir, body.siteData ?? {})
+        mergeFolderData(mechDir, folderOf(mechDir, pathParam), body.folderData ?? {})
         return json({ success: true })
       }
 

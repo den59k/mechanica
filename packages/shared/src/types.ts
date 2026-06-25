@@ -52,7 +52,6 @@ export interface ContentBlock {
 export interface DataEntry {
   id: string
   title?: string
-  scope?: DataScope
   /** compact-json-schema describing the data shape. */
   props?: Record<string, unknown>
 }
@@ -63,10 +62,18 @@ export interface DataEntry {
  */
 export interface State {
   content: ContentBlock[]
+  /** Effective data: site < folder < page merged, with schema defaults filled. */
   data: Record<string, unknown>
   query?: Record<string, unknown>
-  /** Per-data-entry scope, used by the editor to split data on save. */
-  dataScopes?: Record<string, DataScope>
+  /**
+   * Scope buckets for the editor, so it can edit each level and tell which
+   * entries a page overrides. Only injected in dev (the runtime renders `data`).
+   */
+  siteData?: Record<string, unknown>
+  folderData?: Record<string, unknown>
+  pageData?: Record<string, unknown>
+  /** The folder this page lives in (null at the root), so the editor can offer folder scope. */
+  folder?: string | null
   /** Base URL the page is served under (for routing/link resolution). */
   baseUrl?: string
   /** Current page metadata. */
