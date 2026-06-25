@@ -1,11 +1,13 @@
 <template>
-  <fieldset v-if="isObject" class="mech-fieldset">
-    <legend v-if="label">{{ label }}</legend>
+  <!-- Plain object → a collapsible group wrapping a nested form. -->
+  <VCollapse v-if="isObject" class="mech-group" :title="label">
     <SchemaForm :model-value="model[prop]" :schema="schema" />
-  </fieldset>
+  </VCollapse>
 
+  <!-- Array → its own collapsible list (handles primitive vs object items). -->
   <ArrayField v-else-if="isArray" :model="model" :prop="prop" :schema="schema" :label="label" />
 
+  <!-- Leaf control (string, number, image, …). -->
   <FieldControl
     v-else
     :model-value="model[prop]"
@@ -19,6 +21,7 @@
 import { computed } from 'vue'
 import SchemaForm from './SchemaForm.vue'
 import ArrayField from './ArrayField.vue'
+import VCollapse from './VCollapse.vue'
 import FieldControl from '../fields/FieldControl.vue'
 
 const props = defineProps<{

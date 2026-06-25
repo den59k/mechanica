@@ -196,27 +196,34 @@
   margin: 0;
 }
 
+// Filled, borderless fields — the modern look. They read as soft grey wells at
+// rest, lift to white with an accent ring on focus.
 .mech-input {
   width: 100%;
   box-sizing: border-box;
-  height: 36px;
-  padding: 0 11px;
-  border: 1px solid var(--mech-input-border);
-  border-radius: var(--mech-radius-sm);
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--mech-radius);
   font: inherit;
-  font-size: 13px;
-  background: var(--mech-bg);
+  font-size: 13.5px;
+  background: var(--mech-field-bg);
   color: var(--mech-fg);
   transition:
+    background 0.12s,
     border-color 0.12s,
     box-shadow 0.12s;
 
   &::placeholder {
     color: var(--mech-placeholder);
   }
+  &:hover {
+    background: var(--mech-field-bg-hover);
+  }
   &:focus,
   &:focus-within {
     outline: none;
+    background: var(--mech-bg);
     border-color: var(--mech-accent);
     box-shadow: 0 0 0 3px var(--mech-ring);
   }
@@ -224,10 +231,10 @@
 textarea.mech-input,
 .mech-textarea {
   height: auto;
-  padding: 9px 11px;
+  padding: 9px 12px;
   line-height: 1.45;
   resize: vertical;
-  min-height: 64px;
+  min-height: 68px;
 }
 select.mech-input {
   cursor: pointer;
@@ -251,11 +258,11 @@ select.mech-input {
   align-items: center;
 
   input[type='color'] {
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     padding: 0;
-    border: 1px solid var(--mech-input-border);
-    border-radius: var(--mech-radius-sm);
+    border: 1px solid var(--mech-border);
+    border-radius: var(--mech-radius);
     background: none;
     cursor: pointer;
   }
@@ -365,84 +372,206 @@ select.mech-input {
   }
 }
 
-// ── Nested object + array fields ────────────────────────────────────────────
-.mech-fieldset {
-  border: 1px solid var(--mech-border);
-  border-radius: var(--mech-radius);
-  padding: 12px;
-  margin: 0;
+// ── Collapsible groups (nested objects + arrays) ────────────────────────────
+// One disclosure primitive (VCollapse.vue) drives every nested object and array
+// field. The chevron rotates open; the body indents so nesting reads at a glance.
+.mech-collapse__head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.mech-collapse__toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--mech-fg-alt);
+  cursor: pointer;
+  text-align: left;
 
-  legend {
-    padding: 0 6px;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--mech-muted);
+  &:hover {
+    color: var(--mech-fg);
   }
 }
-.mech-array {
+.mech-collapse__chevron {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--mech-muted);
+  transform: rotate(-90deg);
+  transition: transform 0.16s ease;
+}
+.mech-collapse.is-open > .mech-collapse__head .mech-collapse__chevron {
+  transform: rotate(0deg);
+}
+.mech-collapse__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mech-collapse__badge {
+  flex: none;
+  min-width: 18px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--mech-muted);
+  background: var(--mech-field-bg);
+  border-radius: var(--mech-radius-pill);
+}
+.mech-collapse__actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.mech-collapse__body {
+  padding: 2px 0 8px 16px;
+}
+
+// A plain nested object → a faint left rail makes the nesting legible.
+.mech-group > .mech-collapse__body {
+  margin-left: 6px;
+  padding-left: 14px;
+  border-left: 1px solid var(--mech-border);
+}
+
+// ── Array fields ────────────────────────────────────────────────────────────
+.mech-array > .mech-collapse__body {
+  padding-left: 0;
+}
+.mech-array__items {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+// An object item is itself a collapsible, shown as a card with grip + remove.
+.mech-array__item {
+  border: 1px solid var(--mech-border);
+  border-radius: var(--mech-radius);
+  background: var(--mech-bg);
 
-  &__item {
-    display: flex;
-    gap: 8px;
-    align-items: flex-start;
-    padding: 10px;
-    border: 1px solid var(--mech-border);
-    border-radius: var(--mech-radius);
-
-    > :first-child {
-      flex: 1;
-    }
+  > .mech-collapse__head {
+    padding: 0 6px;
   }
-  &__remove {
-    flex: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
+  > .mech-collapse__body {
+    margin: 0;
+    padding: 2px 12px 12px;
     border: none;
-    background: var(--mech-active);
+  }
+  &.is-dragging {
+    opacity: 0.32;
+  }
+}
+// A primitive item is a single control on a row.
+.mech-array__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  .mech-field {
+    flex: 1;
+    min-width: 0;
+  }
+  &.is-dragging {
+    opacity: 0.32;
+  }
+}
+.mech-array__grip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--mech-placeholder);
+  border-radius: var(--mech-radius-sm);
+  cursor: grab;
+  touch-action: none;
+
+  // The grip glyph is centred in a 24px viewBox, so render it large to read.
+  .vicon {
+    width: 20px;
+    height: 20px;
+  }
+  &:hover {
     color: var(--mech-muted);
-    border-radius: var(--mech-radius-sm);
-    cursor: pointer;
-
-    .vicon {
-      width: 14px;
-      height: 14px;
-    }
-    &:hover {
-      background: var(--mech-hover);
-      color: var(--mech-error);
-    }
   }
-  &__add {
-    align-self: flex-start;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 32px;
-    padding: 0 14px;
-    font: inherit;
-    font-weight: 500;
-    color: var(--mech-fg-alt);
-    background: none;
-    border: 1px dashed var(--mech-border-strong);
-    border-radius: var(--mech-radius-pill);
-    cursor: pointer;
-
-    .vicon {
-      width: 14px;
-      height: 14px;
-    }
-    &:hover {
-      color: var(--mech-fg);
-      border-color: var(--mech-muted);
-      background: var(--mech-hover);
-    }
+  &:active {
+    cursor: grabbing;
   }
+}
+.mech-array__remove {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--mech-muted);
+  border-radius: var(--mech-radius-sm);
+  cursor: pointer;
+
+  .vicon {
+    width: 15px;
+    height: 15px;
+  }
+  &:hover {
+    color: var(--mech-error);
+    background: var(--mech-hover);
+  }
+}
+.mech-array__add {
+  align-self: flex-start;
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 13px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--mech-fg-alt);
+  background: var(--mech-field-bg);
+  border: none;
+  border-radius: var(--mech-radius-pill);
+  cursor: pointer;
+
+  .vicon {
+    width: 14px;
+    height: 14px;
+  }
+  &:hover {
+    color: var(--mech-fg);
+    background: var(--mech-field-bg-hover);
+  }
+}
+
+// The lifted clone that follows the cursor while reordering. Solid + elevated
+// (an accent ring + drop shadow) so it reads as picked up, not faded.
+.mech-array__ghost {
+  z-index: 2147483600;
+  margin: 0;
+  background: var(--mech-bg);
+  border-radius: var(--mech-radius);
+  box-shadow:
+    0 0 0 1px var(--mech-accent),
+    0 16px 36px rgba(20, 23, 28, 0.22);
+  opacity: 1;
+  cursor: grabbing;
 }
 
 // ── Tags / multiselect ──────────────────────────────────────────────────────

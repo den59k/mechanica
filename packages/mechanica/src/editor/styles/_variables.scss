@@ -8,6 +8,10 @@
   --mech-hover: rgba(0, 0, 0, 0.045);
   --mech-active: #eef0f4;
 
+  // Filled form fields (modern, borderless — see editor.scss `.mech-input`)
+  --mech-field-bg: #f2f3f6;
+  --mech-field-bg-hover: #e9ebf0;
+
   // Text
   --mech-fg: #171717;
   --mech-fg-alt: #494949;

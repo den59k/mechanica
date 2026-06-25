@@ -31,7 +31,10 @@ describe('SchemaForm', () => {
   it('renders a field per property, recursing into nested objects', () => {
     const { el } = mount({ title: 'Hi', meta: { author: 'A' }, tags: [] })
     expect(el.textContent).toContain('Title')
-    expect(el.querySelector('legend')?.textContent).toBe('Meta')
+    // Nested objects + arrays render as collapsible groups (no more <fieldset>).
+    const groups = [...el.querySelectorAll('.mech-collapse__title')].map((t) => t.textContent)
+    expect(groups).toContain('Meta')
+    expect(groups).toContain('Tags')
     expect(el.querySelectorAll('input').length).toBeGreaterThanOrEqual(2)
   })
 

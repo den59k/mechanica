@@ -30,7 +30,7 @@ const dialog = useDialog()
   max-height: 84vh;
   width: 100%;
   background: var(--mech-bg);
-  border-radius: 16px;
+  border-radius: 18px;
   box-shadow: var(--mech-shadow-dialog);
   overflow: hidden;
 
@@ -38,23 +38,25 @@ const dialog = useDialog()
     max-width: 560px;
   }
   &--wide {
-    max-width: 860px;
+    max-width: 880px;
   }
 }
+// Airy, divider-free chrome — structure comes from spacing, not hard rules.
 .mech-modal__header {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 60px;
-  padding: 0 12px 0 24px;
-  border-bottom: 1px solid var(--mech-border);
+  padding: 18px 14px 12px 24px;
   flex: none;
 }
 .mech-modal__title {
   margin: 0;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .mech-modal__close {
   display: flex;
@@ -79,7 +81,7 @@ const dialog = useDialog()
   }
 }
 .mech-modal__body {
-  padding: 20px 24px;
+  padding: 4px 24px 24px;
   overflow-y: auto;
 }
 .mech-modal__actions {
@@ -87,8 +89,7 @@ const dialog = useDialog()
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
-  padding: 14px 24px;
-  border-top: 1px solid var(--mech-border);
+  padding: 12px 24px 18px;
   flex: none;
 }
 </style>
