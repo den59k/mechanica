@@ -5,6 +5,7 @@
  */
 declare module 'compact-json-schema' {
   interface SchemaTypesMap {
+    text: string
     image: { src: string; previewSrc?: string }
     file: { src: string }
     color: string

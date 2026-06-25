@@ -30,7 +30,7 @@
       "dependencies": {
         "@mechanica/shared": "workspace:*",
         "@vue/compiler-sfc": "^3.5.38",
-        "compact-json-schema": "^0.1.4",
+        "compact-json-schema": "^0.1.5",
         "estree-walker": "^3.0.3",
         "magic-string": "^0.30.21",
         "vuesix": "^1.0.48",
@@ -54,7 +54,7 @@
       "name": "@mechanica/shared",
       "version": "2.0.0-alpha.0",
       "dependencies": {
-        "compact-json-schema": "^0.1.4",
+        "compact-json-schema": "^0.1.5",
       },
       "devDependencies": {
         "vitest": "^4.1.9",
@@ -216,7 +216,7 @@
 
     "combined-stream": ["combined-stream@1.0.8", "", { "dependencies": { "delayed-stream": "~1.0.0" } }, "sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg=="],
 
-    "compact-json-schema": ["compact-json-schema@0.1.4", "", {}, "sha512-/WM8oDkfebsoud69Baq/gWuY0Xf8jcBxkUpLvg2wHzqTYtQWNB7Bh1t+/EfwNqFt5gDYpCrths4t+9LUsOJutw=="],
+    "compact-json-schema": ["compact-json-schema@0.1.5", "", {}, "sha512-/v6x3o70LqmOCUQ8/NfLCrmTXCu/wgA4YaIvKZ/n1EBrSI4aREieAQkdgA3ZPn3SKSARrpnp+dZHvgcD3hZRaA=="],
 
     "convert-source-map": ["convert-source-map@2.0.0", "", {}, "sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg=="],
 

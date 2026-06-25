@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "bunx --bun vite",
     "build": "mechanica build",
-    "export": "mechanica export"
+    "export": "mechanica export",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "mechanica": "workspace:*",

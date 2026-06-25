@@ -28,7 +28,7 @@
   "dependencies": {
     "@mechanica/shared": "workspace:*",
     "@vue/compiler-sfc": "^3.5.38",
-    "compact-json-schema": "^0.1.4",
+    "compact-json-schema": "^0.1.5",
     "estree-walker": "^3.0.3",
     "magic-string": "^0.30.21",
     "vuesix": "^1.0.48",

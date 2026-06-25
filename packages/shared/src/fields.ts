@@ -1,5 +1,17 @@
 import { registerAlias, type SchemaItem } from 'compact-json-schema'
 
+// Mechanica uses compact-json-schema's `format` keyword for its field aliases
+// (`image`, `smartLink`, …). The library keeps `SchemaAnnotations` minimal
+// (`default` only), so declare `format` here — that's what lets the schemas
+// below (and any block/data schema) carry `format` without an `as SchemaItem`
+// cast. The output types for the alias shorthands live in mechanica's
+// `core/field-types.ts` (SchemaTypesMap).
+declare module 'compact-json-schema' {
+  interface SchemaAnnotations {
+    format?: string
+  }
+}
+
 /**
  * A built-in or user-defined editable field type. The *runtime* half lives here
  * (the compact-json-schema alias + a default value); the editor component half
@@ -18,23 +30,23 @@ export interface FieldType {
 export const builtinFields: FieldType[] = [
   {
     name: 'image',
-    schema: { type: 'object', format: 'image', properties: { src: 'string', previewSrc: 'string?' } } as SchemaItem,
+    schema: { type: 'object', format: 'image', properties: { src: 'string', previewSrc: 'string?' } },
     // Start empty so the editor shows its upload/pick affordance rather than a
     // placeholder image (and pages render nothing until an image is chosen).
     default: () => ({ src: '' }),
   },
   {
     name: 'file',
-    schema: { type: 'object', format: 'file', properties: { src: 'string' } } as SchemaItem,
+    schema: { type: 'object', format: 'file', properties: { src: 'string' } },
     default: () => ({ src: '' }),
   },
   {
     name: 'text',
-    schema: { type: 'string', format: 'text' } as SchemaItem,
+    schema: { type: 'string', format: 'text' },
   },
   {
     name: 'color',
-    schema: { type: 'string', format: 'color' } as SchemaItem,
+    schema: { type: 'string', format: 'color' },
   },
   {
     name: 'smartLink',
@@ -42,11 +54,11 @@ export const builtinFields: FieldType[] = [
       type: 'object',
       format: 'smartLink',
       properties: { url: 'string', title: 'string', external: 'boolean' },
-    } as SchemaItem,
+    },
   },
   {
     name: 'multiselect',
-    schema: { type: 'array', format: 'multiselect', items: 'string' } as SchemaItem,
+    schema: { type: 'array', format: 'multiselect', items: 'string' },
   },
   {
     name: 'richText',
@@ -54,7 +66,7 @@ export const builtinFields: FieldType[] = [
       type: 'array',
       format: 'richText',
       items: { type: 'object', properties: { text: 'string', type: 'string?', styles: 'object?' } },
-    } as SchemaItem,
+    },
     default: () => [{ text: '' }],
   },
 ]
