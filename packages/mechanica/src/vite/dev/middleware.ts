@@ -7,6 +7,7 @@ import {
   deletePage,
   savePage,
   renamePage,
+  movePage,
   listPages,
   listFolders,
   PageExistsError,
@@ -89,8 +90,16 @@ export function createDevMiddleware(mechDir: string): Connect.NextHandleFunction
         const body = JSON.parse((await readBody(req)).toString('utf-8'))
         const pathParam = query.get('path')
         if (pathParam) {
-          if (body.name) renamePage(mechDir, pathParam, body.name)
-          return json({ success: true })
+          // Editing an existing page: optionally move it (new path) and/or rename it.
+          try {
+            const wantsMove = typeof body.path === 'string' && body.path.trim() && body.path.trim() !== pathParam
+            const path = wantsMove ? movePage(mechDir, pathParam, body.path).path : pathParam
+            if (body.name) renamePage(mechDir, path, body.name)
+            return json({ success: true, path })
+          } catch (error) {
+            if (error instanceof PageExistsError) return json({ error: { path: 'Page already exists' } }, 400)
+            throw error
+          }
         }
         if (!body.path || !body.name) return json({ error: 'path and name are required' }, 400)
         try {

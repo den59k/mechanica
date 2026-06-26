@@ -40,7 +40,7 @@ describe('PagesDialog', () => {
     await flush()
 
     expect(el.textContent).toContain('Intro')
-    expect([...el.querySelectorAll('.mech-pages-dialog__folder')].map((f) => f.textContent)).toContain('docs')
+    expect([...el.querySelectorAll('.mech-pages-dialog__folder-name')].map((f) => f.textContent)).toContain('docs')
 
     const search = el.querySelector('.mech-pages-dialog__search') as HTMLInputElement
     search.value = 'about'
@@ -77,37 +77,43 @@ describe('PagesDialog', () => {
     )
   })
 
-  it('renames a page inline', async () => {
+  it('edits a page name and path via the form', async () => {
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => pages }) as any)
     vi.stubGlobal('fetch', fetchMock)
     const { el } = mount(PagesDialog)
     await flush()
 
-    const renameBtn = el.querySelector('.mech-pages-dialog__actions button[title="Rename"]') as HTMLButtonElement
-    renameBtn.click()
+    const editBtn = el.querySelector('.mech-pages-dialog__actions button[title="Edit"]') as HTMLButtonElement
+    editBtn.click()
     await nextTick()
 
-    const input = el.querySelector('.mech-pages-dialog__rename') as HTMLInputElement
-    input.value = 'Homepage'
-    input.dispatchEvent(new Event('input'))
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
+    const [nameInput, pathInput] = el.querySelectorAll('.mech-pages-dialog__form input')
+    ;(nameInput as HTMLInputElement).value = 'Homepage'
+    nameInput!.dispatchEvent(new Event('input'))
+    ;(pathInput as HTMLInputElement).value = '/start'
+    pathInput!.dispatchEvent(new Event('input'))
+    el.querySelector('.mech-pages-dialog__form')!.dispatchEvent(new Event('submit'))
     await flush()
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/@mechanica/pages?path=%2F',
-      expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'Homepage' }) }),
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'Homepage', path: '/start' }) }),
     )
   })
 
-  it('deletes a page after confirmation', async () => {
+  it('deletes a page through a confirmation dialog', async () => {
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => pages }) as any)
     vi.stubGlobal('fetch', fetchMock)
-    vi.stubGlobal('confirm', vi.fn(() => true))
-    const { el } = mount(PagesDialog)
+    const { el, store } = mount(PagesDialog)
     await flush()
 
     const delBtn = el.querySelector('.mech-pages-dialog__actions button[title="Delete"]') as HTMLButtonElement
     delBtn.click()
+    await nextTick()
+
+    // A confirm dialog is pushed; confirming runs the delete.
+    expect(store.stack).toHaveLength(1)
+    await (store.stack.at(-1)!.props as { onConfirm: () => void }).onConfirm()
     await flush()
 
     expect(fetchMock).toHaveBeenCalledWith('/@mechanica/pages?path=%2F', expect.objectContaining({ method: 'DELETE' }))

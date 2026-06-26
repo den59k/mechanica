@@ -89,6 +89,31 @@ describe('dev middleware', () => {
     expect(folders).toEqual({ blog: { nav: { items: ['Home'] } } })
   })
 
+  it('edits a page name and moves it to a new path', async () => {
+    await fetch(`${base}/pages`, { method: 'POST', body: JSON.stringify({ path: '/about', name: 'About' }) })
+    const res = await fetch(`${base}/pages?path=/about`, {
+      method: 'POST',
+      body: JSON.stringify({ name: 'About us', path: '/about-us' }),
+    })
+    const body = await res.json()
+    expect(body).toMatchObject({ success: true, path: '/about-us' })
+    expect(fs.existsSync(join(mechDir, 'pages', 'about.json'))).toBe(false)
+    const moved = JSON.parse(fs.readFileSync(join(mechDir, 'pages', 'about-us.json'), 'utf-8'))
+    expect(moved.name).toBe('About us')
+    expect(moved.path).toBe('/about-us')
+  })
+
+  it('rejects moving a page onto an existing path', async () => {
+    const create = (body: unknown) => fetch(`${base}/pages`, { method: 'POST', body: JSON.stringify(body) })
+    await create({ path: '/a', name: 'A' })
+    await create({ path: '/b', name: 'B' })
+    const res = await fetch(`${base}/pages?path=/a`, {
+      method: 'POST',
+      body: JSON.stringify({ name: 'A', path: '/b' }),
+    })
+    expect(res.status).toBe(400)
+  })
+
   it('duplicates and deletes a page', async () => {
     const create = (body: unknown) =>
       fetch(`${base}/pages`, { method: 'POST', body: JSON.stringify(body) })

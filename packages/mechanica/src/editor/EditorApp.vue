@@ -7,7 +7,11 @@
     />
 
     <template v-if="!collapsed">
-      <BlockFrame v-if="hovered && hovered.id !== selected?.id" :rect="hovered" variant="hover" />
+      <BlockFrame
+        v-if="hovered && hovered.id !== selected?.id && !drag.payload"
+        :rect="hovered"
+        variant="hover"
+      />
       <BlockFrame v-if="selected" :rect="selected" variant="selected" :label="selectedName" />
 
       <div
@@ -30,13 +34,23 @@
       </div>
 
       <div
-        v-if="drag.indicator"
-        class="mech-drop"
-        :class="{ 'mech-drop--inside': drag.indicator.mode === 'inside' }"
+        v-if="drag.domBox"
+        class="mech-drop mech-drop--box"
+        :class="{ 'mech-drop--outline': drag.domBox.outline }"
         :style="{
-          transform: `translate(${drag.indicator.left}px, ${drag.indicator.top}px)`,
-          width: `${drag.indicator.width}px`,
-          height: drag.indicator.height ? `${drag.indicator.height}px` : undefined,
+          transform: `translate(${drag.domBox.left}px, ${drag.domBox.top}px)`,
+          width: `${drag.domBox.width}px`,
+          height: `${drag.domBox.height}px`,
+        }"
+      >
+        <span v-if="drag.domBox.label" class="mech-drop__label">{{ drag.domBox.label }}</span>
+      </div>
+      <div
+        v-if="drag.domLine"
+        class="mech-drop"
+        :style="{
+          transform: `translate(${drag.domLine.left}px, ${drag.domLine.top}px)`,
+          width: `${drag.domLine.width}px`,
         }"
       />
       <div
@@ -50,25 +64,24 @@
 
     <Transition name="mech-slide-left">
       <aside v-if="!collapsed" class="mech-editor__panel mech-editor__panel--left">
-        <div class="mech-editor__pagerow">
-          <PageBar />
+        <PageBar />
+
+        <div class="mech-editor__toolbar">
           <button
             v-if="store.dataEntries.length"
             type="button"
             class="mech-editor__data"
-            title="Edit page data"
+            title="Edit this page's data"
             @click="openData"
           >
             <VIcon name="sliders" />
+            <span>Page data</span>
           </button>
+          <span class="mech-editor__toolbar-gap" />
+          <button type="button" class="mech-icon-button" :disabled="!canUndo" title="Undo (Ctrl+Z)" @click="history.undo()"><VIcon name="undo" /></button>
+          <button type="button" class="mech-icon-button" :disabled="!canRedo" title="Redo (Ctrl+Shift+Z)" @click="history.redo()"><VIcon name="redo" /></button>
         </div>
-        <div class="mech-editor__heading">
-          <span>Page</span>
-          <span class="mech-editor__history">
-            <button type="button" class="mech-icon-button" :disabled="!canUndo" title="Undo (Ctrl+Z)" @click="history.undo()"><VIcon name="undo" /></button>
-            <button type="button" class="mech-icon-button" :disabled="!canRedo" title="Redo (Ctrl+Shift+Z)" @click="history.redo()"><VIcon name="redo" /></button>
-          </span>
-        </div>
+
         <HierarchyTree v-if="store.content.length" />
         <p v-else class="mech-tree__empty">No blocks yet — add one from the right.</p>
       </aside>

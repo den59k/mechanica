@@ -1,8 +1,8 @@
 <template>
   <button type="button" class="mech-pagebar" title="Browse pages" @click="openPages">
-    <VIcon name="book" class="mech-pagebar__glyph" />
+    <span class="mech-pagebar__icon"><VIcon name="book" /></span>
     <span class="mech-pagebar__text">
-      <span class="mech-pagebar__name">{{ currentName || 'Pages' }}</span>
+      <span class="mech-pagebar__name">{{ currentName || 'Select a page' }}</span>
       <span class="mech-pagebar__path">{{ current }}</span>
     </span>
     <VIcon name="chevron-down" class="mech-pagebar__chevron" />
@@ -38,35 +38,46 @@ const openPages = () => dialog.open(PagesDialog)
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 9px 11px;
-  border: 1px solid var(--mech-border-strong);
+  padding: 7px 9px;
+  border: 1px solid var(--mech-border);
   border-radius: var(--mech-radius);
   background: var(--mech-bg);
   cursor: pointer;
   text-align: left;
   color: var(--mech-fg);
   font: inherit;
+  box-shadow: 0 1px 2px rgba(20, 23, 28, 0.04);
   transition:
     border-color 0.12s,
-    background 0.12s;
+    box-shadow 0.12s;
 
   &:hover {
-    border-color: var(--mech-muted);
-    background: var(--mech-hover);
+    border-color: var(--mech-border-strong);
+    box-shadow: 0 2px 6px rgba(20, 23, 28, 0.07);
   }
 }
-.mech-pagebar__glyph {
+.mech-pagebar__icon {
   flex: none;
-  width: 17px;
-  height: 17px;
-  color: var(--mech-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--mech-radius-sm);
+  background: var(--mech-accent-soft);
+  color: var(--mech-accent);
+
+  .vicon {
+    width: 17px;
+    height: 17px;
+  }
 }
 .mech-pagebar__text {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  line-height: 1.25;
+  line-height: 1.3;
 }
 .mech-pagebar__name {
   font-weight: 600;

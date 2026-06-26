@@ -42,6 +42,9 @@ export interface EditorStore {
   /** Whether the current page lives in a folder (so folder scope is offered). */
   canFolder: boolean
   selectedId: string | null
+  /** The block currently hovered on *either* surface (page or tree), kept in sync. */
+  hoverId: string | null
+  setHover(id: string | null): void
   readonly selected: ContentBlock | null
   readonly selectedSchema: Record<string, any> | null
   /** Effective data per entry (site < folder < page, defaults filled) — for live preview. */
@@ -90,7 +93,11 @@ export function createEditorStore(
   const siteData = reactive<Record<string, unknown>>(clone(initial.siteData) ?? {})
   const folderData = reactive<Record<string, unknown>>(clone(initial.folderData) ?? {})
   const pageData = reactive<Record<string, unknown>>(clone(initial.pageData) ?? {})
-  const ui = reactive({ selectedId: null as string | null, clipboard: null as ContentBlock | null })
+  const ui = reactive({
+    selectedId: null as string | null,
+    hoverId: null as string | null,
+    clipboard: null as ContentBlock | null,
+  })
 
   const buckets: Record<DataScope, Record<string, unknown>> = { site: siteData, folder: folderData, page: pageData }
 
@@ -162,6 +169,12 @@ export function createEditorStore(
     },
     set selectedId(value: string | null) {
       ui.selectedId = value
+    },
+    get hoverId() {
+      return ui.hoverId
+    },
+    setHover(id: string | null) {
+      ui.hoverId = id
     },
     selected,
     selectedSchema,

@@ -99,44 +99,48 @@
   color: var(--mech-muted);
 }
 
-// Page row: the page menu + a "Edit page data" launcher, grouped as page context.
-.mech-editor__pagerow {
+// Left-panel toolbar: a "Page data" action on the left, undo/redo on the right.
+.mech-editor__toolbar {
   display: flex;
-  align-items: stretch;
-  gap: 8px;
-
-  .mech-pagebar {
-    flex: 1;
-    min-width: 0;
-  }
+  align-items: center;
+  gap: 4px;
+}
+.mech-editor__toolbar-gap {
+  flex: 1;
 }
 .mech-editor__data {
-  flex: none;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 38px;
-  border: 1px solid var(--mech-border-strong);
-  border-radius: var(--mech-radius);
-  background: var(--mech-bg);
-  color: var(--mech-muted);
+  gap: 7px;
+  height: 30px;
+  padding: 0 11px 0 9px;
+  border: none;
+  border-radius: var(--mech-radius-sm);
+  background: var(--mech-field-bg);
+  color: var(--mech-fg-alt);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
   cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s;
 
   .vicon {
-    width: 17px;
-    height: 17px;
+    width: 15px;
+    height: 15px;
+    color: var(--mech-muted);
   }
   &:hover {
-    border-color: var(--mech-muted);
-    background: var(--mech-hover);
+    background: var(--mech-field-bg-hover);
     color: var(--mech-fg);
+
+    .vicon {
+      color: var(--mech-fg);
+    }
   }
 }
 
-.mech-editor__history {
-  display: inline-flex;
-  gap: 2px;
-}
 
 // ── Panel toggle (side handle) ───────────────────────────────────────────────
 // One button docked to the left or right edge. Collapsed it sits at the screen
@@ -802,13 +806,51 @@ select.mech-input {
   pointer-events: none;
   z-index: 2147482400;
 
-  // Nesting drop: a filled outline around the container instead of a line.
-  &--inside {
+  // A dot at the line's start, Figma-style, to anchor the insertion point.
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: -1px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--mech-accent);
+    transform: translateY(-50%);
+  }
+
+  // Container context around the parent block whose slot the drop falls into.
+  // A child-position drop gets just a fill (paired with the insertion line); a
+  // drop onto the container itself adds a dashed outline — softer than the solid
+  // selection frame.
+  &--box {
     height: auto;
     margin-top: 0;
-    background: color-mix(in srgb, var(--mech-accent) 8%, transparent);
-    border: 2px solid var(--mech-accent);
+    background: color-mix(in srgb, var(--mech-accent) 10%, transparent);
     border-radius: var(--mech-radius);
     box-sizing: border-box;
+
+    &::before {
+      display: none;
+    }
+  }
+  &--outline {
+    border: 2px dashed var(--mech-accent);
+  }
+
+  // The target slot's name, pinned to the outlined box's top-left corner.
+  &__label {
+    position: absolute;
+    top: -1px;
+    left: -2px;
+    transform: translateY(-100%);
+    padding: 3px 7px;
+    background: var(--mech-accent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    border-radius: 5px 5px 0 0;
+    white-space: nowrap;
   }
 }

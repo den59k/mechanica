@@ -38,22 +38,22 @@ function rectOf(id: string): BlockRect | null {
 }
 
 /**
- * Track hover/selection frames over the live page: hovering a block shows a
- * frame, clicking selects it (driving the store). The selected frame stays glued
- * to its block via a requestAnimationFrame loop.
+ * Track hover/selection frames over the live page. Hover is shared state on the
+ * store (`hoverId`), so moving over the page *or* a hierarchy row frames the same
+ * block — keeping the two surfaces visually in sync. Clicking a block selects it.
+ * Both frames stay glued to their block via a requestAnimationFrame loop, so they
+ * follow layout and scrolling.
  */
 export function useBlockFrames(store: EditorStore) {
   const hovered = ref<BlockRect | null>(null)
   const selected = ref<BlockRect | null>(null)
 
   const onMove = (event: MouseEvent) => {
+    // Over editor chrome (including the tree): leave hover to the tree's own
+    // mouseenter/leave, so hovering a row keeps framing its block on the page.
     const target = event.target as Element
-    if (isEditorUI(target)) {
-      hovered.value = null
-      return
-    }
-    const id = findBlockId(target)
-    hovered.value = id ? rectOf(id) : null
+    if (isEditorUI(target)) return
+    store.setHover(findBlockId(target))
   }
 
   const onClick = (event: MouseEvent) => {
@@ -66,26 +66,21 @@ export function useBlockFrames(store: EditorStore) {
     store.select(id)
   }
 
-  const onScroll = () => {
-    hovered.value = null
-  }
-
   let frame = 0
   const tick = () => {
     selected.value = store.selectedId ? rectOf(store.selectedId) : null
+    hovered.value = store.hoverId ? rectOf(store.hoverId) : null
     frame = requestAnimationFrame(tick)
   }
   frame = requestAnimationFrame(tick)
 
   document.addEventListener('mousemove', onMove, true)
   document.addEventListener('click', onClick, true)
-  window.addEventListener('scroll', onScroll, true)
 
   onScopeDispose(() => {
     cancelAnimationFrame(frame)
     document.removeEventListener('mousemove', onMove, true)
     document.removeEventListener('click', onClick, true)
-    window.removeEventListener('scroll', onScroll, true)
   })
 
   return { hovered, selected }

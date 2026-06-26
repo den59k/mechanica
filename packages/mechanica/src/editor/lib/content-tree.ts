@@ -39,6 +39,32 @@ export function removeBlock(tree: ContentBlock[], id: string): boolean {
   return false
 }
 
+/** All of a block's child lists, paired with the slot name each represents. */
+function childSlots(block: ContentBlock): { slot: string; list: ContentBlock[] }[] {
+  if (!block.children) return []
+  if (Array.isArray(block.children)) return [{ slot: 'default', list: block.children }]
+  return Object.entries(block.children).map(([slot, list]) => ({ slot, list }))
+}
+
+/** A block's place within its parent: the containing block and the slot it sits in. */
+export interface ParentSlot {
+  parent: ContentBlock
+  /** `'default'` for the array form / an unnamed slot. */
+  slot: string
+}
+
+/** Find the block + slot that directly contains `id` (null for a root-level block). */
+export function findParentSlot(tree: ContentBlock[], id: string): ParentSlot | null {
+  for (const block of tree) {
+    for (const { slot, list } of childSlots(block)) {
+      if (list.some((child) => child.id === id)) return { parent: block, slot }
+      const found = findParentSlot(list, id)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 /** Find the sibling list that directly contains `id`, plus its index. */
 export function findParentList(
   tree: ContentBlock[],

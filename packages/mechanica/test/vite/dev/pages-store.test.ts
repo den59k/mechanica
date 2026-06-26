@@ -10,6 +10,7 @@ import {
   deletePage,
   savePage,
   renamePage,
+  movePage,
   listFolders,
   listPages,
   PageExistsError,
@@ -81,6 +82,33 @@ describe('deletePage', () => {
     createPage(mechDir, { path: '/post', name: 'Post', folderId: 'blog' })
     deletePage(mechDir, '/blog/post')
     expect(fs.existsSync(join(mechDir, 'pages', 'blog'))).toBe(false)
+  })
+})
+
+describe('movePage', () => {
+  it('moves a page to a new path, preserving content and data', () => {
+    createPage(mechDir, { path: '/old', name: 'Old' })
+    savePage(mechDir, '/old', { content: [{ id: '1', blockId: 'x', data: {} }], data: { k: 1 } })
+    const moved = movePage(mechDir, '/old', '/new')
+    expect(moved.path).toBe('/new')
+    expect(fs.existsSync(getPagePath(mechDir, '/old'))).toBe(false)
+    const page = readPage(mechDir, '/new')
+    expect(page.content).toHaveLength(1)
+    expect(page.data).toEqual({ k: 1 })
+    expect(page.path).toBe('/new')
+  })
+
+  it('rejects moving onto an existing page', () => {
+    createPage(mechDir, { path: '/a', name: 'A' })
+    createPage(mechDir, { path: '/b', name: 'B' })
+    expect(() => movePage(mechDir, '/a', '/b')).toThrow(PageExistsError)
+  })
+
+  it('cleans up an emptied folder when moving a page out of it', () => {
+    createPage(mechDir, { path: '/post', name: 'Post', folderId: 'blog' })
+    movePage(mechDir, '/blog/post', '/post')
+    expect(fs.existsSync(join(mechDir, 'pages', 'blog'))).toBe(false)
+    expect(readPage(mechDir, '/post').name).toBe('Post')
   })
 })
 

@@ -3,6 +3,7 @@ import { registerFieldSchemas } from '@mechanica/shared'
 import type { ContentBlock } from '@mechanica/shared'
 import {
   findBlock,
+  findParentSlot,
   removeBlock,
   moveBlock,
   duplicateBlock,
@@ -29,6 +30,15 @@ describe('content-tree', () => {
     expect(findBlock(tree(), '2')?.blockId).toBe('hero')
     expect(findBlock(tree(), '4')?.blockId).toBe('link')
     expect(findBlock(tree(), 'missing')).toBeNull()
+  })
+
+  it('resolves a block’s parent container and slot', () => {
+    // '2' lives in '1's default (array) slot; '4' in '3's named "footer" slot.
+    expect(findParentSlot(tree(), '2')).toMatchObject({ parent: { id: '1' }, slot: 'default' })
+    expect(findParentSlot(tree(), '4')).toMatchObject({ parent: { id: '3' }, slot: 'footer' })
+    // A root-level block has no parent container.
+    expect(findParentSlot(tree(), '1')).toBeNull()
+    expect(findParentSlot(tree(), 'missing')).toBeNull()
   })
 
   it('removes blocks at any depth', () => {

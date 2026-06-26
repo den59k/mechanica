@@ -90,147 +90,165 @@
       }
     },
     {
-      "id": "quote",
-      "blockId": "testimonial",
+      "id": "f9354ac2-2cf5-45a8-89d5-41c4b93ed40a",
+      "blockId": "card",
       "data": {
-        "quote": "We replaced a tangle of CMS templates with Mechanica blocks in an afternoon. Editors get a real visual tool; we keep plain Vue components in git.",
-        "author": "Alex Rivera",
-        "role": "Frontend Lead, Northwind",
-        "avatar": {
-          "src": ""
-        }
-      }
-    },
-    {
-      "id": "pricing",
-      "blockId": "pricing",
-      "data": {
-        "anchor": "pricing",
-        "eyebrow": "Pricing",
-        "title": "Start free. Scale when you ship.",
-        "subtitle": "The editor and static export are open source. Hosted rendering is on the way.",
-        "plans": [
-          {
-            "name": "Open source",
-            "price": "$0",
-            "period": "forever",
-            "description": "Everything you need to build and export a site.",
-            "features": [
-              {
-                "text": "Visual block editor"
-              },
-              {
-                "text": "Static site export"
-              },
-              {
-                "text": "Unlimited pages & blocks"
-              },
-              {
-                "text": "MIT licensed"
-              }
-            ],
-            "ctaLabel": "Get started",
-            "ctaHref": "#get-started",
-            "featured": false
-          },
-          {
-            "name": "Team",
-            "price": "$19",
-            "period": "/ editor / mo",
-            "description": "Collaboration and hosted rendering for growing teams.",
-            "features": [
-              {
-                "text": "Everything in Open source"
-              },
-              {
-                "text": "Hosted SSR rendering"
-              },
-              {
-                "text": "Shared asset library"
-              },
-              {
-                "text": "Roles & review"
-              }
-            ],
-            "ctaLabel": "Start free trial",
-            "ctaHref": "#get-started",
-            "featured": true
-          },
-          {
-            "name": "Enterprise",
-            "price": "Let's talk",
-            "period": "",
-            "description": "Security, SSO and support for large organizations.",
-            "features": [
-              {
-                "text": "Everything in Team"
-              },
-              {
-                "text": "SSO & audit logs"
-              },
-              {
-                "text": "Priority support"
-              },
-              {
-                "text": "On-prem option"
-              }
-            ],
-            "ctaLabel": "Contact sales",
-            "ctaHref": "#",
-            "featured": false
+        "title": "Card title"
+      },
+      "children": [
+        {
+          "id": "quote",
+          "blockId": "testimonial",
+          "data": {
+            "quote": "We replaced a tangle of CMS templates with Mechanica blocks in an afternoon. Editors get a real visual tool; we keep plain Vue components in git.",
+            "author": "Alex Rivera",
+            "role": "Frontend Lead, Northwind",
+            "avatar": {
+              "src": ""
+            }
           }
-        ]
-      }
-    },
-    {
-      "id": "65a61345-b9ef-4b21-80a2-36cc7aad0a5f",
-      "blockId": "fields-demo",
-      "data": {
-        "title": "Checkboxes & dropdowns",
-        "text": "Open this block in the editor — the Tone and Size dropdowns and the two checkboxes restyle this card live.",
-        "tone": "brand",
-        "size": "sm",
-        "bordered": true,
-        "rounded": true
-      }
-    },
-    {
-      "id": "cta",
-      "blockId": "cta-band",
-      "data": {
-        "anchor": "get-started",
-        "title": "Ship your first block today",
-        "subtitle": "Clone the repo, run the dev server, and start arranging.",
-        "primaryLabel": "Start building",
-        "primaryHref": "#",
-        "note": "bun create mechanica@latest"
-      }
+        },
+        {
+          "id": "pricing",
+          "blockId": "pricing",
+          "data": {
+            "anchor": "pricing",
+            "eyebrow": "Pricing",
+            "title": "Start free. Scale when you ship.",
+            "subtitle": "The editor and static export are open source. Hosted rendering is on the way.",
+            "plans": [
+              {
+                "name": "Open source",
+                "price": "$0",
+                "period": "forever",
+                "description": "Everything you need to build and export a site.",
+                "features": [
+                  {
+                    "text": "Visual block editor"
+                  },
+                  {
+                    "text": "Static site export"
+                  },
+                  {
+                    "text": "Unlimited pages & blocks"
+                  },
+                  {
+                    "text": "MIT licensed"
+                  }
+                ],
+                "ctaLabel": "Get started",
+                "ctaHref": "#get-started",
+                "featured": false
+              },
+              {
+                "name": "Team",
+                "price": "$19",
+                "period": "/ editor / mo",
+                "description": "Collaboration and hosted rendering for growing teams.",
+                "features": [
+                  {
+                    "text": "Everything in Open source"
+                  },
+                  {
+                    "text": "Hosted SSR rendering"
+                  },
+                  {
+                    "text": "Shared asset library"
+                  },
+                  {
+                    "text": "Roles & review"
+                  }
+                ],
+                "ctaLabel": "Start free trial",
+                "ctaHref": "#get-started",
+                "featured": true
+              },
+              {
+                "name": "Enterprise",
+                "price": "Let's talk",
+                "period": "",
+                "description": "Security, SSO and support for large organizations.",
+                "features": [
+                  {
+                    "text": "Everything in Team"
+                  },
+                  {
+                    "text": "SSO & audit logs"
+                  },
+                  {
+                    "text": "Priority support"
+                  },
+                  {
+                    "text": "On-prem option"
+                  }
+                ],
+                "ctaLabel": "Contact sales",
+                "ctaHref": "#",
+                "featured": false
+              }
+            ]
+          }
+        },
+        {
+          "id": "2feb9ad3-a506-4026-add2-65d68ed664de",
+          "blockId": "card",
+          "data": {
+            "title": "Card title"
+          },
+          "children": [
+            {
+              "id": "1c0762cd-494f-41cf-a1f1-c32bb26ea57e",
+              "blockId": "banner",
+              "data": {
+                "image": {
+                  "src": ""
+                },
+                "heading": "Banner heading",
+                "caption": ""
+              }
+            }
+          ]
+        },
+        {
+          "id": "ce9fdad7-6007-4ece-9af3-0f419749a4b5",
+          "blockId": "split",
+          "data": {},
+          "children": {
+            "start": [
+              {
+                "id": "69a9abee-35cb-46e7-a068-7f93d4ec6454",
+                "blockId": "banner",
+                "data": {
+                  "image": {
+                    "src": ""
+                  },
+                  "heading": "Banner heading",
+                  "caption": ""
+                }
+              }
+            ],
+            "end": []
+          }
+        },
+        {
+          "id": "cta",
+          "blockId": "cta-band",
+          "data": {
+            "anchor": "get-started",
+            "title": "Ship your first block today",
+            "subtitle": "Clone the repo, run the dev server, and start arranging.",
+            "primaryLabel": "Start building",
+            "primaryHref": "#",
+            "note": "bun create mechanica@latest"
+          }
+        }
+      ]
     }
   ],
   "data": {
     "head": {
       "title": "Mechanica — The visual block editor for Vue",
       "description": "Build Vue sites with a visual block editor. Vite 8, Vue 3.5, Bun."
-    },
-    "navbar": {
-      "brand": "Mechanicas",
-      "homeHref": "/",
-      "links": [
-        {
-          "label": "Features",
-          "href": "/#features"
-        },
-        {
-          "label": "Pricing",
-          "href": "/#pricing"
-        },
-        {
-          "label": "Docs",
-          "href": "/docs"
-        }
-      ],
-      "ctaLabel": "Get started",
-      "ctaHref": "/#get-started"
     }
   }
 }

@@ -103,6 +103,35 @@ export function deletePage(mechDir: string, urlPath: string): boolean {
   return true
 }
 
+/**
+ * Move a page to a new URL path, preserving its content/data. Throws
+ * {@link PageExistsError} if a different page already lives at the target.
+ * Cleans up a now-empty source folder. Returns the page's new URL path.
+ */
+export function movePage(mechDir: string, fromPath: string, toPath: string): { path: string } {
+  const file = getPagePath(mechDir, fromPath)
+  if (!fs.existsSync(file)) throw new Error(`Page not found: ${fromPath}`)
+
+  const cleaned = '/' + toPath.trim().replace(/^\/+|\/+$/g, '')
+  const target = getPagePath(mechDir, cleaned)
+  if (target !== file && fs.existsSync(target)) throw new PageExistsError(cleaned)
+
+  const page = JSON.parse(fs.readFileSync(file, 'utf-8')) as PageFile
+  page.path = cleaned
+  fs.mkdirSync(dirname(target), { recursive: true })
+  fs.writeFileSync(target, JSON.stringify(page, null, 2))
+
+  if (target !== file) {
+    fs.rmSync(file)
+    const dir = dirname(file)
+    const pagesDir = join(mechDir, 'pages')
+    if (dir !== pagesDir && fs.existsSync(dir) && fs.readdirSync(dir).length === 0) {
+      fs.rmSync(dir, { recursive: true })
+    }
+  }
+  return { path: cleaned }
+}
+
 /** Merge content/data into a page and persist it. */
 export function savePage(
   mechDir: string,
