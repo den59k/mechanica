@@ -31,15 +31,14 @@
         </button>
         <VIcon name="chevron-down" class="mech-smartlink__chevron" />
 
-        <Teleport to="body">
-          <div
-            v-if="open"
-            ref="menuEl"
-            class="mech-smartlink__menu"
-            data-mech-ui
-            role="listbox"
-            :style="menuStyle"
-          >
+        <VPopover
+          :open="open"
+          :anchor="anchorEl"
+          match-width
+          panel-class="mech-smartlink__menu"
+          @update:open="open = $event"
+        >
+          <div role="listbox">
             <div v-if="pageMatches.length" class="mech-smartlink__group">Pages</div>
             <button
               v-for="(page, index) in pageMatches"
@@ -72,7 +71,7 @@
               {{ pages.length ? 'No pages match. Type a URL for an external link.' : 'Type a URL for an external link.' }}
             </p>
           </div>
-        </Teleport>
+        </VPopover>
       </div>
 
       <!-- Reveal the secondary settings (title, new tab). A dot marks active
@@ -120,7 +119,7 @@
 <script setup lang="ts">
 import { computed, inject, ref } from 'vue'
 import { fetchPages, filterPages, type PageItem } from '../../lib/page-list'
-import { useAnchoredMenu } from '../use-anchored-menu'
+import VPopover from '../../components/VPopover.vue'
 import VIcon from '../../components/VIcon.vue'
 
 interface LinkValue {
@@ -156,8 +155,8 @@ if (!injectedPages) void fetchPages().then((list) => (pages.value = list))
 
 const anchorEl = ref<HTMLElement | null>(null)
 const inputEl = ref<HTMLInputElement | null>(null)
-const menuEl = ref<HTMLElement | null>(null)
-const { open, menuStyle, openMenu, close } = useAnchoredMenu(() => anchorEl.value, () => menuEl.value)
+const open = ref(false)
+const close = () => (open.value = false)
 
 const query = ref('')
 const active = ref(-1)
@@ -177,15 +176,19 @@ function patch(key: keyof LinkValue, val: unknown) {
 function onFocus() {
   query.value = value.value.url
   active.value = -1
-  void openMenu().then(() => inputEl.value?.select())
+  open.value = true
+  inputEl.value?.select()
 }
 function onInput(event: Event) {
   query.value = (event.target as HTMLInputElement).value
   active.value = -1
-  if (!open.value) void openMenu()
+  open.value = true
 }
 function onArrow(delta: number) {
-  if (!open.value) return void openMenu()
+  if (!open.value) {
+    open.value = true
+    return
+  }
   const count = pageMatches.value.length + (showExternal.value ? 1 : 0)
   if (count) active.value = (active.value + delta + count) % count
 }
@@ -368,24 +371,6 @@ function clear() {
   background: var(--mech-accent);
 }
 
-// Teleported results menu (scoped styles still apply to Teleport content).
-.mech-smartlink__menu {
-  z-index: 2147483400;
-  overflow-y: auto;
-  padding: 5px;
-  background: var(--mech-bg);
-  border: 1px solid var(--mech-border);
-  border-radius: var(--mech-radius);
-  box-shadow: var(--mech-shadow-pop);
-  font-family: var(--mech-font);
-  animation: mech-smartlink-pop 0.12s ease;
-}
-@keyframes mech-smartlink-pop {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
 .mech-smartlink__group {
   padding: 5px 8px 3px;
   font-size: 10px;

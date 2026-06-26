@@ -3,6 +3,7 @@ import { createApp, h, nextTick } from 'vue'
 import { registerFieldSchemas } from '@mechanica/shared'
 import { createEditorStore, editorStoreKey, type EditorStore } from '@/editor/lib/store'
 import { createDragController, dragKey } from '@/editor/lib/drag-controller'
+import { createContextMenu, contextMenuKey, type ContextMenuController } from '@/editor/lib/context-menu'
 import { registerBuiltinFieldEditors } from '@/editor/fields/builtin'
 import { clearFieldEditors } from '@/editor/fields/registry'
 import BlockPalette from '@/editor/components/BlockPalette.vue'
@@ -19,11 +20,17 @@ const components = [
   { blockId: 'hero', __name: 'Hero', blockSchema: { name: 'Hero', category: 'Content', props: { title: 'string' } } },
 ]
 
-function mount(component: any, store: EditorStore, drag = createDragController(store)) {
+function mount(
+  component: any,
+  store: EditorStore,
+  drag = createDragController(store),
+  menu: ContextMenuController = createContextMenu(),
+) {
   const el = document.createElement('div')
   const app = createApp({ render: () => h(component) })
   app.provide(editorStoreKey, store)
   app.provide(dragKey, drag)
+  app.provide(contextMenuKey, menu)
   app.mount(el)
   return el
 }
@@ -128,6 +135,28 @@ describe('editor sidebar', () => {
     expect(endSlot.classList.contains('is-drop-outline')).toBe(true)
     expect(el.querySelector(`[data-tree-slot="${split.id}:start"]`)!.classList.contains('is-drop-target')).toBe(false)
     expect(el.querySelector(`[data-tree-id="${split.id}"]`)!.classList.contains('is-drop-within')).toBe(true)
+  })
+
+  it('right-click opens a block context menu, selects the block, and items run actions', () => {
+    const store = createEditorStore({ content: [], data: {} }, components)
+    store.addBlock('hero')
+    store.select(null)
+    const menu = createContextMenu()
+    const el = mount(HierarchyTree, store, undefined, menu)
+    const block = store.content[0]!
+
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 20 })
+    el.querySelector(`[data-tree-id="${block.id}"]`)!.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(true) // native menu suppressed
+    expect(menu.open).toBe(true)
+    expect(store.selectedId).toBe(block.id) // right-click also selects
+    const labels = menu.items.map((i) => i.label)
+    expect(labels).toEqual(['Copy', 'Cut', 'Paste', 'Duplicate', 'Move up', 'Move down', 'Delete'])
+    expect(menu.items.find((i) => i.label === 'Paste')!.disabled).toBe(true) // empty clipboard
+
+    menu.items.find((i) => i.label === 'Delete')!.onClick!()
+    expect(store.content).toHaveLength(0)
   })
 
   it('settings shows the selected block form and edits flow into data', () => {

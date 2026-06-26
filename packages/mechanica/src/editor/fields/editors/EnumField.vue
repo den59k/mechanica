@@ -14,15 +14,14 @@
       <VIcon name="chevron-down" class="mech-select__chevron" />
     </button>
 
-    <Teleport to="body">
-      <div
-        v-if="open"
-        ref="menuEl"
-        class="mech-select__menu"
-        data-mech-ui
-        role="listbox"
-        :style="menuStyle"
-      >
+    <VPopover
+      :open="open"
+      :anchor="rootEl"
+      match-width
+      panel-class="mech-select__menu"
+      @update:open="open = $event"
+    >
+      <div role="listbox">
         <button
           v-for="(option, index) in options"
           :key="index"
@@ -38,14 +37,14 @@
           <VIcon v-if="isSelected(option)" name="check" class="mech-select__check" />
         </button>
       </div>
-    </Teleport>
+    </VPopover>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import VIcon from '../../components/VIcon.vue'
-import { useAnchoredMenu } from '../use-anchored-menu'
+import VPopover from '../../components/VPopover.vue'
 
 const props = defineProps<{ modelValue?: unknown; schema: Record<string, any> }>()
 const emit = defineEmits<{ 'update:modelValue': [unknown] }>()
@@ -69,19 +68,15 @@ const labelOf = (option: unknown) => labels.value.get(option) ?? String(option)
 const isSelected = (option: unknown) => option === props.modelValue
 
 const rootEl = ref<HTMLElement | null>(null)
-const menuEl = ref<HTMLElement | null>(null)
 const active = ref(-1)
+const open = ref(false)
 
-const { open, menuStyle, openMenu: openBase, close } = useAnchoredMenu(
-  () => rootEl.value,
-  () => menuEl.value,
-)
-
-async function openMenu() {
+function openMenu() {
   if (!options.value.length) return
   active.value = options.value.findIndex(isSelected)
-  await openBase()
+  open.value = true
 }
+const close = () => (open.value = false)
 const toggle = () => (open.value ? close() : openMenu())
 const move = (delta: number) => {
   if (!options.value.length) return
@@ -130,24 +125,6 @@ const choose = (option: unknown) => {
   transform: rotate(180deg);
 }
 
-// Teleported menu — scoped styles still apply to Teleport content.
-.mech-select__menu {
-  z-index: 2147483400;
-  overflow-y: auto;
-  padding: 5px;
-  background: var(--mech-bg);
-  border: 1px solid var(--mech-border);
-  border-radius: var(--mech-radius);
-  box-shadow: var(--mech-shadow-pop);
-  font-family: var(--mech-font);
-  animation: mech-select-pop 0.12s ease;
-}
-@keyframes mech-select-pop {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
 .mech-select__option {
   display: flex;
   align-items: center;

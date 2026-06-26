@@ -47,6 +47,8 @@ export interface EditorStore {
   setHover(id: string | null): void
   readonly selected: ContentBlock | null
   readonly selectedSchema: Record<string, any> | null
+  /** Whether a block is on the clipboard (for enabling a Paste action). */
+  readonly canPaste: boolean
   /** Effective data per entry (site < folder < page, defaults filled) — for live preview. */
   readonly effective: Record<string, unknown>
   /** The scope an entry currently resolves from on this page (defaults to `page`). */
@@ -178,6 +180,9 @@ export function createEditorStore(
     },
     selected,
     selectedSchema,
+    get canPaste() {
+      return ui.clipboard != null
+    },
 
     select(id: string | null) {
       ui.selectedId = id

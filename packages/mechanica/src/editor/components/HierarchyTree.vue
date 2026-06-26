@@ -23,10 +23,12 @@
         @mouseenter="store.setHover(block.id)"
         @mouseleave="store.setHover(null)"
         @pointerdown="
-          drag.begin({ kind: 'move', id: block.id, label: labelOf(block) }, $event, () =>
-            store.select(block.id),
-          )
+          $event.button !== 2 &&
+            drag.begin({ kind: 'move', id: block.id, label: labelOf(block) }, $event, () =>
+              store.select(block.id),
+            )
         "
+        @contextmenu="onContext(block, $event)"
       >
         <button
           v-if="expandable(block)"
@@ -116,6 +118,7 @@ import { computed, inject } from 'vue'
 import type { ContentBlock } from '@mechanica/shared'
 import { editorStoreKey } from '../lib/store'
 import { dragKey } from '../lib/drag-controller'
+import { contextMenuKey, type ContextMenuItem } from '../lib/context-menu'
 import { isCollapsed, toggleCollapsed } from '../lib/tree-ui'
 import VIcon from './VIcon.vue'
 
@@ -137,6 +140,8 @@ const props = withDefaults(
 const SLOT_INDENT = 6
 const store = inject(editorStoreKey)!
 const drag = inject(dragKey)!
+// Optional so the tree still mounts standalone (e.g. in unit tests) with no menu.
+const contextMenu = inject(contextMenuKey, null)
 
 const items = computed(() => props.blocks ?? store.content)
 
@@ -196,6 +201,32 @@ const isContainerNamed = (id: string): boolean =>
 // drop just fills it.
 const directInside = computed(() => drag.drop?.position === 'inside')
 const rootDrop = computed(() => drag.drop?.anchorId === null)
+
+// ── Right-click context menu ────────────────────────────────────────────────
+// Right-click selects the block (so the action and the page selection agree),
+// then opens its action menu at the cursor.
+const onContext = (block: ContentBlock, event: MouseEvent) => {
+  store.select(block.id)
+  contextMenu?.openAt(event, blockMenu(block))
+}
+
+const blockMenu = (block: ContentBlock): ContextMenuItem[] => {
+  const id = block.id
+  const items: ContextMenuItem[] = []
+  if (expandable(block)) {
+    items.push({ label: isCollapsed(id) ? 'Expand' : 'Collapse', onClick: () => toggleCollapsed(id) })
+  }
+  items.push(
+    { label: 'Copy', separatorBefore: items.length > 0, onClick: () => store.copy(id) },
+    { label: 'Cut', onClick: () => store.cut(id) },
+    { label: 'Paste', disabled: !store.canPaste, onClick: () => store.paste(id) },
+    { label: 'Duplicate', onClick: () => store.duplicate(id) },
+    { label: 'Move up', separatorBefore: true, onClick: () => store.move(id, -1) },
+    { label: 'Move down', onClick: () => store.move(id, 1) },
+    { label: 'Delete', separatorBefore: true, danger: true, onClick: () => store.remove(id) },
+  )
+  return items
+}
 </script>
 
 <style lang="scss" scoped>

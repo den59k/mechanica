@@ -190,47 +190,6 @@
           }
         },
         {
-          "id": "2feb9ad3-a506-4026-add2-65d68ed664de",
-          "blockId": "card",
-          "data": {
-            "title": "Card title"
-          },
-          "children": [
-            {
-              "id": "1c0762cd-494f-41cf-a1f1-c32bb26ea57e",
-              "blockId": "banner",
-              "data": {
-                "image": {
-                  "src": ""
-                },
-                "heading": "Banner heading",
-                "caption": ""
-              }
-            }
-          ]
-        },
-        {
-          "id": "ce9fdad7-6007-4ece-9af3-0f419749a4b5",
-          "blockId": "split",
-          "data": {},
-          "children": {
-            "start": [
-              {
-                "id": "69a9abee-35cb-46e7-a068-7f93d4ec6454",
-                "blockId": "banner",
-                "data": {
-                  "image": {
-                    "src": ""
-                  },
-                  "heading": "Banner heading",
-                  "caption": ""
-                }
-              }
-            ],
-            "end": []
-          }
-        },
-        {
           "id": "cta",
           "blockId": "cta-band",
           "data": {
@@ -243,6 +202,18 @@
           }
         }
       ]
+    },
+    {
+      "id": "bed0813f-f3a8-44a0-806f-dcb59896c7e0",
+      "blockId": "fields-demo",
+      "data": {
+        "title": "Checkboxes & dropdowns",
+        "text": "Open this block in the editor — the Tone and Size dropdowns and the two checkboxes restyle this card live.",
+        "tone": "neutral",
+        "size": "lg",
+        "bordered": true,
+        "rounded": true
+      }
     }
   ],
   "data": {

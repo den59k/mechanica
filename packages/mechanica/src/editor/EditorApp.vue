@@ -115,6 +115,7 @@
     </Transition>
 
     <VDialogHost />
+    <VContextMenu />
   </div>
 </template>
 
@@ -130,7 +131,9 @@ import { useBlockFrames } from './lib/use-block-frames'
 import type { BlockComponent } from './lib/block-meta'
 import type { EditorSnapshot } from './lib/types'
 import { createDialogStore, dialogKey } from './ui/dialog'
+import { createContextMenu, contextMenuKey } from './lib/context-menu'
 import VDialogHost from './ui/VDialogHost.vue'
+import VContextMenu from './components/VContextMenu.vue'
 import DataDialog from './dialogs/DataDialog.vue'
 import HierarchyTree from './components/HierarchyTree.vue'
 import BlockPalette from './components/BlockPalette.vue'
@@ -165,6 +168,9 @@ provide(dragKey, drag)
 const dialog = createDialogStore()
 provide(dialogKey, dialog)
 const openData = () => dialog.open(DataDialog)
+
+const contextMenu = createContextMenu()
+provide(contextMenuKey, contextMenu)
 
 const history = createHistory(store)
 const { canUndo, canRedo } = history
