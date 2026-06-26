@@ -4,6 +4,7 @@ import { registerFieldSchemas } from '@mechanica/shared'
 import { createEditorStore, editorStoreKey, type EditorStore } from '@/editor/lib/store'
 import { createDragController, dragKey } from '@/editor/lib/drag-controller'
 import { createContextMenu, contextMenuKey, type ContextMenuController } from '@/editor/lib/context-menu'
+import { focusedRowId } from '@/editor/lib/tree-ui'
 import { registerBuiltinFieldEditors } from '@/editor/fields/builtin'
 import { clearFieldEditors } from '@/editor/fields/registry'
 import BlockPalette from '@/editor/components/BlockPalette.vue'
@@ -157,6 +158,33 @@ describe('editor sidebar', () => {
 
     menu.items.find((i) => i.label === 'Delete')!.onClick!()
     expect(store.content).toHaveLength(0)
+  })
+
+  it('navigates rows with the keyboard — one tab stop, arrows rove, Enter selects', async () => {
+    focusedRowId.value = null
+    const store = createEditorStore({ content: [], data: {} }, components)
+    store.addBlock('hero')
+    store.addBlock('hero')
+    store.select(null)
+    const el = mount(HierarchyTree, store)
+    const a = store.content[0]!.id
+    const b = store.content[1]!.id
+    const rowA = el.querySelector(`[data-tree-id="${a}"]`) as HTMLElement
+    const rowB = el.querySelector(`[data-tree-id="${b}"]`) as HTMLElement
+
+    // The tree is a single tab stop: only the first row is tabbable at rest.
+    expect(rowA.getAttribute('role')).toBe('treeitem')
+    expect(rowA.tabIndex).toBe(0)
+    expect(rowB.tabIndex).toBe(-1)
+
+    rowA.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))
+    expect(focusedRowId.value).toBe(b)
+    await nextTick()
+    expect(rowB.tabIndex).toBe(0) // roving focus moved to the second row
+    expect(rowA.tabIndex).toBe(-1)
+
+    rowB.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    expect(store.selectedId).toBe(b)
   })
 
   it('settings shows the selected block form and edits flow into data', () => {

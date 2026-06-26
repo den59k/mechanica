@@ -1,5 +1,11 @@
 <template>
-  <ul class="mech-tree" :class="{ 'is-root': depth === 0 }" :style="{ '--slot-pad': slotPad + 'px' }">
+  <ul
+    class="mech-tree"
+    :class="{ 'is-root': depth === 0 }"
+    :style="{ '--slot-pad': slotPad + 'px' }"
+    :role="depth === 0 ? 'tree' : 'group'"
+    :aria-label="depth === 0 ? 'Blocks' : undefined"
+  >
     <li
       v-for="block in items"
       :key="block.id"
@@ -20,8 +26,16 @@
         }"
         :style="{ '--depth': depth }"
         :data-tree-id="block.id"
+        role="treeitem"
+        :tabindex="rowTabindex(block.id)"
+        :aria-selected="store.selectedId === block.id"
+        :aria-level="depth + 1"
+        :aria-expanded="expandable(block) ? !isCollapsed(block.id) : undefined"
         @mouseenter="store.setHover(block.id)"
         @mouseleave="store.setHover(null)"
+        @focus="onRowFocus(block.id)"
+        @blur="onRowBlur"
+        @keydown="onRowKeydown(block, $event)"
         @pointerdown="
           $event.button !== 2 &&
             drag.begin({ kind: 'move', id: block.id, label: labelOf(block) }, $event, () =>
@@ -34,6 +48,7 @@
           v-if="expandable(block)"
           type="button"
           class="mech-tree__toggle"
+          tabindex="-1"
           :class="{ 'is-collapsed': isCollapsed(block.id) }"
           :title="isCollapsed(block.id) ? 'Expand' : 'Collapse'"
           @pointerdown.stop
@@ -114,12 +129,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject } from 'vue'
+import { computed, inject, nextTick } from 'vue'
 import type { ContentBlock } from '@mechanica/shared'
 import { editorStoreKey } from '../lib/store'
 import { dragKey } from '../lib/drag-controller'
 import { contextMenuKey, type ContextMenuItem } from '../lib/context-menu'
-import { isCollapsed, toggleCollapsed } from '../lib/tree-ui'
+import { isCollapsed, toggleCollapsed, expand, collapse, focusedRowId } from '../lib/tree-ui'
 import VIcon from './VIcon.vue'
 
 interface FlatLayout {
@@ -201,6 +216,98 @@ const isContainerNamed = (id: string): boolean =>
 // drop just fills it.
 const directInside = computed(() => drag.drop?.position === 'inside')
 const rootDrop = computed(() => drag.drop?.anchorId === null)
+
+// ── Keyboard navigation (roving tabindex over the visible rows) ─────────────
+// The whole tree is one tab stop; arrows move a roving focus, Enter/Space select,
+// Left/Right collapse/expand. Navigation works off a flattened list of the rows
+// currently on screen (collapsed subtrees omitted), built from the shared store
+// so each recursive instance navigates the same global order.
+interface VisibleRow {
+  id: string
+  expandable: boolean
+  collapsed: boolean
+  parentId: string | null
+}
+const visibleRows = computed<VisibleRow[]>(() => flatten(store.content, null))
+function flatten(blocks: ContentBlock[], parentId: string | null): VisibleRow[] {
+  const rows: VisibleRow[] = []
+  for (const block of blocks) {
+    const l = layout(block)
+    const kids = l.kind === 'flat' ? l.children : l.slots.flatMap((s) => s.children)
+    const isExpandable = l.kind === 'slots' ? l.slots.length > 0 : l.children.length > 0
+    const collapsed = isCollapsed(block.id)
+    rows.push({ id: block.id, expandable: isExpandable, collapsed, parentId })
+    if (isExpandable && !collapsed && kids.length) rows.push(...flatten(kids, block.id))
+  }
+  return rows
+}
+
+// Exactly one row carries tabindex="0": the roving-focus row, else the selected
+// row, else the first — but only when it's actually visible (a hidden one falls
+// through to the first), so Tab always finds a live entry point.
+const tabTarget = computed<string | null>(() => {
+  const rows = visibleRows.value
+  const visible = (id: string | null) => !!id && rows.some((r) => r.id === id)
+  if (visible(focusedRowId.value)) return focusedRowId.value
+  if (visible(store.selectedId)) return store.selectedId
+  return rows[0]?.id ?? null
+})
+const rowTabindex = (id: string) => (id === tabTarget.value ? 0 : -1)
+
+function focusRow(id: string | undefined) {
+  if (!id) return
+  focusedRowId.value = id
+  void nextTick(() => document.querySelector<HTMLElement>(`[data-tree-id="${id}"]`)?.focus())
+}
+const onRowFocus = (id: string) => {
+  focusedRowId.value = id
+}
+// Drop the roving focus when focus leaves the tree (so Tab re-enters at the
+// selected/first row); keep it when moving between rows.
+const onRowBlur = (event: FocusEvent) => {
+  const next = event.relatedTarget as HTMLElement | null
+  if (!next?.closest?.('[data-tree-id]')) focusedRowId.value = null
+}
+
+function onRowKeydown(block: ContentBlock, event: KeyboardEvent) {
+  const rows = visibleRows.value
+  const i = rows.findIndex((r) => r.id === block.id)
+  if (i < 0) return
+  const row = rows[i]!
+  switch (event.key) {
+    case 'ArrowDown':
+      event.preventDefault()
+      focusRow(rows[i + 1]?.id)
+      break
+    case 'ArrowUp':
+      event.preventDefault()
+      focusRow(rows[i - 1]?.id)
+      break
+    case 'ArrowRight':
+      event.preventDefault()
+      if (row.expandable && row.collapsed) expand(block.id)
+      else if (rows[i + 1]?.parentId === block.id) focusRow(rows[i + 1]?.id) // open → first child
+      break
+    case 'ArrowLeft':
+      event.preventDefault()
+      if (row.expandable && !row.collapsed) collapse(block.id)
+      else if (row.parentId) focusRow(row.parentId)
+      break
+    case 'Enter':
+    case ' ':
+      event.preventDefault()
+      store.select(block.id)
+      break
+    case 'Home':
+      event.preventDefault()
+      focusRow(rows[0]?.id)
+      break
+    case 'End':
+      event.preventDefault()
+      focusRow(rows[rows.length - 1]?.id)
+      break
+  }
+}
 
 // ── Right-click context menu ────────────────────────────────────────────────
 // Right-click selects the block (so the action and the page selection agree),
