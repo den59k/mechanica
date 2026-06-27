@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir, rm, cp, readdir } from 'node:fs/promises'
 import { join, parse } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { generateProject, registerFieldSchemas, type Block } from '@mechanica/shared'
+import { generateProject, parsePage, registerFieldSchemas, type Block } from '@mechanica/shared'
 import { toBlockMeta, type BlockComponent } from '../editor/lib/block-meta'
 import { readSiteData, readFoldersData } from '../vite/dev/data-store'
 import { runBuild } from './build'
@@ -25,14 +25,15 @@ async function readPages(
     return []
   }
 
+  const EXT = '.page.md'
   const pages: ExportPage[] = []
   for (const relative of entries) {
-    if (!relative.endsWith('.json')) continue
+    if (!relative.endsWith(EXT)) continue
     const parsed = parse(relative)
     const dir = parsed.dir.replace(/\\/g, '/')
-    const file = JSON.parse(await readFile(join(pagesDir, relative), 'utf-8'))
-    const path =
-      `/${dir}/${parsed.name === 'index' ? '' : parsed.name}`.replace('//', '/').replace(/\/$/, '') || '/'
+    const base = parsed.base.slice(0, -EXT.length)
+    const file = parsePage(await readFile(join(pagesDir, relative), 'utf-8'))
+    const path = `/${dir}/${base === 'index' ? '' : base}`.replace('//', '/').replace(/\/$/, '') || '/'
     // Fold this page's folder-scoped data in; site data is applied via projectData.
     const data = { ...(dir ? foldersData[dir] : undefined), ...(file.data ?? {}) }
     pages.push({ path, content: file.content ?? [], data, page: { meta: file.meta } })

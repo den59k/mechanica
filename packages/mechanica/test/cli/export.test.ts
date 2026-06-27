@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import { join } from 'node:path'
+import { serializePage } from '@mechanica/shared'
 import { exportProject, type SsrBundle } from '@/cli/export'
 
 let dir: string
@@ -15,15 +16,15 @@ beforeEach(async () => {
   await writeFile(join(dir, '.mech/data.json'), JSON.stringify({ site: { name: 'Acme' } }))
   await writeFile(join(dir, '.mech/folders.json'), JSON.stringify({ blog: { head: { title: 'Blog' } } }))
   await writeFile(
-    join(dir, '.mech/pages/index.json'),
-    JSON.stringify({
+    join(dir, '.mech/pages/index.page.md'),
+    serializePage({
       content: [{ id: '1', blockId: 'hero', data: { title: 'Welcome' } }],
       data: { head: { title: 'Home' } },
     }),
   )
   await writeFile(
-    join(dir, '.mech/pages/blog/post.json'),
-    JSON.stringify({ content: [{ id: 'p', blockId: 'hero', data: { title: 'Post Body' } }], data: {} }),
+    join(dir, '.mech/pages/blog/post.page.md'),
+    serializePage({ content: [{ id: 'p', blockId: 'hero', data: { title: 'Post Body' } }], data: {} }),
   )
 
   // A built `dist`: the index template (with a head placeholder) + an asset.

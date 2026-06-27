@@ -1,17 +1,12 @@
 import fs from 'node:fs'
 import { dirname, join, parse } from 'node:path'
+import { parsePage, serializePage, type ContentBlock, type PageDoc } from '@mechanica/shared'
 
-/** Shape of a page JSON file under `<mech>/pages`. */
-export interface PageFile {
-  content: unknown[]
-  data: Record<string, unknown>
-  name?: string
-  path?: string
-  meta?: Record<string, unknown>
-  order?: number
-  orderAfter?: string | null
-  id?: number
-}
+/** Shape of a page file under `<mech>/pages` (the parsed `.page.md` document). */
+export type PageFile = PageDoc
+
+/** File extension for page documents under `<mech>/pages`. */
+const EXT = '.page.md'
 
 /** A page entry as returned by {@link listPages}. */
 export interface PageListItem {
@@ -33,12 +28,19 @@ export class PageExistsError extends Error {
 
 const emptyPage = (): PageFile => ({ content: [], data: {} })
 
-/** Resolve a URL path to its page JSON file under `<mechDir>/pages`. */
+const readFile = (file: string): PageFile => parsePage(fs.readFileSync(file, 'utf-8'))
+
+const writeFile = (file: string, page: PageFile): void => {
+  fs.mkdirSync(dirname(file), { recursive: true })
+  fs.writeFileSync(file, serializePage(page))
+}
+
+/** Resolve a URL path to its page file under `<mechDir>/pages`. */
 export function getPagePath(mechDir: string, urlPath: string): string {
   const pagesDir = join(mechDir, 'pages')
   const normalized = urlPath.trim().replace(/\/+$/, '').replace(/^\/+/, '')
   const asDirectory = fs.statSync(join(pagesDir, normalized), { throwIfNoEntry: false })?.isDirectory()
-  const relative = asDirectory ? join(normalized, 'index.json') : `${normalized}.json`
+  const relative = asDirectory ? join(normalized, `index${EXT}`) : `${normalized}${EXT}`
   return join(pagesDir, relative)
 }
 
@@ -46,7 +48,7 @@ export function getPagePath(mechDir: string, urlPath: string): string {
 export function readPage(mechDir: string, urlPath: string): PageFile {
   const file = getPagePath(mechDir, urlPath)
   if (!fs.existsSync(file)) return emptyPage()
-  return JSON.parse(fs.readFileSync(file, 'utf-8'))
+  return readFile(file)
 }
 
 /** Create a new page, throwing {@link PageExistsError} if it already exists. */
@@ -58,9 +60,8 @@ export function createPage(
   const file = getPagePath(mechDir, folderPrefix + input.path.trim())
   if (fs.existsSync(file)) throw new PageExistsError(input.path)
 
-  fs.mkdirSync(dirname(file), { recursive: true })
   const page: PageFile = { content: [], data: {}, name: input.name, path: input.path }
-  fs.writeFileSync(file, JSON.stringify(page, null, 2))
+  writeFile(file, page)
 
   return { ...page, path: folderPrefix + input.path.trim() }
 }
@@ -76,7 +77,6 @@ export function duplicatePage(
   const file = getPagePath(mechDir, folderPrefix + input.path.trim())
   if (fs.existsSync(file)) throw new PageExistsError(input.path)
 
-  fs.mkdirSync(dirname(file), { recursive: true })
   const page: PageFile = {
     content: source.content ?? [],
     data: source.data ?? {},
@@ -84,7 +84,7 @@ export function duplicatePage(
     name: input.name,
     path: input.path,
   }
-  fs.writeFileSync(file, JSON.stringify(page, null, 2))
+  writeFile(file, page)
 
   return { ...page, path: folderPrefix + input.path.trim() }
 }
@@ -116,10 +116,9 @@ export function movePage(mechDir: string, fromPath: string, toPath: string): { p
   const target = getPagePath(mechDir, cleaned)
   if (target !== file && fs.existsSync(target)) throw new PageExistsError(cleaned)
 
-  const page = JSON.parse(fs.readFileSync(file, 'utf-8')) as PageFile
+  const page = readFile(file)
   page.path = cleaned
-  fs.mkdirSync(dirname(target), { recursive: true })
-  fs.writeFileSync(target, JSON.stringify(page, null, 2))
+  writeFile(target, page)
 
   if (target !== file) {
     fs.rmSync(file)
@@ -139,11 +138,10 @@ export function savePage(
   patch: { content?: unknown[]; data?: Record<string, unknown> },
 ): void {
   const file = getPagePath(mechDir, urlPath)
-  const page = fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, 'utf-8')) as PageFile) : emptyPage()
-  if (patch.content !== undefined) page.content = patch.content
+  const page = fs.existsSync(file) ? readFile(file) : emptyPage()
+  if (patch.content !== undefined) page.content = patch.content as ContentBlock[]
   if (patch.data !== undefined) page.data = patch.data
-  fs.mkdirSync(dirname(file), { recursive: true })
-  fs.writeFileSync(file, JSON.stringify(page, null, 2))
+  writeFile(file, page)
 }
 
 /**
@@ -153,10 +151,9 @@ export function savePage(
  */
 export function renamePage(mechDir: string, urlPath: string, name: string): void {
   const file = getPagePath(mechDir, urlPath)
-  const page = fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, 'utf-8')) as PageFile) : emptyPage()
+  const page = fs.existsSync(file) ? readFile(file) : emptyPage()
   page.name = name
-  fs.mkdirSync(dirname(file), { recursive: true })
-  fs.writeFileSync(file, JSON.stringify(page, null, 2))
+  writeFile(file, page)
 }
 
 /** List folders (top-level directories) under `<mechDir>/pages`. */
@@ -179,20 +176,20 @@ export function listPages(
 
   const items: PageListItem[] = []
   for (const relative of fs.readdirSync(pagesDir, { recursive: true }) as string[]) {
-    if (!relative.endsWith('.json')) continue
+    if (!relative.endsWith(EXT)) continue
 
     const parsed = parse(relative)
     const dir = parsed.dir.replace(/\\/g, '/')
-    const page = JSON.parse(fs.readFileSync(join(pagesDir, relative), 'utf-8')) as PageFile
-    const path =
-      `/${dir}/${parsed.name === 'index' ? '' : parsed.name}`.replace('//', '/').replace(/\/$/, '') || '/'
+    const base = parsed.base.slice(0, -EXT.length)
+    const page = readFile(join(pagesDir, relative))
+    const path = `/${dir}/${base === 'index' ? '' : base}`.replace('//', '/').replace(/\/$/, '') || '/'
 
     const embedded: Record<string, unknown> = {}
     for (const entry of options.data ?? []) embedded[entry.id] = page.data?.[entry.id] ?? {}
 
     items.push({
       path,
-      name: page.name ?? parsed.name,
+      name: page.name ?? base,
       folderPath: dir === '' ? null : dir,
       order: page.order ?? 0,
       orderAfter: page.orderAfter ?? null,

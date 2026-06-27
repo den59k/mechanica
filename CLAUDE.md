@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-**Mechanica** is a platform for building Vue 3 websites with a visual block editor. Authors write Vue SFC "blocks", an in-page editor arranges them into pages, and pages render server-side (static export, or a future backend). This is the **v2 rewrite** — built ground-up on **Vite 8 / Vue 3.5 / Vitest 4 / Bun**, English throughout, test-covered. See [PLAN.md](./PLAN.md) for the original design rationale.
+**Mechanica** is a platform for building Vue 3 websites with a visual block editor. Authors write Vue SFC "blocks", an in-page editor arranges them into pages, and pages render server-side (static export, or a future backend). This is the **v2 rewrite** — built ground-up on **Vite 8 / Vue 3.5 / Vitest 4 / Bun**, English throughout, test-covered.
 
 Everything runs on **Bun**. Use `bun`/`bunx`, not `npm`/`node`. The dev server is started with `bunx --bun vite` because the workspace packages ship TS source with extensionless relative imports that raw Node ESM can't resolve — only Bun's resolver handles them.
 
@@ -15,7 +15,7 @@ Current focus is **local development** (the plugin, dev server, and editor). The
 Bun workspaces under `packages/*`:
 
 - **`mechanica`** — the published package. Contains the block **compiler** (`src/compiler/`), the **runtime** (`src/core/`), the **Vite plugin** (`src/vite/`), the in-browser **editor** (`src/editor/`), the **CLI** (`src/cli/`), and the standalone **svg-glob** Vite plugin (`src/svg-plugin.ts`).
-- **`shared`** (`@mechanica/shared`) — DOM-free types, the field-type registry, schema/default helpers, and the page-generation (SSG) core (`generate-page.ts`, including the `{{ }}` HTML templating engine). Importable by the runtime and a future render service. **Keep it DOM-free.**
+- **`shared`** (`@mechanica/shared`) — DOM-free types, the field-type registry, schema/default helpers, the page-generation (SSG) core (`generate-page.ts`, including the `{{ }}` HTML templating engine), and the **`.page.md` page-format codec** (`page-format.ts` — `parsePage`/`serializePage`; see [CONTRACT.md](./CONTRACT.md)). Importable by the runtime and a future render service. **Keep it DOM-free.**
 - **`dev-app`** — a playground site that exercises the plugin end to end. Its `.mech/` holds page/data fixtures the user actively edits in the browser; **leave those alone** unless asked.
 
 ## Commands
@@ -52,7 +52,7 @@ The user exports `defineMechanicaApp({ root })`; the plugin generates entries (`
 ## Dev server & the `.mech/` store
 
 The plugin's `configureServer` mounts the `/@mechanica` middleware (`src/vite/dev/`) over the project's `.mech/` directory:
-- `pages-store.ts` — page CRUD (`createPage`, `savePage`, `renamePage`, `duplicatePage`, `deletePage`, `listPages`, folders). Pages live at `.mech/pages/**.json`.
+- `pages-store.ts` — page CRUD (`createPage`, `savePage`, `renamePage`, `duplicatePage`, `deletePage`, `listPages`, folders). Pages live at `.mech/pages/**.page.md` — a human-readable, Markdown-centric format authored primarily by Claude (`@mechanica/shared`'s `parsePage`/`serializePage`; spec in [CONTRACT.md](./CONTRACT.md)). The editor still talks JSON over the wire; only the on-disk codec is `.page.md`. Site/folder shared data (`data.json`, `folders.json`) stay JSON.
 - `data-store.ts` — scoped shared data (see **Data scoping** below).
 - `assets-store.ts` (uploads → `.mech/assets`), `query-dev.ts`, `middleware.ts`.
 

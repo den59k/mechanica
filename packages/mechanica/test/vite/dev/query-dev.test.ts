@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import { join } from 'node:path'
+import { serializePage } from '@mechanica/shared'
 import { resolveDevQuery } from '@/vite/dev/query-dev'
 
 let mechDir: string
@@ -9,8 +10,8 @@ let mechDir: string
 beforeEach(() => {
   mechDir = fs.mkdtempSync(join(os.tmpdir(), 'mech-'))
   fs.mkdirSync(join(mechDir, 'pages'), { recursive: true })
-  fs.writeFileSync(join(mechDir, 'pages', 'index.json'), JSON.stringify({ content: [], data: {}, name: 'Home' }))
-  fs.writeFileSync(join(mechDir, 'pages', 'about.json'), JSON.stringify({ content: [], data: {}, name: 'About' }))
+  fs.writeFileSync(join(mechDir, 'pages', 'index.page.md'), serializePage({ content: [], data: {}, name: 'Home' }))
+  fs.writeFileSync(join(mechDir, 'pages', 'about.page.md'), serializePage({ content: [], data: {}, name: 'About' }))
 })
 afterEach(() => fs.rmSync(mechDir, { recursive: true, force: true }))
 

@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "compact-json-schema": "^0.1.5"
+    "compact-json-schema": "^0.1.5",
+    "yaml": "^2.6.1"
   },
   "devDependencies": {
     "vitest": "^4.1.9"

@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import { join } from 'node:path'
 import { createServer, type Server } from 'node:http'
+import { parsePage, serializePage } from '@mechanica/shared'
 import { createDevMiddleware } from '@/vite/dev/middleware'
 
 let mechDir: string
@@ -60,7 +61,7 @@ describe('dev middleware', () => {
       }),
     })
 
-    const page = JSON.parse(fs.readFileSync(join(mechDir, 'pages', 'about.json'), 'utf-8'))
+    const page = parsePage(fs.readFileSync(join(mechDir, 'pages', 'about.page.md'), 'utf-8'))
     expect(page.data).toEqual({ seo: { title: 'About' } })
 
     const site = JSON.parse(fs.readFileSync(join(mechDir, 'data.json'), 'utf-8'))
@@ -82,7 +83,7 @@ describe('dev middleware', () => {
       }),
     })
 
-    const page = JSON.parse(fs.readFileSync(join(mechDir, 'pages', 'blog', 'post.json'), 'utf-8'))
+    const page = parsePage(fs.readFileSync(join(mechDir, 'pages', 'blog', 'post.page.md'), 'utf-8'))
     expect(page.data).toEqual({ seo: { title: 'Post' } })
 
     const folders = JSON.parse(fs.readFileSync(join(mechDir, 'folders.json'), 'utf-8'))
@@ -97,8 +98,8 @@ describe('dev middleware', () => {
     })
     const body = await res.json()
     expect(body).toMatchObject({ success: true, path: '/about-us' })
-    expect(fs.existsSync(join(mechDir, 'pages', 'about.json'))).toBe(false)
-    const moved = JSON.parse(fs.readFileSync(join(mechDir, 'pages', 'about-us.json'), 'utf-8'))
+    expect(fs.existsSync(join(mechDir, 'pages', 'about.page.md'))).toBe(false)
+    const moved = parsePage(fs.readFileSync(join(mechDir, 'pages', 'about-us.page.md'), 'utf-8'))
     expect(moved.name).toBe('About us')
     expect(moved.path).toBe('/about-us')
   })
@@ -128,13 +129,13 @@ describe('dev middleware', () => {
       body: JSON.stringify({ path: '/b', name: 'B' }),
     })
     expect(dup.status).toBe(200)
-    const copy = JSON.parse(fs.readFileSync(join(mechDir, 'pages', 'b.json'), 'utf-8'))
+    const copy = parsePage(fs.readFileSync(join(mechDir, 'pages', 'b.page.md'), 'utf-8'))
     expect(copy.content).toHaveLength(1)
     expect(copy.name).toBe('B')
 
     const del = await fetch(`${base}/pages?path=/a`, { method: 'DELETE' })
     expect((await del.json()).success).toBe(true)
-    expect(fs.existsSync(join(mechDir, 'pages', 'a.json'))).toBe(false)
+    expect(fs.existsSync(join(mechDir, 'pages', 'a.page.md'))).toBe(false)
   })
 
   it('uploads and serves an asset', async () => {
@@ -151,7 +152,7 @@ describe('dev middleware', () => {
   })
 
   it('resolves getPages queries', async () => {
-    fs.writeFileSync(join(mechDir, 'pages', 'index.json'), JSON.stringify({ content: [], data: {}, name: 'Home' }))
+    fs.writeFileSync(join(mechDir, 'pages', 'index.page.md'), serializePage({ content: [], data: {}, name: 'Home' }))
     const pages = await (await fetch(`${base}/query?q=${encodeURIComponent('getPages.{}')}`)).json()
     expect(pages[0].path).toBe('/')
   })
