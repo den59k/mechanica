@@ -15,7 +15,7 @@
       "dependencies": {
         "mechanica": "workspace:*",
         "vue": "^3.5.38",
-        "vuewrite": "^1.1.0",
+        "vuewrite": "^1.2.0",
       },
       "devDependencies": {
         "@vitejs/plugin-vue": "^6.0.7",
@@ -35,7 +35,7 @@
         "estree-walker": "^3.0.3",
         "magic-string": "^0.30.21",
         "vuesix": "^1.0.48",
-        "vuewrite": "^1.1.0",
+        "vuewrite": "^1.2.0",
       },
       "devDependencies": {
         "@types/node": "^22.10.0",
@@ -404,7 +404,7 @@
 
     "vuesix": ["vuesix@1.0.48", "", {}, "sha512-bzWz3QkUI6CEJS11qUlsu2uVez3GkQWLQqOHCkAIcoJ6nT9cjKwpS/YProV31RZAjxyYIKzsems+fBT6FIU2EA=="],
 
-    "vuewrite": ["vuewrite@1.1.0", "", { "dependencies": { "vue": "^3" } }, "sha512-28+4EdbVh09Y3p2iNOzUwICj4ULwDj4GAVEGfSaiaHXlZkP8h+32NrUVV6mJENm8g5ArRoJoL/aFh5BSTpAljQ=="],
+    "vuewrite": ["vuewrite@1.2.0", "", { "dependencies": { "vue": "^3" } }, "sha512-xTOmDPWoJBucx21jwHF5woWM3S0Tw4+PyjUWiAbiLsZajGZB1mRb7uxUZRA1v7umnJP7R795eCdHQjwdg22ang=="],
 
     "w3c-xmlserializer": ["w3c-xmlserializer@5.0.0", "", { "dependencies": { "xml-name-validator": "^5.0.0" } }, "sha512-o8qghlI8NZHU1lLPrpi2+Uq7abh4GGPpYANlalzWxyWteJOCsr/P+oPBA49TOLu5FTZO4d3F9MnWJfiMo4BkmA=="],
 

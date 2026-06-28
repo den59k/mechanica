@@ -12,6 +12,7 @@
       <!-- Formatting toolbar lives inside the box, only in the full rich view. -->
       <div v-if="toolbar && mode === 'rich'" class="mech-rte__bar">
         <VSelect
+          v-if="blockType !== 'callout'"
           compact
           class="mech-rte__type"
           :model-value="blockType"
@@ -19,6 +20,15 @@
           placeholder="Mixed"
           title="Block type"
           @update:model-value="setBlockType($event as string)"
+        />
+        <VSelect
+          v-else
+          compact
+          class="mech-rte__type"
+          :model-value="calloutTone"
+          :options="calloutTones"
+          title="Callout tone"
+          @update:model-value="setCalloutTone($event as string)"
         />
 
         <span class="mech-rte__divider" />
@@ -35,6 +45,37 @@
         >
           <VIcon :name="b.icon" />
         </button>
+
+        <span class="mech-rte__divider" />
+
+        <button
+          ref="insertBtn"
+          type="button"
+          class="mech-icon-button"
+          title="Insert"
+          @mousedown.prevent
+          @click="insertOpen = !insertOpen"
+        >
+          <VIcon name="plus" />
+        </button>
+        <VPopover
+          :open="insertOpen"
+          :anchor="insertBtn"
+          panel-class="mech-rte__insert"
+          @update:open="insertOpen = $event"
+        >
+          <button
+            v-for="w in richTextWidgets"
+            :key="w.type"
+            type="button"
+            class="mech-rte__insert-item"
+            @mousedown.prevent
+            @click="insertWidget(w)"
+          >
+            <VIcon :name="w.icon" class="mech-rte__insert-icon" />
+            <span>{{ w.title }}</span>
+          </button>
+        </VPopover>
       </div>
 
       <TextEditor
@@ -48,7 +89,10 @@
         @keydown="onKeyDown"
       >
         <template #code="{ block }">
-          <pre class="mech-rte__code" :contenteditable="false"><code>{{ block.text }}</code></pre>
+          <RichCodeWidget :block="block" @change="onWidgetChange" />
+        </template>
+        <template #img="{ block }">
+          <RichImageWidget :block="block" @change="onWidgetChange" />
         </template>
         <template #placeholder>
           <div class="mech-rte__placeholder" :contenteditable="false">{{ placeholder }}</div>
@@ -75,6 +119,10 @@ import type { Block, TextEditorRef } from 'vuewrite'
 import { blocksToMarkdown, markdownToBlocks } from 'vuewrite/markdown'
 import VIcon from '../../components/VIcon.vue'
 import VSelect from '../../components/VSelect.vue'
+import VPopover from '../../components/VPopover.vue'
+import RichImageWidget from './RichImageWidget.vue'
+import RichCodeWidget from './RichCodeWidget.vue'
+import { richTextWidgets, type RichTextWidget } from './widgets'
 import { renderer, decorator, htmlParser, blockTypes } from './config'
 
 const props = withDefaults(
@@ -119,6 +167,30 @@ function setBlockType(id: string): void {
   editor.pushHistory('changeBlockType')
 }
 
+// ── Callout tone (contextual: shown when the caret is in a callout) ─────────────
+
+const calloutTones = [
+  { value: 'info', label: 'Info' },
+  { value: 'tip', label: 'Tip' },
+  { value: 'warning', label: 'Warning' },
+]
+
+const calloutTone = computed(() => {
+  for (const block of editorRef.value?.getCurrentBlocks() ?? []) {
+    if (block.type === 'callout') return (block.tone as string) ?? 'info'
+  }
+  return 'info'
+})
+
+function setCalloutTone(tone: string): void {
+  const editor = editorRef.value
+  if (!editor) return
+  for (const block of editor.getCurrentBlocks()) {
+    if (block.type === 'callout') (block as Record<string, unknown>).tone = tone
+  }
+  editor.pushHistory('changeBlockType')
+}
+
 // ── Inline styles ───────────────────────────────────────────────────────────────
 
 const styleButtons = computed(() => {
@@ -137,6 +209,41 @@ function toggleStyle(style: string): void {
   if (!editor) return
   if (!editor.isFocused) editor.selectAll()
   editor.toggleStyle(style)
+}
+
+// ── Widgets (image, …) ────────────────────────────────────────────────────────
+
+const insertBtn = ref<HTMLElement | null>(null)
+const insertOpen = ref(false)
+
+/**
+ * Make sure there's a caret to insert at. `@mousedown.prevent` keeps the editor
+ * focused while the toolbar/menu is used, but if it was never focused vuewrite
+ * has no `currentBlock` and `insertBlock` would no-op — so aim at the end.
+ */
+function ensureCaret(): boolean {
+  const editor = editorRef.value
+  if (!editor) return false
+  if (editor.currentBlock) return true
+  const last = model.value[model.value.length - 1]
+  if (!last) return false
+  editor.selection.anchor.blockId = last.id
+  editor.selection.anchor.offset = last.text.length
+  editor.selection.focus.blockId = last.id
+  editor.selection.focus.offset = last.text.length
+  return !!editor.currentBlock
+}
+
+function insertWidget(widget: RichTextWidget): void {
+  insertOpen.value = false
+  const editor = editorRef.value
+  if (!editor || !ensureCaret()) return
+  editor.insertBlock(widget.create())
+}
+
+/** A widget mutated its own block (e.g. an image upload) — record it for undo. */
+function onWidgetChange(): void {
+  editorRef.value?.pushHistory('setText')
 }
 
 // ── WYSIWYG ⇄ Markdown switch ─────────────────────────────────────────────────────
@@ -286,6 +393,35 @@ function onKeyDown(event: KeyboardEvent): void {
   background: var(--mech-border);
 }
 
+// Insert-widget menu (teleported via VPopover; scoped styles still apply because
+// the slot content carries this component's data-v attribute).
+.mech-rte__insert-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 168px;
+  height: 34px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--mech-radius-sm);
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--mech-fg);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--mech-hover);
+  }
+}
+.mech-rte__insert-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--mech-muted);
+}
+
 // Segmented Rich / Markdown switch.
 .mech-rte__switch {
   display: inline-flex;
@@ -390,6 +526,24 @@ function onKeyDown(event: KeyboardEvent): void {
     padding: 1px 5px;
     border-radius: 4px;
     border: 1px solid var(--mech-border);
+  }
+  :deep(.rt-callout) {
+    margin: 0.6em 0;
+    padding: 9px 13px;
+    border: 1px solid var(--c-border);
+    border-left-width: 3px;
+    border-radius: var(--mech-radius-sm);
+    background: var(--c-soft);
+    --c-border: #b9c8f5;
+    --c-soft: #eef2fe;
+  }
+  :deep(.rt-callout--tip) {
+    --c-border: #aee0c4;
+    --c-soft: #eaf8f0;
+  }
+  :deep(.rt-callout--warning) {
+    --c-border: #f4d39a;
+    --c-soft: #fdf4e3;
   }
 }
 // Minimal field: keep it compact — a bounded box that scrolls, not an

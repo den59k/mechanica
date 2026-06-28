@@ -16,6 +16,10 @@ export const renderer = (block: Block) => {
       return { tag: 'li', className: 'ol' }
     case 'hr':
       return { tag: 'hr' }
+    case 'callout': {
+      const tone = (block as { tone?: unknown }).tone
+      return { tag: 'div', className: `rt-callout rt-callout--${typeof tone === 'string' ? tone : 'info'}` }
+    }
   }
 }
 

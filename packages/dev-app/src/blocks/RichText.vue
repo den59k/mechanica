@@ -5,7 +5,17 @@
     :renderer="renderer"
     :decorator="decorator"
     :list-parser="listParser"
-  />
+  >
+    <template #img="{ block }">
+      <img class="richtext__img" :src="(block.src as string)" :alt="((block.alt as string) ?? '')" />
+    </template>
+    <template #code="{ block }">
+      <div class="richtext__code">
+        <span v-if="block.lang" class="richtext__code-lang">{{ block.lang }}</span>
+        <pre><code>{{ block.text }}</code></pre>
+      </div>
+    </template>
+  </TextViewer>
 </template>
 
 <script setup lang="ts">
@@ -95,5 +105,55 @@ const value = computed<Block[]>(() => {
   padding: 2px 6px;
   border-radius: 6px;
   border: 1px solid var(--border);
+}
+.richtext__img {
+  display: block;
+  max-width: 100%;
+  margin: 16px 0;
+  border-radius: 8px;
+}
+.richtext :deep(.rt-callout) {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--c-border);
+  border-left-width: 3px;
+  border-radius: var(--radius-sm);
+  background: var(--c-soft);
+  --c-border: #b9c8f5;
+  --c-soft: #eef2fe;
+}
+.richtext :deep(.rt-callout--tip) {
+  --c-border: #aee0c4;
+  --c-soft: #eaf8f0;
+}
+.richtext :deep(.rt-callout--warning) {
+  --c-border: #f4d39a;
+  --c-soft: #fdf4e3;
+}
+.richtext__code {
+  position: relative;
+  margin: 16px 0;
+  border-radius: 8px;
+  background: var(--ink-section);
+  overflow: hidden;
+}
+.richtext__code-lang {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #888da0;
+}
+.richtext__code pre {
+  margin: 0;
+  padding: 16px 18px;
+  overflow-x: auto;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #e7e9f2;
 }
 </style>

@@ -20,6 +20,11 @@ export const renderer = (block: Block): { tag: string; className?: string } | un
       return { tag: 'li', className: 'ol' }
     case 'hr':
       return { tag: 'hr' }
+    case 'callout': {
+      // Editable rich text in a toned admonition; tone edited from the toolbar.
+      const tone = (block as { tone?: unknown }).tone
+      return { tag: 'div', className: `rt-callout rt-callout--${typeof tone === 'string' ? tone : 'info'}` }
+    }
     default:
       return undefined
   }
