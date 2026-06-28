@@ -4,22 +4,35 @@
       {{ props.title }}
       <a class="docsection__anchor" :href="`#${id}`" aria-label="Permalink to this section" />
     </h2>
-    <div class="docsection__body"><slot /></div>
+    <RichTextView class="docsection__body" :value="content" />
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { Block } from 'vuewrite'
 import { slug } from '../utils/slug'
+import RichTextView from '../components/RichTextView.vue'
 
+// A documentation section: a navigable H2 (the title also feeds the page nav and
+// the on-this-page ToC) plus a single rich-text `content` field. Prose, code,
+// callouts and images all live inside `content` as vuewrite widgets — no nested
+// blocks.
 const props = defineBlock({
   name: 'Doc section',
   category: 'Docs',
-  description: 'A documentation section: an anchored H2 with a content slot',
-  props: { title: { type: 'string', default: 'Section' } },
+  description: 'An anchored H2 with a rich-text body (prose + inline widgets)',
+  props: {
+    title: { type: 'string', default: 'Section' },
+    content: 'richText',
+  },
 })
 
 const id = computed(() => slug(props.title))
+const content = computed<Block[]>(() => {
+  const value = props.content as Block[] | undefined
+  return value && value.length ? value : [{ id: '0', text: '' }]
+})
 </script>
 
 <style scoped>
@@ -54,8 +67,5 @@ const id = computed(() => slug(props.title))
 }
 .docsection__body {
   margin-top: 18px;
-}
-.docsection__body > :deep(* + *) {
-  margin-top: 16px;
 }
 </style>

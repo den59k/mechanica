@@ -4,48 +4,37 @@ meta: { title: Rich text — Mechanica Docs }
 data:
   head:
     title: Rich text — Mechanica Docs
-    description: One rich-text field — authored as Markdown, edited WYSIWYG, stored as Markdown.
+    description: One rich-text field — authored as Markdown, edited WYSIWYG, with inline widgets.
 order: 2
 ---
 
 ::: docs-layout #docs
-::: doc-section #markdown-prose
-title: Markdown prose
-::: prose #p1
-@body
-Every prose field in these docs — including this **Prose** block — is rich text.
-You author it as a clean Markdown `@body` region (no escaping; lists, `code`,
-[links](/docs), and emphasis all work), the editor loads it as a `vuewrite`
-document for WYSIWYG editing, and it saves straight back to Markdown.
-:::
-
-::: /doc-section
-
-::: doc-section #the-rich-text-block
-title: The rich-text block
-::: prose #p2
-@body
-The **Rich text** block is that same field as a standalone region — handy for a
-bare block of formatted text. Open it in the editor and select text to format it,
-or flip the **Markdown** switch to edit the source directly:
-:::
-
-::: rich-text #rt1
+::: doc-section #the-rich-text-field
+title: The rich-text field
 @content
-This paragraph is stored as a vuewrite document and edited inline.
+Every section on these pages is one **rich-text** field. You author it as a clean
+Markdown `@content` region (no escaping; lists, `code`, [links](/docs), and
+emphasis all work), the editor loads it as a `vuewrite` document for WYSIWYG
+editing, and it saves straight back to Markdown.
 
-Select any text in the **editor** to make it bold, italic, or a *link*.
+Select any text in the **editor** to make it bold, italic, or a *link*, or flip
+the **Markdown** switch to edit the source directly.
 :::
 
-::: callout #c1
-tone: tip
-title: Storage
-@body
-Rich text is stored as Markdown right here in the `.page.md` file — the same
-clean `@content` region you'd write by hand. The editor loads it as a vuewrite
-document (JSON) for fast WYSIWYG editing and saves it straight back to Markdown.
-:::
+::: doc-section #inline-widgets
+title: Inline widgets
+@content
+The **Insert** menu drops content widgets right into the prose flow — they live
+inside the rich text, not the block palette:
 
-::: /doc-section
+- an **image** (uploaded through the usual picker),
+- a **code** block with a language,
+- a **callout** in one of three tones.
+
+Each is a `vuewrite` widget that saves as plain Markdown — an image tag, a fenced
+code block, or a tagged callout — so the document stays human-readable.
+
+<callout tone="tip">**Storage** — rich text is stored as Markdown right here in the `.page.md` file, the same region you'd write by hand. The editor keeps it as a vuewrite document (JSON) for fast WYSIWYG editing and writes it back to Markdown on save.</callout>
+:::
 
 ::: /docs-layout

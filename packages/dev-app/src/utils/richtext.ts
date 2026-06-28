@@ -6,6 +6,7 @@ import type { Block, Style } from 'vuewrite'
 // static export too.
 
 export const renderer = (block: Block) => {
+  if (!block.type) return { tag: 'p' } // plain paragraph (matches the editor)
   switch (block.type) {
     case 'h1':
     case 'h2':
