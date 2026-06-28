@@ -60,8 +60,11 @@ describe('formatted field editors', () => {
     expect(state.value).toEqual(['alpha'])
   })
 
-  it('richText: mounts the vuewrite editor', () => {
+  it('richText: mounts the vuewrite editor with its toolbar', () => {
     const { el } = mountField({ type: 'array', format: 'richText' }, [{ text: 'hello' }])
-    expect(el.querySelector('.mech-richtext')).not.toBeNull()
+    expect(el.querySelector('.mech-rte')).not.toBeNull()
+    // The editing interface (block-type select + format buttons + md switch).
+    expect(el.querySelector('.mech-rte__toolbar')).not.toBeNull()
+    expect(el.querySelector('.mech-rte__switch')).not.toBeNull()
   })
 })
