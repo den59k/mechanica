@@ -32,6 +32,9 @@
         {{ loaded ? 'No images uploaded yet — upload one above.' : 'Loading…' }}
       </p>
     </div>
+    <template #actions>
+      <button type="button" class="mech-button" @click="dialog.back()">Back</button>
+    </template>
   </VDialog>
 </template>
 

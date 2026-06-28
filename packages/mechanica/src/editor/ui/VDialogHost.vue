@@ -1,33 +1,43 @@
 <template>
   <Teleport to="body">
-    <Transition name="mech-dialog">
-      <div
-        v-if="store.stack.length"
-        class="mech-dialog-backdrop"
-        data-mech-ui
-        @mousedown="onDown"
-        @mouseup="onUp"
-      >
-        <component :is="top.component" v-bind="top.props" :key="store.stack.length" />
-      </div>
+    <!-- A single dim that fades in/out once per "any dialog open" — so opening a
+         second dialog over the first never flickers the overlay. -->
+    <Transition name="mech-dim">
+      <div v-if="store.stack.length" class="mech-dialog-dim" data-mech-ui />
     </Transition>
+
+    <!-- The whole stack stays mounted (only the top is interactive) so opening a
+         dialog from within a dialog — e.g. the image picker over the rich-text
+         editor — never unmounts the dialog beneath it and loses its state. -->
+    <TransitionGroup name="mech-dialog" tag="div" class="mech-dialog-layer" data-mech-ui>
+      <div
+        v-for="(entry, i) in store.stack"
+        :key="entry.id"
+        class="mech-dialog-backdrop"
+        :inert="i !== store.stack.length - 1"
+        @mousedown="onDown"
+        @mouseup="onUp($event, i)"
+      >
+        <component :is="entry.component" v-bind="entry.props" />
+      </div>
+    </TransitionGroup>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onScopeDispose } from 'vue'
+import { onMounted, onScopeDispose } from 'vue'
 import { useDialog } from './dialog'
 
 const store = useDialog()
-const top = computed(() => store.stack[store.stack.length - 1]!)
 
-// Only dismiss when the press starts AND ends on the backdrop itself (so a
-// drag that ends outside the panel doesn't accidentally close it).
+// Only dismiss when the press starts AND ends on the (top) backdrop itself, so a
+// drag that ends outside the panel doesn't accidentally close it.
 let downOnBackdrop = false
 const onDown = (event: MouseEvent) => {
   downOnBackdrop = event.target === event.currentTarget
 }
-const onUp = (event: MouseEvent) => {
+const onUp = (event: MouseEvent, index: number) => {
+  if (index !== store.stack.length - 1) return
   if (downOnBackdrop && event.target === event.currentTarget) store.back()
 }
 
@@ -44,21 +54,41 @@ onScopeDispose(() => document.removeEventListener('keydown', onKey, true))
 </script>
 
 <style lang="scss" scoped>
-.mech-dialog-backdrop {
+.mech-dialog-dim {
   position: fixed;
   inset: 0;
   z-index: 2147483500;
+  background: rgba(15, 18, 22, 0.45);
+}
+.mech-dim-enter-active,
+.mech-dim-leave-active {
+  transition: opacity 0.16s ease;
+}
+.mech-dim-enter-from,
+.mech-dim-leave-to {
+  opacity: 0;
+}
+
+.mech-dialog-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483501;
+  pointer-events: none; // the backdrops opt back in
+  font-family: var(--mech-font);
+  color: var(--mech-fg);
+}
+.mech-dialog-backdrop {
+  position: fixed;
+  inset: 0;
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding: 10vh 16px 16px;
   box-sizing: border-box;
-  background: rgba(15, 18, 22, 0.45);
-  font-family: var(--mech-font);
-  color: var(--mech-fg);
+  pointer-events: auto;
 }
 
-// Transition (the panel scale lives on .mech-modal via the backdrop state).
+// Each dialog panel fades + scales on enter/leave (the dim is handled above).
 .mech-dialog-enter-active,
 .mech-dialog-leave-active {
   transition: opacity 0.16s ease;

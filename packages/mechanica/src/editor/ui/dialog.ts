@@ -2,6 +2,8 @@ import { shallowReactive, inject, type Component, type InjectionKey } from 'vue'
 
 /** One entry on the dialog stack: a component and the props to render it with. */
 export interface DialogEntry {
+  /** Stable identity so the host keeps each dialog mounted as the stack grows. */
+  id: number
   component: Component
   props?: Record<string, unknown>
 }
@@ -22,10 +24,11 @@ export const dialogKey: InjectionKey<DialogStore> = Symbol('mech-dialog')
 /** Create the reactive dialog store (provided once by the editor shell). */
 export function createDialogStore(): DialogStore {
   const stack = shallowReactive<DialogEntry[]>([])
+  let nextId = 0
   return {
     stack,
     open(component, props) {
-      stack.push({ component, props })
+      stack.push({ id: ++nextId, component, props })
     },
     back() {
       stack.pop()

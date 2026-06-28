@@ -12,10 +12,12 @@ describe('dialog store', () => {
 
     store.open(A, { x: 1 })
     expect(store.stack).toHaveLength(1)
-    expect(store.stack[0]).toEqual({ component: A, props: { x: 1 } })
+    expect(store.stack[0]).toMatchObject({ component: A, props: { x: 1 } })
 
     store.open(B)
     expect(store.stack).toHaveLength(2)
+    // Each entry has a stable id so the host keeps it mounted as the stack grows.
+    expect(store.stack[0]!.id).not.toBe(store.stack[1]!.id)
 
     store.back()
     expect(store.stack).toHaveLength(1)
