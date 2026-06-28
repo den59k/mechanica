@@ -3,29 +3,40 @@
     <div class="callout__icon" aria-hidden="true">{{ icon }}</div>
     <div class="callout__content">
       <p v-if="props.title" class="callout__title">{{ props.title }}</p>
-      <div class="callout__body" v-html="html" />
+      <TextViewer
+        class="callout__body"
+        :model-value="body"
+        :renderer="renderer"
+        :decorator="decorator"
+        :list-parser="listParser"
+      />
     </div>
   </aside>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { renderMarkdown } from '../utils/markdown'
+import { TextViewer } from 'vuewrite'
+import type { Block } from 'vuewrite'
+import { renderer, decorator, listParser } from '../utils/richtext'
 
 const props = defineBlock({
   name: 'Callout',
   category: 'Docs',
-  description: 'An info / tip / warning admonition with a Markdown body',
+  description: 'An info / tip / warning admonition with a rich-text body',
   props: {
     tone: { type: 'string', enum: ['info', 'tip', 'warning'], default: 'info', label: 'Tone' },
     title: { type: 'string', default: '' },
-    body: { type: 'string', format: 'text', default: 'Heads up — something worth noting.' },
+    body: 'richText',
   },
 })
 
 const icons: Record<string, string> = { info: 'i', tip: '✓', warning: '!' }
 const icon = computed(() => icons[props.tone] ?? 'i')
-const html = computed(() => renderMarkdown(props.body))
+const body = computed<Block[]>(() => {
+  const value = props.body as Block[] | undefined
+  return value && value.length ? value : [{ id: '0', text: '' }]
+})
 </script>
 
 <style scoped>
@@ -76,11 +87,17 @@ const html = computed(() => renderMarkdown(props.body))
   line-height: 1.6;
   color: var(--ink-2);
 }
-.callout__body :deep(p) {
+.callout__body :deep(div) {
   margin: 0 0 8px;
 }
-.callout__body :deep(p:last-child) {
+.callout__body :deep(> :last-child) {
   margin-bottom: 0;
+}
+.callout__body :deep(b) {
+  font-weight: 700;
+}
+.callout__body :deep(i) {
+  font-style: italic;
 }
 .callout__body :deep(a) {
   color: var(--c-accent);

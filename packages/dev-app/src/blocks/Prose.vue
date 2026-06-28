@@ -1,27 +1,34 @@
 <template>
-  <div class="prose" v-html="html" />
+  <TextViewer
+    class="prose"
+    :model-value="body"
+    :renderer="renderer"
+    :decorator="decorator"
+    :list-parser="listParser"
+  />
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { renderMarkdown } from '../utils/markdown'
+import { TextViewer } from 'vuewrite'
+import type { Block } from 'vuewrite'
+import { renderer, decorator, listParser } from '../utils/richtext'
 
-// Plain Markdown prose, authored as a clean @field region in the .page.md and
-// rendered with markdown-it. (The vuewrite WYSIWYG path is the `Rich text` block.)
+// A block of rich text — authored as a clean Markdown `@body` region on disk,
+// loaded as a vuewrite document (Block[]) and rendered read-only here. Edit it in
+// the editor with the WYSIWYG ⇄ Markdown switch. TextViewer is SSR-safe, so this
+// renders in the static export too.
 const props = defineBlock({
   name: 'Prose',
   category: 'Docs',
-  description: 'A block of Markdown prose — paragraphs, lists, links, emphasis',
-  props: {
-    body: {
-      type: 'string',
-      format: 'text',
-      default: 'Write **Markdown** here — paragraphs, _emphasis_, `code`, [links](/), and lists.',
-    },
-  },
+  description: 'A block of rich text — paragraphs, lists, links, emphasis, code',
+  props: { body: 'richText' },
 })
 
-const html = computed(() => renderMarkdown(props.body))
+const body = computed<Block[]>(() => {
+  const value = props.body as Block[] | undefined
+  return value && value.length ? value : [{ id: '0', text: '' }]
+})
 </script>
 
 <style scoped>
@@ -30,17 +37,27 @@ const html = computed(() => renderMarkdown(props.body))
   line-height: 1.7;
   color: var(--ink-2);
 }
-.prose :deep(p) {
+.prose :deep(div) {
   margin: 0 0 14px;
 }
 .prose :deep(> :last-child) {
   margin-bottom: 0;
 }
+.prose :deep(h1),
+.prose :deep(h2),
 .prose :deep(h3) {
-  margin: 28px 0 10px;
-  font-size: 18px;
-  font-weight: 700;
   color: var(--ink);
+  font-weight: 700;
+  margin: 28px 0 10px;
+}
+.prose :deep(h1) {
+  font-size: 22px;
+}
+.prose :deep(h2) {
+  font-size: 19px;
+}
+.prose :deep(h3) {
+  font-size: 18px;
 }
 .prose :deep(a) {
   color: var(--brand);
@@ -65,9 +82,12 @@ const html = computed(() => renderMarkdown(props.body))
 .prose :deep(li)::marker {
   color: var(--muted);
 }
-.prose :deep(strong) {
+.prose :deep(b) {
   color: var(--ink);
   font-weight: 700;
+}
+.prose :deep(i) {
+  font-style: italic;
 }
 .prose :deep(code) {
   font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
@@ -76,11 +96,5 @@ const html = computed(() => renderMarkdown(props.body))
   padding: 2px 6px;
   border-radius: 6px;
   border: 1px solid var(--border);
-}
-.prose :deep(blockquote) {
-  margin: 16px 0;
-  padding: 4px 16px;
-  border-left: 3px solid var(--border);
-  color: var(--muted);
 }
 </style>

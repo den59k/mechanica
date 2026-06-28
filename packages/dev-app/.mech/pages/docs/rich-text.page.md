@@ -4,7 +4,7 @@ meta: { title: Rich text — Mechanica Docs }
 data:
   head:
     title: Rich text — Mechanica Docs
-    description: Two ways to author prose — Markdown blocks and the WYSIWYG editor.
+    description: One rich-text field — authored as Markdown, edited WYSIWYG, stored as Markdown.
 order: 2
 ---
 
@@ -13,31 +13,39 @@ order: 2
 title: Markdown prose
 ::: prose #p1
 @body
-Most prose in these docs is a **Prose** block: a plain Markdown field rendered
-with `markdown-it`. You author it as a clean `@body` region — no escaping, full
-Markdown (lists, `code`, [links](/docs), and emphasis).
+Every prose field in these docs — including this **Prose** block — is rich text.
+You author it as a clean Markdown `@body` region (no escaping; lists, `code`,
+[links](/docs), and emphasis all work), the editor loads it as a `vuewrite`
+document for WYSIWYG editing, and it saves straight back to Markdown.
 :::
+
 ::: /doc-section
+
 ::: doc-section #the-rich-text-block
 title: The rich-text block
 ::: prose #p2
 @body
-For inline WYSIWYG editing, the **Rich text** block uses `vuewrite`. Its value is
-a structured document edited directly on the page. Below is a live rich-text
-block — open it in the editor and select text to format it:
+The **Rich text** block is that same field as a standalone region — handy for a
+bare block of formatted text. Open it in the editor and select text to format it,
+or flip the **Markdown** switch to edit the source directly:
 :::
+
 ::: rich-text #rt1
-content:
-  - text: This paragraph is stored as a vuewrite document and edited inline.
-  - text: Select any text in the editor to make it bold, italic, or a link.
+@content
+This paragraph is stored as a vuewrite document and edited inline.
+
+Select any text in the **editor** to make it bold, italic, or a *link*.
 :::
+
 ::: callout #c1
-tone: warning
+tone: tip
 title: Storage
 @body
-Rich-text values currently serialize as a structured array in the page file.
-Migrating them to Markdown strings — so they author as `@body` regions too — is
-the planned next step.
+Rich text is stored as Markdown right here in the `.page.md` file — the same
+clean `@content` region you'd write by hand. The editor loads it as a vuewrite
+document (JSON) for fast WYSIWYG editing and saves it straight back to Markdown.
 :::
+
 ::: /doc-section
+
 ::: /docs-layout
