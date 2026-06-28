@@ -23,6 +23,7 @@ export {
   generatePage,
   generateProject,
   passDataToHTML,
+  serializeState,
   getValueByPath,
   type GeneratePageOptions,
   type GenerateProjectOptions,

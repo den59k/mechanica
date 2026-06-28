@@ -1,7 +1,26 @@
 import { describe, it, expect } from 'vitest'
 import { registerFieldSchemas } from '@/fields'
-import { generatePage, generateProject, passDataToHTML, getValueByPath } from '@/generate-page'
+import { generatePage, generateProject, passDataToHTML, getValueByPath, serializeState } from '@/generate-page'
 import type { Block } from '@/types'
+
+describe('serializeState', () => {
+  it('escapes inline-script-breaking characters and round-trips as JSON', () => {
+    const LS = String.fromCharCode(0x2028)
+    const PS = String.fromCharCode(0x2029)
+    const state = {
+      content: [{ id: '1', blockId: 'code', data: { code: 'a</script><script>b</script>c\n<!-- d -->' } }],
+      sep: `x${LS}y${PS}z`,
+    }
+    const out = serializeState(state)
+    expect(out).not.toContain('</script>') // can't close the inline <script>
+    expect(out).not.toContain('<script>')
+    expect(out).not.toContain('<!--')
+    expect(out).not.toContain(LS) // U+2028/U+2029 are invalid in JS string literals
+    expect(out).not.toContain(PS)
+    // Still valid JSON/JS that decodes back to the original.
+    expect(JSON.parse(out)).toEqual(state)
+  })
+})
 
 registerFieldSchemas(() => {})
 

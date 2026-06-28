@@ -90,8 +90,24 @@ export async function generatePage(options: GeneratePageOptions): Promise<string
 
   if (options.assetsUrl) index = index.replace(/\/assets\//g, options.assetsUrl)
 
-  const stateScript = `<script>window.state=${JSON.stringify(state)}</script>`
+  const stateScript = `<script>window.state=${serializeState(state)}</script>`
   return index.replace('</body>', `${stateScript}\n</body>`)
+}
+
+// Characters that can break out of an inline <script>: `<` (closes the tag via
+// `</script>`, or opens `<script`/`<!--`) and the line separators U+2028 / U+2029
+// (invalid in JS string literals). Built from char codes so the source stays
+// plain ASCII.
+const UNSAFE_IN_SCRIPT = new RegExp(`[${[0x3c, 0x2028, 0x2029].map((c) => '\\u' + c.toString(16).padStart(4, '0')).join('')}]`, 'g')
+
+/**
+ * Serialize runtime state for embedding in an inline `<script>`. Plain JSON is
+ * unsafe (a `</script>` in the data would close the tag early), so the few
+ * dangerous characters are escaped to their `\uXXXX` form — valid JSON/JS that
+ * `window.state` and the router's regex read back unchanged.
+ */
+export function serializeState(state: unknown): string {
+  return JSON.stringify(state).replace(UNSAFE_IN_SCRIPT, (ch) => '\\u' + ch.charCodeAt(0).toString(16).padStart(4, '0'))
 }
 
 export interface GenerateProjectOptions extends Omit<GeneratePageOptions, 'state' | 'path'> {

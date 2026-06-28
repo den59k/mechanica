@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import type { Plugin } from 'vite'
 import { parseVueRequest } from '@vitejs/plugin-vue'
-import { passDataToHTML } from '@mechanica/shared'
+import { passDataToHTML, serializeState } from '@mechanica/shared'
 import { compileBlock } from '../compiler/compile-block'
 import { collectBlocks } from './collect-blocks'
 import { generateClientEntry, generateSsrEntry } from './entries'
@@ -118,7 +118,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
           page: { path: urlPath, meta: page.meta ?? {} },
         }
         const inject = [
-          `<script>window.state=${JSON.stringify(state)}</script>`,
+          `<script>window.state=${serializeState(state)}</script>`,
           `<script type="module">`,
           `import ${JSON.stringify(CLIENT_MODULE_ID)}`,
           `import 'mechanica/editor'`,
