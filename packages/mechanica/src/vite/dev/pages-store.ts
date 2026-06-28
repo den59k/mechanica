@@ -1,12 +1,24 @@
 import fs from 'node:fs'
 import { dirname, join, parse } from 'node:path'
-import { parsePage, serializePage, type ContentBlock, type PageDoc } from '@mechanica/shared'
+import { parsePage, serializePage, type ContentBlock, type PageDoc, type RichTextCodec } from '@mechanica/shared'
 
 /** Shape of a page file under `<mech>/pages` (the parsed `.page.md` document). */
 export type PageFile = PageDoc
 
 /** File extension for page documents under `<mech>/pages`. */
 const EXT = '.page.md'
+
+// The rich-text adapter is process-global: the dev server configures it once
+// (from the project's block schemas) so every read/write converts richText
+// fields between Markdown (disk) and vuewrite `Block[]` (state) consistently.
+let richTextCodec: RichTextCodec | undefined
+
+/** Configure the codec used to (de)serialize rich-text fields. Dev server only. */
+export function setPageCodec(codec: RichTextCodec | undefined): void {
+  richTextCodec = codec
+}
+
+const codecOptions = () => (richTextCodec ? { richText: richTextCodec } : undefined)
 
 /** A page entry as returned by {@link listPages}. */
 export interface PageListItem {
@@ -28,11 +40,11 @@ export class PageExistsError extends Error {
 
 const emptyPage = (): PageFile => ({ content: [], data: {} })
 
-const readFile = (file: string): PageFile => parsePage(fs.readFileSync(file, 'utf-8'))
+const readFile = (file: string): PageFile => parsePage(fs.readFileSync(file, 'utf-8'), codecOptions())
 
 const writeFile = (file: string, page: PageFile): void => {
   fs.mkdirSync(dirname(file), { recursive: true })
-  fs.writeFileSync(file, serializePage(page))
+  fs.writeFileSync(file, serializePage(page, codecOptions()))
 }
 
 /** Resolve a URL path to its page file under `<mechDir>/pages`. */

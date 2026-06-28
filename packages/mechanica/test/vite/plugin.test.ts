@@ -46,19 +46,20 @@ describe('dev HTML injection', () => {
   // No .mech here → readPage returns an empty page; injection still applies.
   const root = tmpdir()
 
-  it('injects state, the client entry and the editor when serving', () => {
+  it('injects state, the client entry and the editor when serving', async () => {
     const plugin = mechanica()
     callHook(plugin.configResolved, { root, command: 'serve' })
-    const html = callHook(plugin.transformIndexHtml, '<html><body></body></html>', { originalUrl: '/' })
+    // No ctx.server → codec load is skipped; injection still applies.
+    const html = await callHook(plugin.transformIndexHtml, '<html><body></body></html>', { originalUrl: '/' })
     expect(html).toContain('window.state=')
     expect(html).toContain('virtual:mechanica/client')
     expect(html).toContain('mechanica/editor')
   })
 
-  it('injects only the client entry on build (no state, no editor)', () => {
+  it('injects only the client entry on build (no state, no editor)', async () => {
     const plugin = mechanica()
     callHook(plugin.configResolved, { root, command: 'build' })
-    const html = callHook(plugin.transformIndexHtml, '<body></body>', { originalUrl: '/' })
+    const html = await callHook(plugin.transformIndexHtml, '<body></body>', { originalUrl: '/' })
     expect(html).toContain('virtual:mechanica/client')
     expect(html).not.toContain('window.state')
     expect(html).not.toContain('mechanica/editor')

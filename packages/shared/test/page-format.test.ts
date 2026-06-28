@@ -1,6 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { parsePage, serializePage, PageParseError, type PageDoc } from '@/page-format'
+import { parsePage, serializePage, PageParseError, type PageDoc, type PageCodecOptions } from '@/page-format'
 import type { ContentBlock } from '@/types'
+
+// A toy rich-text adapter standing in for vuewrite/markdown: each `{ text }`
+// block is one Markdown line and vice-versa. `content` is the only richText prop.
+type RichBlock = { text: string }
+const richText: PageCodecOptions = {
+  richText: {
+    isRichText: (_blockId, prop) => prop === 'content',
+    toMarkdown: (blocks) => (blocks as RichBlock[]).map((b) => b.text).join('\n'),
+    toBlocks: (md) => md.split('\n').map((text) => ({ text })),
+  },
+}
 
 /** Round-trip a doc through serialize → parse and expect the tree to survive. */
 function roundTrip(doc: PageDoc): PageDoc {
@@ -277,6 +288,45 @@ describe('page-format: errors', () => {
     expect(() =>
       parsePage(wrap('::: split #s', '::: hero #a slot=start', ':::', '::: hero #b', ':::', '::: /split')),
     ).toThrow(/mixes default and named slots/)
+  })
+})
+
+describe('page-format: richText adapter', () => {
+  const doc: PageDoc = {
+    data: {},
+    content: [
+      {
+        id: 'r',
+        blockId: 'rich-text',
+        data: { content: [{ text: '# Title' }, { text: 'A paragraph with **bold**.' }] },
+      },
+    ],
+  }
+
+  it('writes a richText field as a Markdown @field region (not YAML)', () => {
+    const text = serializePage(doc, richText)
+    expect(text).toContain('@content')
+    expect(text).toContain('# Title')
+    expect(text).toContain('A paragraph with **bold**.')
+    expect(text).not.toContain('text:') // not serialized as a YAML Block[]
+  })
+
+  it('round-trips Block[] ⇄ Markdown through the adapter', () => {
+    expect(parsePage(serializePage(doc, richText), richText)).toEqual(doc)
+  })
+
+  it('without the adapter, the region reads back as a plain string', () => {
+    const back = parsePage(serializePage(doc, richText))
+    expect((back.content[0]!.data as { content: string }).content).toBe(
+      '# Title\nA paragraph with **bold**.',
+    )
+  })
+
+  it('reads a legacy richText value stored inline as YAML', () => {
+    // Older pages stored richText as a head array; parsing must keep it as Block[].
+    const legacy = ['---', 'data: {}', '---', '', '::: rich-text #r', 'content:', '  - text: Hi', ':::'].join('\n')
+    const back = parsePage(legacy, richText)
+    expect((back.content[0]!.data as { content: RichBlock[] }).content).toEqual([{ text: 'Hi' }])
   })
 })
 

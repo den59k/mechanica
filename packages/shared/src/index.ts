@@ -30,4 +30,11 @@ export {
   type PageState,
 } from './generate-page'
 
-export { parsePage, serializePage, PageParseError, type PageDoc } from './page-format'
+export {
+  parsePage,
+  serializePage,
+  PageParseError,
+  type PageDoc,
+  type PageCodecOptions,
+  type RichTextCodec,
+} from './page-format'

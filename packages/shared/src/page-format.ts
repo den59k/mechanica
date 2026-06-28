@@ -17,6 +17,26 @@ export interface PageDoc {
   path?: string
 }
 
+/**
+ * Adapter that lets the codec store rich-text fields as Markdown on disk while
+ * keeping them as vuewrite `Block[]` JSON in page state. Supplied by the caller
+ * (dev server / CLI) so this module stays DOM- and vuewrite-free.
+ */
+export interface RichTextCodec {
+  /** Whether a top-level prop of the given block is a rich-text field. */
+  isRichText(blockId: string, prop: string): boolean
+  /** vuewrite `Block[]` → Markdown (written to disk). */
+  toMarkdown(blocks: unknown): string
+  /** Markdown → vuewrite `Block[]` (loaded into state). */
+  toBlocks(markdown: string): unknown
+}
+
+/** Options for {@link parsePage} / {@link serializePage}. */
+export interface PageCodecOptions {
+  /** Rich-text ⇄ Markdown adapter; when omitted, regions stay plain strings. */
+  richText?: RichTextCodec
+}
+
 /** Thrown by {@link parsePage} with the 1-based source line of the problem. */
 export class PageParseError extends Error {
   constructor(
@@ -91,7 +111,7 @@ interface Frame {
 }
 
 /** Parse a `.page.md` document into a {@link PageDoc}. */
-export function parsePage(text: string): PageDoc {
+export function parsePage(text: string, options?: PageCodecOptions): PageDoc {
   const lines = text.replace(/\r\n/g, '\n').split('\n')
   let i = 0
 
@@ -133,7 +153,11 @@ export function parsePage(text: string): PageDoc {
     const body = dedent(region.lines)
     while (body.length && body[0]!.trim() === '') body.shift()
     while (body.length && body[body.length - 1]!.trim() === '') body.pop()
-    setPath(frame.block.data, region.name, body.join('\n'))
+    const raw = body.join('\n')
+    const value = options?.richText?.isRichText(frame.block.blockId, region.name)
+      ? options.richText.toBlocks(raw)
+      : raw
+    setPath(frame.block.data, region.name, value)
     frame.region = null
   }
 
@@ -264,7 +288,7 @@ const REGION_THRESHOLD = 80
 const FLOW_MAX = 72
 
 /** Serialize a {@link PageDoc} into canonical `.page.md` text. */
-export function serializePage(doc: PageDoc): string {
+export function serializePage(doc: PageDoc, options?: PageCodecOptions): string {
   const envelope: Record<string, unknown> = {}
   if (doc.name !== undefined) envelope.name = doc.name
   if (doc.meta !== undefined) envelope.meta = doc.meta
@@ -274,11 +298,16 @@ export function serializePage(doc: PageDoc): string {
   if (doc.path !== undefined) envelope.path = doc.path
 
   const out: string[] = ['---', emitYaml(envelope), '---', '']
-  for (const block of doc.content) emitBlock(block, undefined, out)
+  for (const block of doc.content) emitBlock(block, undefined, out, options)
   return out.join('\n').replace(/\n+$/, '') + '\n'
 }
 
-function emitBlock(block: ContentBlock, slot: string | undefined, out: string[]): void {
+function emitBlock(
+  block: ContentBlock,
+  slot: string | undefined,
+  out: string[],
+  options?: PageCodecOptions,
+): void {
   let open = `::: ${block.blockId}`
   if (block.id) open += ` #${block.id}`
   if (slot) open += ` slot=${slot}`
@@ -287,7 +316,11 @@ function emitBlock(block: ContentBlock, slot: string | undefined, out: string[])
   const head: Record<string, unknown> = {}
   const regions: [string, string][] = []
   for (const [key, value] of Object.entries(block.data)) {
-    if (typeof value === 'string' && (value.includes('\n') || value.length > REGION_THRESHOLD)) {
+    // Rich-text fields are always written as a Markdown region (vuewrite Block[]
+    // → Markdown), regardless of length, so they read as prose on disk.
+    if (options?.richText?.isRichText(block.blockId, key) && Array.isArray(value)) {
+      regions.push([key, options.richText.toMarkdown(value)])
+    } else if (typeof value === 'string' && (value.includes('\n') || value.length > REGION_THRESHOLD)) {
       regions.push([key, value])
     } else {
       head[key] = value
@@ -302,11 +335,11 @@ function emitBlock(block: ContentBlock, slot: string | undefined, out: string[])
   let hasChildren = false
   const children = block.children
   if (Array.isArray(children)) {
-    for (const child of children) emitBlock(child, undefined, out)
+    for (const child of children) emitBlock(child, undefined, out, options)
     hasChildren = children.length > 0
   } else if (children && typeof children === 'object') {
     for (const [slotName, list] of Object.entries(children)) {
-      for (const child of list) emitBlock(child, slotName, out)
+      for (const child of list) emitBlock(child, slotName, out, options)
       if (list.length) hasChildren = true
     }
   }

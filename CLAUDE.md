@@ -15,7 +15,7 @@ Current focus is **local development** (the plugin, dev server, and editor). The
 Bun workspaces under `packages/*`:
 
 - **`mechanica`** — the published package. Contains the block **compiler** (`src/compiler/`), the **runtime** (`src/core/`), the **Vite plugin** (`src/vite/`), the in-browser **editor** (`src/editor/`), the **CLI** (`src/cli/`), and the standalone **svg-glob** Vite plugin (`src/svg-plugin.ts`).
-- **`shared`** (`@mechanica/shared`) — DOM-free types, the field-type registry, schema/default helpers, the page-generation (SSG) core (`generate-page.ts`, including the `{{ }}` HTML templating engine), and the **`.page.md` page-format codec** (`page-format.ts` — `parsePage`/`serializePage`; see [CONTRACT.md](./CONTRACT.md)). Importable by the runtime and a future render service. **Keep it DOM-free.**
+- **`shared`** (`@mechanica/shared`) — DOM-free types, the field-type registry, schema/default helpers, the page-generation (SSG) core (`generate-page.ts`, including the `{{ }}` HTML templating engine), and the **`.page.md` page-format codec** (`page-format.ts` — `parsePage`/`serializePage`; see [CONTRACT.md](./CONTRACT.md)). The codec takes an optional `RichTextCodec` adapter so `richText` fields persist as Markdown `@field` regions on disk but stay `vuewrite` `Block[]` JSON in page state; the adapter (vuewrite-backed) is supplied by the caller — built from block schemas in `mechanica`'s `src/vite/rich-text-codec.ts` (dev server via `ssrLoadModule`, CLI export via its blocks list) — so `shared` stays vuewrite-free. Importable by the runtime and a future render service. **Keep it DOM-free.**
 - **`dev-app`** — a playground site that exercises the plugin end to end. Its `.mech/` holds page/data fixtures the user actively edits in the browser; **leave those alone** unless asked.
 
 ## Commands
@@ -67,7 +67,7 @@ An in-page overlay app. `createMechanica` exposes the live runtime through a ver
 - **`ui/`** — the dialog system: `dialog.ts` (`createDialogStore` / `useDialog`, a stack), `VDialogHost.vue` (teleports to body, backdrop + capture-phase Escape), `VDialog.vue` (modal shell: `standard` / `wide`).
 - **`dialogs/`** — dialog contents: `PagesDialog` (page browser), `DataDialog` (page data), `RichTextDialog` (rich text in a window).
 - **`props-panel/`** — recursive schema form: `SchemaForm` / `SchemaField` / `ArrayField`.
-- **`fields/`** — the field-editor registry (`defineFieldType` / `registerFields`) and editors (string, text, number, boolean, color, image, smartLink, multiselect, richText-via-`vuewrite`).
+- **`fields/`** — the field-editor registry (`defineFieldType` / `registerFields`) and editors (string, text, number, boolean, color, image, smartLink, multiselect, richText). The `richText` editor is `fields/richtext/RichTextEditor.vue`: a `vuewrite`-based UI (toolbar — block type + B/I/U — plus Markdown shortcuts) with a **WYSIWYG ⇄ Markdown switch** (`vuewrite/markdown`), used by both the inline field and the roomy `RichTextDialog`; `fields/richtext/config.ts` holds the shared renderer/decorator (the dev-app `RichText` viewer block mirrors it).
 - **`styles/`**, **`icons/`** — see below.
 - `EditorApp.vue` (shell) and `editor.ts` (dev entry) stay at the root.
 

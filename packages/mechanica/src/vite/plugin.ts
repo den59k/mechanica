@@ -6,8 +6,9 @@ import { compileBlock } from '../compiler/compile-block'
 import { collectBlocks } from './collect-blocks'
 import { generateClientEntry, generateSsrEntry } from './entries'
 import { createDevMiddleware } from './dev/middleware'
-import { readPage } from './dev/pages-store'
+import { readPage, setPageCodec } from './dev/pages-store'
 import { readSiteData, readFolderData, folderOf } from './dev/data-store'
+import { buildRichTextCodec } from './rich-text-codec'
 
 /** Virtual module exposing the collected block components. */
 export const BLOCKS_MODULE_ID = 'virtual:mechanica/blocks'
@@ -42,6 +43,23 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
   let userEntry = ''
   let mount = ''
   let isDev = false
+
+  // Configure the page store's rich-text codec once, from the project's block
+  // schemas (loaded via SSR so we read the compiled `blockSchema`). Memoized;
+  // failures degrade to plain-string regions rather than breaking the server.
+  let codecReady: Promise<void> | null = null
+  const ensurePageCodec = (server: import('vite').ViteDevServer): Promise<void> => {
+    if (!codecReady) {
+      codecReady = server
+        .ssrLoadModule(BLOCKS_MODULE_ID)
+        .then((mod) => setPageCodec(buildRichTextCodec(mod.blocksList ?? [])))
+        .catch((error) => {
+          server.config.logger.warn(`[mechanica] rich-text codec unavailable: ${error}`)
+          codecReady = null
+        })
+    }
+    return codecReady
+  }
 
   return {
     name: 'mechanica',
@@ -85,11 +103,14 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
 
     configureServer(server) {
       server.middlewares.use('/@mechanica', createDevMiddleware(mechDir))
+      // Start loading block schemas now so saves convert richText correctly even
+      // before the first page render awaits the codec.
+      void ensurePageCodec(server)
     },
 
     transformIndexHtml: {
       order: 'pre',
-      handler(html, ctx) {
+      async handler(html, ctx) {
         // Production build: bundle the client entry so the built HTML hydrates.
         if (!isDev) {
           const clientScript = `<script type="module">import ${JSON.stringify(CLIENT_MODULE_ID)}</script>`
@@ -100,6 +121,8 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         // Skip asset requests; only inject for page navigations.
         if (/\.\w+$/.test(urlPath)) return html
 
+        // Ensure richText fields hydrate as Block[] (not raw Markdown).
+        if (ctx.server) await ensurePageCodec(ctx.server)
         const page = readPage(mechDir, urlPath)
         // Resolve site < folder < page so a page (and its folder) override shared
         // site data. The buckets are injected too, so the editor can edit each

@@ -352,10 +352,18 @@ sections:
 
 - **Content-block ids** (`#id`) are optional and auto-generated when absent.
   Editor-written files keep them; hand-authored files usually omit them.
-- **Rich text** (`vuewrite` fields) currently serialize as their structured
-  array in the head. When their value type is migrated to a Markdown string
-  (a planned fast-follow), they become natural `@field` regions with no further
-  format change.
+- **Rich text** (`vuewrite` fields, schema format `richText`) serialize as a
+  plain Markdown **`@field` region** — the same clean prose you'd write by hand,
+  no JSON to escape. On disk it's Markdown; in page state it's a `vuewrite`
+  `Block[]` (the fast format to render/edit). The codec converts between the two
+  at the disk boundary (`vuewrite/markdown`), so the conversion is invisible to
+  both authors and the editor. The caller supplies the adapter (`RichTextCodec`)
+  — the dev server reads it from the project's block schemas, the CLI export from
+  its blocks list — which is also why this module stays vuewrite-free. A region
+  is only treated as richText when the owning block's prop declares that format;
+  every other `@field` region is a literal string. Legacy pages that stored a
+  richText value inline as a YAML array still parse (the array is kept as-is) and
+  re-serialize to a region on the next save.
 - **Reserved line-initial tokens** (outside code fences): `:::`, `@<name>`. The
   document delimiter `---` is reserved only as the frontmatter fence.
 
@@ -371,6 +379,8 @@ written. Canonical form:
 - per block: **head props first, then `@field` regions, then children**
 - a top-level string prop is emitted as an `@field` region when it contains a
   newline or exceeds ~80 characters; otherwise inline
+- a `richText` prop is **always** an `@field` region (its `Block[]` rendered to
+  Markdown), regardless of length
 - leaf objects/arrays flow-style when short, block-style when large/multiline
 - ambiguous scalars quoted; `: `/`#` prose as block scalars
 - container blocks get a labeled close; leaf blocks a bare close

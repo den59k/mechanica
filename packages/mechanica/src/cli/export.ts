@@ -1,9 +1,16 @@
 import { readFile, writeFile, mkdir, rm, cp, readdir } from 'node:fs/promises'
 import { join, parse } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { generateProject, parsePage, registerFieldSchemas, type Block } from '@mechanica/shared'
+import {
+  generateProject,
+  parsePage,
+  registerFieldSchemas,
+  type Block,
+  type RichTextCodec,
+} from '@mechanica/shared'
 import { toBlockMeta, type BlockComponent } from '../editor/lib/block-meta'
 import { readSiteData, readFoldersData } from '../vite/dev/data-store'
+import { buildRichTextCodec } from '../vite/rich-text-codec'
 import { runBuild } from './build'
 
 interface ExportPage {
@@ -17,6 +24,7 @@ interface ExportPage {
 async function readPages(
   pagesDir: string,
   foldersData: Record<string, Record<string, any>> = {},
+  richText?: RichTextCodec,
 ): Promise<ExportPage[]> {
   let entries: string[]
   try {
@@ -32,7 +40,7 @@ async function readPages(
     const parsed = parse(relative)
     const dir = parsed.dir.replace(/\\/g, '/')
     const base = parsed.base.slice(0, -EXT.length)
-    const file = parsePage(await readFile(join(pagesDir, relative), 'utf-8'))
+    const file = parsePage(await readFile(join(pagesDir, relative), 'utf-8'), richText ? { richText } : undefined)
     const path = `/${dir}/${base === 'index' ? '' : base}`.replace('//', '/').replace(/\/$/, '') || '/'
     // Fold this page's folder-scoped data in; site data is applied via projectData.
     const data = { ...(dir ? foldersData[dir] : undefined), ...(file.data ?? {}) }
@@ -62,7 +70,8 @@ export async function exportProject(cwd: string, ssr: SsrBundle): Promise<string
   const blocks: Block[] = ssr.blocksList.map(toBlockMeta)
   const blocksMap = new Map(blocks.map((block) => [block.id, block]))
 
-  const pages = await readPages(join(cwd, '.mech/pages'), readFoldersData(join(cwd, '.mech')))
+  const richText = buildRichTextCodec(ssr.blocksList)
+  const pages = await readPages(join(cwd, '.mech/pages'), readFoldersData(join(cwd, '.mech')), richText)
   const projectData = readSiteData(join(cwd, '.mech'))
 
   const exportDir = join(cwd, 'export')
