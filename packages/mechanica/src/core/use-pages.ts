@@ -11,7 +11,12 @@ export interface UsePagesFilter<T extends readonly DataHook<any, any>[]> {
 }
 
 /** A page entry plus the requested per-page data values. */
-export type PageQueryResult<T extends readonly DataHook<any, any>[]> = { path: string } & {
+export type PageQueryResult<T extends readonly DataHook<any, any>[]> = {
+  /** The page's URL path. */
+  path: string
+  /** The page's display name (its editor label). */
+  name: string
+} & {
   [K in T[number] as K['id']]: ReturnType<K>
 }
 
