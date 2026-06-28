@@ -411,6 +411,15 @@ select.mech-input {
     color: var(--mech-error);
     background: rgba(221, 40, 40, 0.08);
   }
+  // Toggle state (e.g. an active text-format button in a toolbar).
+  &.is-active {
+    color: var(--mech-accent);
+    background: var(--mech-accent-soft);
+  }
+  &.is-active:hover {
+    color: var(--mech-accent);
+    background: var(--mech-accent-soft);
+  }
 }
 
 .mech-button {

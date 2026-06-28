@@ -60,11 +60,12 @@ describe('formatted field editors', () => {
     expect(state.value).toEqual(['alpha'])
   })
 
-  it('richText: mounts the vuewrite editor with its toolbar', () => {
+  it('richText: minimal inline editor has the Markdown switch but no full toolbar', () => {
     const { el } = mountField({ type: 'array', format: 'richText' }, [{ text: 'hello' }])
-    expect(el.querySelector('.mech-rte')).not.toBeNull()
-    // The editing interface (block-type select + format buttons + md switch).
-    expect(el.querySelector('.mech-rte__toolbar')).not.toBeNull()
+    expect(el.querySelector('.mech-rte--minimal')).not.toBeNull()
+    // The Rich/Markdown toggle is available inline…
     expect(el.querySelector('.mech-rte__switch')).not.toBeNull()
+    // …but the block-type dropdown (full toolbar) stays in the dialog.
+    expect(el.querySelector('.mech-rte__type')).toBeNull()
   })
 })

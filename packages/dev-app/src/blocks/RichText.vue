@@ -38,7 +38,7 @@ const value = computed<Block[]>(() => {
   line-height: 1.7;
   color: var(--ink-2);
 }
-.richtext :deep(div) {
+.richtext :deep(p) {
   margin: 0 0 14px;
 }
 .richtext :deep(> :last-child) {

@@ -87,7 +87,7 @@ const body = computed<Block[]>(() => {
   line-height: 1.6;
   color: var(--ink-2);
 }
-.callout__body :deep(div) {
+.callout__body :deep(p) {
   margin: 0 0 8px;
 }
 .callout__body :deep(> :last-child) {

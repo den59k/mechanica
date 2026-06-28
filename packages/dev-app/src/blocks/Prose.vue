@@ -37,7 +37,7 @@ const body = computed<Block[]>(() => {
   line-height: 1.7;
   color: var(--ink-2);
 }
-.prose :deep(div) {
+.prose :deep(p) {
   margin: 0 0 14px;
 }
 .prose :deep(> :last-child) {

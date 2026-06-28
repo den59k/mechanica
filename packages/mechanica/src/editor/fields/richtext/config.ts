@@ -7,6 +7,9 @@ import type { Block, Style } from 'vuewrite'
 
 /** Map a block to its HTML tag/class. `code` is handled by a slot, not here. */
 export const renderer = (block: Block): { tag: string; className?: string } | undefined => {
+  // A plain paragraph renders as <p> (not <div>) so it gets real paragraph
+  // spacing in both the editor and the page.
+  if (!block.type) return { tag: 'p' }
   switch (block.type) {
     case 'h1':
     case 'h2':
@@ -58,12 +61,12 @@ export const htmlParser = (el: Element): string | undefined => {
   return undefined
 }
 
-/** Toolbar block-type options (label + vuewrite type; `undefined` = default text). */
-export const blockTypes: { id: string; title: string }[] = [
-  { id: 'default', title: 'Text' },
-  { id: 'h1', title: 'Heading 1' },
-  { id: 'h2', title: 'Heading 2' },
-  { id: 'h3', title: 'Heading 3' },
-  { id: 'li', title: 'Bullet list' },
-  { id: 'ol', title: 'Numbered list' },
+/** Toolbar block-type options for VSelect (`'default'` = a plain paragraph). */
+export const blockTypes: { value: string; label: string }[] = [
+  { value: 'default', label: 'Paragraph' },
+  { value: 'h1', label: 'Heading 1' },
+  { value: 'h2', label: 'Heading 2' },
+  { value: 'h3', label: 'Heading 3' },
+  { value: 'li', label: 'Bullet list' },
+  { value: 'ol', label: 'Numbered list' },
 ]

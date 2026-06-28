@@ -1,67 +1,70 @@
 <template>
-  <div class="mech-rte">
-    <div class="mech-rte__toolbar">
-      <select
-        class="mech-rte__type"
-        :value="blockType"
-        :disabled="mode === 'markdown'"
-        title="Block type"
-        @change="setBlockType(($event.target as HTMLSelectElement).value)"
-      >
-        <option v-for="t in blockTypes" :key="t.id" :value="t.id">{{ t.title }}</option>
-        <option v-if="blockType === 'mixed'" value="mixed" disabled>Mixed</option>
-      </select>
-
-      <span class="mech-rte__divider" />
-
-      <button
-        v-for="b in styleButtons"
-        :key="b.style"
-        type="button"
-        class="mech-rte__btn"
-        :class="{ 'is-active': b.active }"
-        :disabled="mode === 'markdown'"
-        :title="b.title"
-        @mousedown.prevent
-        @click="toggleStyle(b.style)"
-      >
-        <VIcon :name="b.icon" />
-      </button>
-
-      <span class="mech-rte__spacer" />
-
-      <div class="mech-rte__switch" role="tablist">
+  <div class="mech-rte" :class="toolbar ? 'mech-rte--full' : 'mech-rte--minimal'">
+    <!-- View toggle, above the box so it sits outside the field's focus ring. -->
+    <div class="mech-rte__switchbar">
+      <div class="mech-rte__switch">
         <button type="button" :class="{ 'is-active': mode === 'rich' }" @click="mode = 'rich'">Rich</button>
         <button type="button" :class="{ 'is-active': mode === 'markdown' }" @click="setMarkdownMode">Markdown</button>
       </div>
     </div>
 
-    <TextEditor
-      v-if="mode === 'rich'"
-      ref="editorRef"
-      v-model="model"
-      class="mech-rte__surface"
-      :renderer="renderer"
-      :decorator="decorator"
-      :html-parser="htmlParser"
-      @keydown="onKeyDown"
-    >
-      <template #code="{ block }">
-        <pre class="mech-rte__code" :contenteditable="false"><code>{{ block.text }}</code></pre>
-      </template>
-      <template #placeholder>
-        <div class="mech-rte__placeholder" :contenteditable="false">{{ placeholder }}</div>
-      </template>
-    </TextEditor>
+    <div class="mech-rte__box">
+      <!-- Formatting toolbar lives inside the box, only in the full rich view. -->
+      <div v-if="toolbar && mode === 'rich'" class="mech-rte__bar">
+        <VSelect
+          compact
+          class="mech-rte__type"
+          :model-value="blockType"
+          :options="blockTypes"
+          placeholder="Mixed"
+          title="Block type"
+          @update:model-value="setBlockType($event as string)"
+        />
 
-    <textarea
-      v-else
-      class="mech-rte__surface mech-rte__markdown"
-      :value="markdown"
-      spellcheck="false"
-      :placeholder="placeholder"
-      @input="onMarkdownInput"
-    />
+        <span class="mech-rte__divider" />
+
+        <button
+          v-for="b in styleButtons"
+          :key="b.style"
+          type="button"
+          class="mech-icon-button"
+          :class="{ 'is-active': b.active }"
+          :title="b.title"
+          @mousedown.prevent
+          @click="toggleStyle(b.style)"
+        >
+          <VIcon :name="b.icon" />
+        </button>
+      </div>
+
+      <TextEditor
+        v-if="mode === 'rich'"
+        ref="editorRef"
+        v-model="model"
+        class="mech-rte__surface"
+        :renderer="renderer"
+        :decorator="decorator"
+        :html-parser="htmlParser"
+        @keydown="onKeyDown"
+      >
+        <template #code="{ block }">
+          <pre class="mech-rte__code" :contenteditable="false"><code>{{ block.text }}</code></pre>
+        </template>
+        <template #placeholder>
+          <div class="mech-rte__placeholder" :contenteditable="false">{{ placeholder }}</div>
+        </template>
+      </TextEditor>
+
+      <textarea
+        v-else
+        ref="markdownRef"
+        class="mech-rte__surface mech-rte__markdown"
+        :value="markdown"
+        spellcheck="false"
+        :placeholder="placeholder"
+        @input="onMarkdownInput"
+      />
+    </div>
   </div>
 </template>
 
@@ -71,11 +74,18 @@ import { TextEditor, uid } from 'vuewrite'
 import type { Block, TextEditorRef } from 'vuewrite'
 import { blocksToMarkdown, markdownToBlocks } from 'vuewrite/markdown'
 import VIcon from '../../components/VIcon.vue'
+import VSelect from '../../components/VSelect.vue'
 import { renderer, decorator, htmlParser, blockTypes } from './config'
 
-const props = withDefaults(defineProps<{ modelValue?: Block[]; placeholder?: string }>(), {
-  placeholder: 'Write…',
-})
+const props = withDefaults(
+  defineProps<{
+    modelValue?: Block[]
+    placeholder?: string
+    /** Show the formatting toolbar + Markdown switch. Off = minimal inline field. */
+    toolbar?: boolean
+  }>(),
+  { placeholder: 'Write…', toolbar: true },
+)
 const emit = defineEmits<{ 'update:modelValue': [Block[]] }>()
 
 const editorRef = shallowRef<TextEditorRef>()
@@ -88,7 +98,7 @@ const model = ref<Block[]>(props.modelValue?.length ? props.modelValue : blank()
 // vuewrite mutates the document reactively; mirror every change up to the field.
 watch(model, (value) => emit('update:modelValue', value), { deep: true })
 
-// ── Block type ────────────────────────────────────────────────────────────────
+// ── Block type ──────────────────────────────────────────────────────────────────
 
 const blockType = computed(() => {
   const editor = editorRef.value
@@ -129,20 +139,35 @@ function toggleStyle(style: string): void {
   editor.toggleStyle(style)
 }
 
-// ── WYSIWYG ⇄ Markdown switch ───────────────────────────────────────────────────
+// ── WYSIWYG ⇄ Markdown switch ─────────────────────────────────────────────────────
 
 const markdown = ref('')
+const markdownRef = ref<HTMLTextAreaElement>()
 let fromMarkdown = false
+
+// A <textarea> doesn't grow with its content the way the contenteditable surface
+// does, so size it to fit (capped by max-height in CSS) — keeping the two views a
+// consistent height instead of a tall Rich view next to a short Markdown box.
+function autosizeMarkdown(): void {
+  const el = markdownRef.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
 
 function setMarkdownMode(): void {
   markdown.value = blocksToMarkdown(model.value, { softBreaks: true })
   mode.value = 'markdown'
+  nextTick(autosizeMarkdown)
 }
 
 watch(
   model,
   (blocks) => {
-    if (!fromMarkdown && mode.value === 'markdown') markdown.value = blocksToMarkdown(blocks, { softBreaks: true })
+    if (!fromMarkdown && mode.value === 'markdown') {
+      markdown.value = blocksToMarkdown(blocks, { softBreaks: true })
+      nextTick(autosizeMarkdown)
+    }
   },
   { deep: true },
 )
@@ -152,10 +177,11 @@ function onMarkdownInput(event: Event): void {
   markdown.value = md
   fromMarkdown = true
   model.value = markdownToBlocks(md, model.value, { softBreaks: true })
+  autosizeMarkdown()
   nextTick(() => (fromMarkdown = false))
 }
 
-// ── Keyboard: format shortcuts + Markdown prefixes + list continuation ──────────
+// ── Keyboard: format shortcuts + Markdown prefixes + list continuation ────────────
 
 function onKeyDown(event: KeyboardEvent): void {
   const editor = editorRef.value
@@ -196,10 +222,31 @@ function onKeyDown(event: KeyboardEvent): void {
 .mech-rte {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+}
+
+// The view toggle sits above the box, right-aligned, outside the focus ring.
+.mech-rte__switchbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+// The bordered/filled editing box.
+.mech-rte__box {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--mech-radius);
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+
+// Full editor (dialog): a clean white document surface with a toolbar on top.
+.mech-rte--full .mech-rte__box {
   border: 1px solid var(--mech-input-border);
-  border-radius: var(--mech-radius-sm);
+  background: var(--mech-bg);
   overflow: hidden;
-  background: var(--mech-input-bg, #fff);
 
   &:focus-within {
     border-color: var(--mech-accent);
@@ -207,30 +254,29 @@ function onKeyDown(event: KeyboardEvent): void {
   }
 }
 
-.mech-rte__toolbar {
+// Minimal inline field: a soft filled well that lifts to white on focus, like
+// the other settings-panel fields.
+.mech-rte--minimal .mech-rte__box {
+  border: 1px solid transparent;
+  background: var(--mech-field-bg);
+
+  &:hover {
+    background: var(--mech-field-bg-hover);
+  }
+  &:focus-within {
+    background: var(--mech-bg);
+    border-color: var(--mech-accent);
+    box-shadow: 0 0 0 3px var(--mech-ring);
+  }
+}
+
+// Formatting toolbar, inside the box (full + rich view).
+.mech-rte__bar {
   display: flex;
   align-items: center;
   gap: 2px;
   padding: 5px 6px;
   border-bottom: 1px solid var(--mech-border);
-  background: var(--mech-surface);
-}
-
-.mech-rte__type {
-  height: 26px;
-  border: 1px solid var(--mech-input-border);
-  border-radius: var(--mech-radius-sm);
-  background: #fff;
-  font: inherit;
-  font-size: 12px;
-  padding: 0 4px;
-  color: var(--mech-ink);
-  cursor: pointer;
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
 }
 
 .mech-rte__divider {
@@ -240,85 +286,86 @@ function onKeyDown(event: KeyboardEvent): void {
   background: var(--mech-border);
 }
 
-.mech-rte__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: var(--mech-radius-sm);
-  background: none;
-  color: var(--mech-muted);
-  cursor: pointer;
-  font-size: 16px;
-
-  &:hover:not(:disabled) {
-    background: var(--mech-hover);
-    color: var(--mech-ink);
-  }
-
-  &.is-active {
-    background: var(--mech-accent-soft, var(--mech-hover));
-    color: var(--mech-accent);
-  }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-}
-
-.mech-rte__spacer {
-  flex: 1 1 auto;
-}
-
+// Segmented Rich / Markdown switch.
 .mech-rte__switch {
   display: inline-flex;
-  border: 1px solid var(--mech-input-border);
+  gap: 2px;
+  padding: 2px;
+  background: var(--mech-field-bg);
   border-radius: var(--mech-radius-sm);
-  overflow: hidden;
 
   button {
     border: none;
-    background: #fff;
+    background: none;
+    padding: 3px 10px;
+    border-radius: calc(var(--mech-radius-sm) - 2px);
     font: inherit;
     font-size: 12px;
-    padding: 3px 10px;
+    font-weight: 500;
     color: var(--mech-muted);
     cursor: pointer;
 
+    &:hover {
+      color: var(--mech-fg);
+    }
     &.is-active {
-      background: var(--mech-ink);
-      color: #fff;
+      background: var(--mech-bg);
+      color: var(--mech-fg);
+      box-shadow: 0 1px 2px rgba(20, 23, 28, 0.14);
     }
   }
 }
+// Smaller switch in the minimal field so it reads as a quiet affordance.
+.mech-rte--minimal .mech-rte__switch button {
+  padding: 2px 8px;
+  font-size: 11px;
+}
 
 .mech-rte__surface {
-  padding: 10px 12px;
-  min-height: 72px;
+  padding: 11px 13px;
+  min-height: 64px;
   line-height: 1.6;
   font-size: 14px;
-  color: var(--mech-ink);
+  color: var(--mech-fg);
   outline: none;
   white-space: pre-wrap;
   overflow-y: auto;
 
+  :deep(p) {
+    margin: 0 0 0.6em;
+  }
+  :deep(h1),
+  :deep(h2),
+  :deep(h3) {
+    font-weight: 700;
+    margin: 0.85em 0 0.35em;
+  }
   :deep(h1) {
     font-size: 1.5em;
-    font-weight: 700;
-    margin: 0.4em 0;
   }
   :deep(h2) {
     font-size: 1.3em;
-    font-weight: 700;
-    margin: 0.4em 0;
   }
   :deep(h3) {
     font-size: 1.1em;
-    font-weight: 700;
-    margin: 0.4em 0;
+  }
+  // In the editor, list items render as bare <li> (vuewrite's TextEditor doesn't
+  // wrap them in <ul>/<ol> — only the viewer does), so each item carries its own
+  // left indent to keep the marker inside the editor's padding.
+  :deep(ul),
+  :deep(ol) {
+    margin: 0 0 0.6em;
+    padding-left: 0;
+  }
+  :deep(li) {
+    margin: 0.15em 0 0.15em 1.7em;
+    list-style: disc;
+  }
+  :deep(li.ol) {
+    list-style: decimal;
+  }
+  :deep(:last-child) {
+    margin-bottom: 0;
   }
   :deep(b) {
     font-weight: 700;
@@ -339,25 +386,31 @@ function onKeyDown(event: KeyboardEvent): void {
   :deep(code) {
     font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
     font-size: 0.88em;
-    background: var(--mech-surface);
+    background: var(--mech-field-bg);
     padding: 1px 5px;
     border-radius: 4px;
     border: 1px solid var(--mech-border);
   }
-  :deep(li) {
-    margin-left: 1.4em;
-    list-style: disc;
-  }
-  :deep(li.ol) {
-    list-style: decimal;
-  }
+}
+// Minimal field: keep it compact — a bounded box that scrolls, not an
+// ever-growing panel.
+.mech-rte--minimal .mech-rte__surface {
+  min-height: 52px;
+  max-height: 220px;
+}
+.mech-rte--minimal .mech-rte__markdown {
+  min-height: 52px;
+  max-height: 220px;
+  resize: none;
 }
 
 .mech-rte__markdown {
   border: none;
-  resize: vertical;
+  resize: none; // height is managed by autosizeMarkdown(); scrolls when capped
   font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
   font-size: 13px;
+  line-height: 1.6;
+  color: var(--mech-fg);
   background: none;
   width: 100%;
   box-sizing: border-box;
@@ -366,7 +419,7 @@ function onKeyDown(event: KeyboardEvent): void {
 .mech-rte__code {
   margin: 0.4em 0;
   padding: 10px 12px;
-  background: var(--mech-surface);
+  background: var(--mech-field-bg);
   border: 1px solid var(--mech-border);
   border-radius: var(--mech-radius-sm);
   font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
@@ -376,7 +429,7 @@ function onKeyDown(event: KeyboardEvent): void {
 
 .mech-rte__placeholder {
   position: absolute;
-  opacity: 0.4;
+  color: var(--mech-placeholder);
   pointer-events: none;
   user-select: none;
 }

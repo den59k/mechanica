@@ -22,8 +22,8 @@ const props = defineProps<{ modelValue: unknown; schema: Record<string, any>; la
 const emit = defineEmits<{ 'update:modelValue': [unknown] }>()
 
 // Field-type chips shown next to the label so a special field reads as what it
-// is at a glance (currently the smartLink combobox).
-const FIELD_CHIPS: Record<string, string> = { smartLink: 'SmartLink' }
+// is at a glance (the smartLink combobox and the rich-text editor).
+const FIELD_CHIPS: Record<string, string> = { smartLink: 'SmartLink', richText: 'Rich text' }
 
 const editor = computed(() => resolveFieldEditor(props.schema))
 const label = computed(() => props.label ?? props.schema.label)

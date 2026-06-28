@@ -1,8 +1,13 @@
 <template>
   <div class="mech-richtext-field">
-    <RichTextEditor :model-value="modelValue" @update:model-value="emit('update:modelValue', $event)" />
+    <RichTextEditor
+      :toolbar="false"
+      :model-value="modelValue"
+      placeholder="Write… — Markdown shortcuts work (# , - , **bold**)"
+      @update:model-value="emit('update:modelValue', $event)"
+    />
     <button v-if="dialog" type="button" class="mech-richtext-field__expand" @click="openWindow">
-      Open in window
+      Open editor
     </button>
   </div>
 </template>
@@ -37,18 +42,18 @@ const openWindow = () => {
   gap: 6px;
 }
 .mech-richtext-field__expand {
-  align-self: flex-start;
+  align-self: flex-end;
   border: none;
   background: none;
   padding: 0;
   font: inherit;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 500;
-  color: var(--mech-accent);
+  color: var(--mech-muted);
   cursor: pointer;
 
   &:hover {
-    text-decoration: underline;
+    color: var(--mech-accent);
   }
 }
 </style>

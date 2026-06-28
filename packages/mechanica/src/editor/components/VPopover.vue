@@ -109,7 +109,8 @@ onBeforeUnmount(detach)
 <style lang="scss" scoped>
 .mech-popover {
   position: fixed;
-  z-index: 2147483400;
+  // Above dialogs (2147483500) so selects/comboboxes opened inside a dialog show.
+  z-index: 2147483680;
   overflow-y: auto;
   padding: 5px;
   background: var(--mech-bg);
