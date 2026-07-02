@@ -229,6 +229,9 @@ async function ensurePageExists(origin: string, pagePath: string): Promise<void>
     /* can't validate (older server?) — let navigation proceed */
   }
   if (!pages || pages.some((page) => page.path === pagePath)) return
+  // Paginated variant URLs (/blog/2) are served virtually when their base exists.
+  const variant = pagePath.match(/^(.*)\/(\d+)$/)
+  if (variant && Number(variant[2]) >= 2 && pages.some((page) => page.path === (variant[1] || '/'))) return
   const known = pages.map((page) => page.path).sort().join(', ')
   throw new Error(`Unknown page "${pagePath}". Available pages: ${known}`)
 }

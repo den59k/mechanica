@@ -12,6 +12,11 @@ export interface PageMeta {
   title?: string
   path?: string
   meta?: Record<string, unknown>
+  /**
+   * Set on paginated variants of a page (`/blog/2`, …): which chunk of its
+   * paginated query this URL shows. Page 1 is the base path and carries none.
+   */
+  pagination?: { page: number; pageCount?: number }
 }
 
 /**

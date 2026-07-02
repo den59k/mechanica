@@ -244,6 +244,25 @@ describe('dev middleware', () => {
     expect((await fetch(`${base}/thumbs/..%2Fdata.json`)).status).toBe(403)
   })
 
+  it('serves a paginated variant URL as its base page with pagination context', async () => {
+    await fetch(`${base}/pages`, { method: 'POST', body: JSON.stringify({ path: '/news', name: 'News' }) })
+    await fetch(`${base}/save?path=/news`, {
+      method: 'POST',
+      body: JSON.stringify({ content: [{ id: '1', blockId: 'x', data: {} }] }),
+    })
+
+    const state = await (await fetch(`${base}/state?path=/news/2`)).json()
+    expect(state.content).toHaveLength(1) // the base page's content
+    expect(state.page.path).toBe('/news') // edits/saves target the real page
+    expect(state.page.pagination).toEqual({ page: 2 })
+
+    // A real page at a numeric path still wins over the variant fallback.
+    await fetch(`${base}/pages`, { method: 'POST', body: JSON.stringify({ path: '/news/7', name: 'Seven' }) })
+    const real = await (await fetch(`${base}/state?path=/news/7`)).json()
+    expect(real.page.path).toBe('/news/7')
+    expect(real.page.pagination).toBeUndefined()
+  })
+
   it('lists blocks through the provider', async () => {
     const blocks = await (await fetch(`${base}/blocks`)).json()
     expect(blocks).toEqual([

@@ -35,13 +35,28 @@ export function generateClientEntry(options: ClientEntryOptions): string {
     ].join('\n')
   }
 
+  // Dev resolves queries live against the dev server; the production client
+  // reads the results baked into `window.state.query` instead.
+  const resolveQuery =
+    options.mode === 'dev'
+      ? [
+          `const resolveQuery = (key) => {`,
+          `  const params = new URLSearchParams({ q: key })`,
+          `  const page = state.page?.pagination?.page`,
+          `  if (page) params.set('page', String(page))`,
+          `  return fetch('/@mechanica/query?' + params).then((res) => res.json())`,
+          `}`,
+        ]
+      : []
+
   return [
     `import definition from ${JSON.stringify(options.userEntry)}`,
     `import { blocksMap } from 'virtual:mechanica/blocks'`,
     `import { createMechanicaApp } from 'mechanica'`,
     ``,
     `const state = window.state ?? { content: [], data: {} }`,
-    `createMechanicaApp(definition, { mode: ${JSON.stringify(options.mode)}, state, blocks: blocksMap })`,
+    ...resolveQuery,
+    `createMechanicaApp(definition, { mode: ${JSON.stringify(options.mode)}, state, blocks: blocksMap${options.mode === 'dev' ? ', resolveQuery' : ''} })`,
     `  .mount(${JSON.stringify(options.mount)})`,
     ``,
   ].join('\n')
@@ -81,7 +96,9 @@ export interface SsrEntryOptions {
 /**
  * Generate the SSR entry. Exposes the block list, data entries and a `render`
  * function over the page state — the contract consumed by `mechanica export`
- * and (later) the SAAS render service.
+ * and (later) the SAAS render service. `render` takes a query resolver in its
+ * context and returns the resolved results alongside the HTML, so the caller
+ * can bake them into the page for synchronous client hydration.
  */
 export function generateSsrEntry(options: SsrEntryOptions): string {
   return [
@@ -93,9 +110,14 @@ export function generateSsrEntry(options: SsrEntryOptions): string {
     ``,
     `export const dataEntries = getDataEntries()`,
     ``,
-    `export async function render(state) {`,
-    `  const app = createMechanicaApp(definition, { ssr: true, mode: 'server', state, blocks: blocksMap })`,
-    `  return await renderToString(app)`,
+    `export async function render(state, context = {}) {`,
+    `  const query = {}`,
+    `  const resolveQuery = context.resolveQuery`,
+    `    ? async (key) => (query[key] = await context.resolveQuery(key))`,
+    `    : undefined`,
+    `  const app = createMechanicaApp(definition, { ssr: true, mode: 'server', state, blocks: blocksMap, resolveQuery })`,
+    `  const html = await renderToString(app)`,
+    `  return { html, query }`,
     `}`,
     ``,
   ].join('\n')

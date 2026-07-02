@@ -32,8 +32,17 @@ export function passDataToHTML(html: string, data: any): string {
 export interface PageState {
   content: any[]
   data: Record<string, any>
-  page?: { title?: string; path?: string; meta?: Record<string, unknown> }
+  page?: {
+    title?: string
+    path?: string
+    meta?: Record<string, unknown>
+    /** Set on paginated variants: which chunk of the page's paginated query this is. */
+    pagination?: { page: number; pageCount?: number }
+  }
 }
+
+/** What `render` may return: bare HTML, or HTML plus the queries it resolved. */
+export type RenderResult = string | { html: string; query?: Record<string, unknown> }
 
 export interface GeneratePageOptions {
   /** The index.html template. */
@@ -56,12 +65,18 @@ export interface GeneratePageOptions {
    * are code-split out of the client entry).
    */
   pageLinks?: (content: any[]) => string[]
-  /** Render the page state to HTML (provided by the SSR bundle). */
-  render: (state: any, path: string) => Promise<string> | string
+  /**
+   * Render the page state to HTML (provided by the SSR bundle). May also
+   * return the query results resolved during the render — they're baked into
+   * `window.state.query` so the client hydrates them synchronously.
+   */
+  render: (state: any, path: string) => Promise<RenderResult> | RenderResult
 }
 
 /** Render a single page into the index template with serialized state. */
-export async function generatePage(options: GeneratePageOptions): Promise<string> {
+export async function generatePage(
+  options: GeneratePageOptions,
+): Promise<{ html: string; query: Record<string, unknown> }> {
   // Fill block-data defaults from each block's schema.
   walkTree(options.state.content, (block: any) => {
     const meta = options.blocksMap.get(block.blockId)
@@ -74,14 +89,20 @@ export async function generatePage(options: GeneratePageOptions): Promise<string
     options.dataEntries.map((entry) => [entry.id, passDefaultValue(merged[entry.id] ?? {}, entry.props)]),
   )
 
-  const state = {
+  const state: Record<string, unknown> = {
     content: options.state.content,
     data,
     baseUrl: options.baseUrl,
-    page: options.state.page,
+    // The page's own path rides along (pagination pathFor, `{{ page.path }}`).
+    page: { path: options.path, ...options.state.page },
   }
 
-  const rendered = await options.render(state, options.path ?? '')
+  const result = await options.render(state, options.path ?? '')
+  const rendered = typeof result === 'string' ? result : result.html
+  const query = (typeof result === 'string' ? undefined : result.query) ?? {}
+  // Bake resolved queries into the hydration state — the client reads them
+  // synchronously, so hydration matches the server markup with no refetch.
+  if (Object.keys(query).length) state.query = query
 
   // Template against data plus the page meta, so `{{ page.meta.title }}` works.
   let index = passDataToHTML(options.index, { ...data, page: options.state.page })
@@ -105,7 +126,7 @@ export async function generatePage(options: GeneratePageOptions): Promise<string
   if (options.assetsUrl) index = index.replace(/\/assets\//g, options.assetsUrl)
 
   const stateScript = `<script>window.state=${serializeState(state)}</script>`
-  return index.replace('</body>', `${stateScript}\n</body>`)
+  return { html: index.replace('</body>', `${stateScript}\n</body>`), query }
 }
 
 // Characters that can break out of an inline <script>: `<` (closes the tag via
@@ -130,15 +151,15 @@ export interface GenerateProjectOptions extends Omit<GeneratePageOptions, 'state
   onFile?: (path: string) => string
 }
 
-/** Render every page of a project, yielding `[html, path]` pairs. */
+/** Render every page of a project, yielding the html, path and resolved queries. */
 export async function* generateProject(
   options: GenerateProjectOptions,
-): AsyncGenerator<[string, string]> {
+): AsyncGenerator<{ html: string; path: string; query: Record<string, unknown> }> {
   for (const page of options.pages) {
     page.content = page.content ?? []
     if (options.onFile) collectFiles(page.content, options.blocksMap, options.onFile)
-    const html = await generatePage({ ...options, state: page, path: page.path })
-    yield [html, page.path]
+    const { html, query } = await generatePage({ ...options, state: page, path: page.path })
+    yield { html, path: page.path, query }
   }
 }
 

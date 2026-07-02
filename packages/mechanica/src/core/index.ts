@@ -34,6 +34,7 @@ export { useRouter, useRoute, createRouter, type MechanicaRouter } from './route
 
 // Composables
 export { usePages, type UsePagesFilter, type PageQueryResult } from './use-pages'
+export { usePagination, type UsePaginationFilter, type PaginationResult } from './use-pagination'
 export { useFetch, type UseFetchOptions } from './use-fetch'
 export { usePageData } from './use-page-data'
 

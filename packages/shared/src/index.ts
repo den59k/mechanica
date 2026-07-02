@@ -35,6 +35,7 @@ export {
   type GeneratePageOptions,
   type GenerateProjectOptions,
   type PageState,
+  type RenderResult,
 } from './generate-page'
 
 export {
@@ -45,6 +46,18 @@ export {
 } from './validate-links'
 
 export { migrateContent, findUnknownBlocks } from './migrate'
+
+export {
+  parseQueryKey,
+  isPaginatedQuery,
+  resolvePagesQuery,
+  resolveQueryKey,
+  type QuerySource,
+  type QueryContext,
+  type PageQueryItem,
+  type PagesQueryArgs,
+  type PaginatedPagesResult,
+} from './query-engine'
 
 export {
   parsePage,

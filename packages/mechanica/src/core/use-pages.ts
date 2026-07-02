@@ -8,6 +8,13 @@ export interface UsePagesFilter<T extends readonly DataHook<any, any>[]> {
   folderName?: string
   /** Data hooks whose page-scoped values to include in each result. */
   data?: T
+  /**
+   * Sort field: `'name'`, `'path'`, or a dotted path into an included data
+   * entry (e.g. `'postMeta.date'`). Default: the store's page order.
+   */
+  sort?: { by: string; dir?: 'asc' | 'desc' }
+  /** Cap the number of results. */
+  limit?: number
 }
 
 /** A page entry plus the requested per-page data values. */

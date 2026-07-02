@@ -47,7 +47,7 @@ describe('passDataToHTML', () => {
 
 describe('generatePage', () => {
   it('renders content into #app and serializes state', async () => {
-    const html = await generatePage({
+    const { html } = await generatePage({
       index,
       blocksMap,
       dataEntries: [],
@@ -57,11 +57,40 @@ describe('generatePage', () => {
     })
     expect(html).toContain('<div id="app"><h1>Hello</h1></div>')
     expect(html).toContain('window.state=')
+    // The page's own path rides the hydration state.
+    expect(html).toContain('"page":{"path":"/"}')
+  })
+
+  it('bakes render-collected query results into the hydration state', async () => {
+    const { html, query } = await generatePage({
+      index,
+      blocksMap,
+      dataEntries: [],
+      state: { content: [], data: {} },
+      render: () => ({
+        html: '<nav></nav>',
+        query: { 'getPages.{}': [{ path: '/', name: 'Home' }] },
+      }),
+      path: '/',
+    })
+    expect(query).toEqual({ 'getPages.{}': [{ path: '/', name: 'Home' }] })
+    expect(html).toContain('"query":{"getPages.{}":[{"path":"/","name":"Home"}]}')
+  })
+
+  it('serializes no query key when the render resolved nothing', async () => {
+    const { html } = await generatePage({
+      index,
+      blocksMap,
+      dataEntries: [],
+      state: { content: [], data: {} },
+      render: () => ({ html: '', query: {} }),
+    })
+    expect(html).not.toContain('"query"')
   })
 
   it('injects pageLinks for the page content before </head>', async () => {
     const content = [{ id: '1', blockId: 'hero', data: { title: 'Hi' } }]
-    const html = await generatePage({
+    const { html } = await generatePage({
       index,
       blocksMap,
       dataEntries: [],
@@ -76,7 +105,7 @@ describe('generatePage', () => {
   })
 
   it('leaves the html untouched when pageLinks returns nothing', async () => {
-    const html = await generatePage({
+    const { html } = await generatePage({
       index,
       blocksMap,
       dataEntries: [],
@@ -88,7 +117,7 @@ describe('generatePage', () => {
   })
 
   it('rewrites asset URLs when assetsUrl is set', async () => {
-    const html = await generatePage({
+    const { html } = await generatePage({
       index: '<body><div id="app"></div><img src="/assets/x.png"></body>',
       blocksMap,
       dataEntries: [],
@@ -102,14 +131,14 @@ describe('generatePage', () => {
 })
 
 describe('generateProject', () => {
-  it('yields one html per page and rewrites asset files', async () => {
+  it('yields one result per page and rewrites asset files', async () => {
     const pages = [
       { path: '/', content: [{ id: '1', blockId: 'pic', data: { img: { src: '/uploads/a.png' } } }], data: {} },
       { path: '/about', content: [], data: {} },
     ]
     const seen: string[] = []
     const results: string[] = []
-    for await (const [, p] of generateProject({
+    for await (const { path } of generateProject({
       index,
       blocksMap,
       dataEntries: [],
@@ -120,7 +149,7 @@ describe('generateProject', () => {
         return src.replace('/uploads/', '/static/')
       },
     })) {
-      results.push(p)
+      results.push(path)
     }
     expect(results).toEqual(['/', '/about'])
     expect(seen).toContain('/uploads/a.png')

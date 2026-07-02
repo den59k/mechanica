@@ -45,13 +45,20 @@ entry is the contract a future hosted backend will call.
   per-page stylesheet/`modulepreload` links (Vite manifest +
   `mechanica-blocks.json`), and SPA navigation loads missing chunks before the
   content swap. Dev and SSR stay eager.
+- **Queries & pagination** — one query engine (`@mechanica/shared`
+  `query-engine.ts` over a `QuerySource`) behind `usePages` (folder filter,
+  data embedding, sort, limit), `usePagination` (reactive pager), and
+  `useFetch` (server-side, baked at export). Dev resolves live via
+  `/@mechanica/query`; export resolves at build time, memoizes per key, and
+  bakes results into `window.state.query`; SSR contract:
+  `render(state, { resolveQuery }) → { html, query }`. Paginated pages split
+  into **real exported pages** (`/blog/2`…, sitemap'd, collision-checked);
+  dev serves variant URLs virtually. Demo: dev-app `/blog`.
 - **CLI** — `build`, `export`, `push` (legacy v1 contract), `shot`, `thumbs`.
 
 ## Next
 
-1. **Query layer** — real `resolveQuery` implementations beyond the dev stub
-   (`getPages` etc.), caching, pagination.
-2. **SaaS / hosted backend** (deferred by design) — extract a transport
+1. **SaaS / hosted backend** (deferred by design) — extract a transport
    interface over `/@mechanica` + the bridge (postMessage/iframe-ready,
    version-negotiated), define the backend `render(state)` contract against
    the existing SSR entry, redesign `push` (auth, versioning, rollback).

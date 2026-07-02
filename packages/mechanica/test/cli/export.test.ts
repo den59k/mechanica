@@ -218,6 +218,90 @@ describe('mechanica export (golden)', () => {
     expect(contact).not.toContain('Hero-a1')
   })
 
+  // A render stub with the new contract: on /news (and its variants) it runs a
+  // paginated query through the provided resolver and reports what it resolved.
+  const NEWS_KEY = 'getPages.' + JSON.stringify({ folderName: 'posts', sort: { by: 'name' }, pageSize: 2 })
+  const paginatedSsr: SsrBundle = {
+    ...ssr,
+    render: async (state: any, context: any = {}) => {
+      const path: string = state.page?.path ?? ''
+      if (!context.resolveQuery || (path !== '/news' && !path.startsWith('/news/'))) {
+        return { html: '<main></main>', query: {} }
+      }
+      const result = (await context.resolveQuery(NEWS_KEY)) as {
+        items: { name: string }[]
+        page: number
+        pageCount: number
+      }
+      const list = result.items.map((item) => `<li>${item.name}</li>`).join('')
+      return {
+        html: `<main><ul>${list}</ul><nav>page ${result.page} of ${result.pageCount}</nav></main>`,
+        query: { [NEWS_KEY]: result },
+      }
+    },
+  }
+
+  const writePosts = async (count: number) => {
+    await mkdir(join(dir, '.mech/pages/posts'), { recursive: true })
+    for (let i = 0; i < count; i++) {
+      const name = String.fromCharCode(97 + i) // a, b, c…
+      await writeFile(
+        join(dir, `.mech/pages/posts/${name}.page.md`),
+        serializePage({ content: [], data: {}, name: `Post ${name.toUpperCase()}` }),
+      )
+    }
+    await writeFile(
+      join(dir, '.mech/pages/news.page.md'),
+      serializePage({ content: [{ id: 'n', blockId: 'hero', data: { title: 'News' } }], data: {} }),
+    )
+  }
+
+  it('splits a paginated page into real /news/2… variants, each with its own slice', async () => {
+    await writePosts(5)
+
+    const written = await exportProject(dir, paginatedSsr, { siteUrl: 'https://example.com' })
+    expect(written).toContain('/news')
+    expect(written).toContain('/news/2')
+    expect(written).toContain('/news/3')
+    expect(written).not.toContain('/news/4')
+
+    const first = await readFile(join(dir, 'export/news/index.html'), 'utf-8')
+    expect(first).toContain('<li>Post A</li>')
+    expect(first).toContain('<li>Post B</li>')
+    expect(first).not.toContain('<li>Post C</li>')
+    expect(first).toContain('"query"') // slice baked for client hydration
+    expect(first).toContain('"page":{"path":"/news"}')
+
+    const second = await readFile(join(dir, 'export/news/2/index.html'), 'utf-8')
+    expect(second).toContain('<li>Post C</li>')
+    expect(second).toContain('<li>Post D</li>')
+    expect(second).not.toContain('<li>Post A</li>')
+    expect(second).toContain('page 2 of 3')
+    expect(second).toContain('"pagination":{"page":2,"pageCount":3}')
+
+    const third = await readFile(join(dir, 'export/news/3/index.html'), 'utf-8')
+    expect(third).toContain('<li>Post E</li>')
+
+    // Variants are first-class pages in the sitemap.
+    const sitemap = await readFile(join(dir, 'export/sitemap.xml'), 'utf-8')
+    expect(sitemap).toContain('<loc>https://example.com/news/2/</loc>')
+  })
+
+  it('fails loudly when a real page occupies a variant path', async () => {
+    await writePosts(5)
+    // /news needs /news/2 — but the store has an actual page there. The /news
+    // page itself must move to posts-style folder layout for this to happen.
+    await mkdir(join(dir, '.mech/pages/news'), { recursive: true })
+    await rm(join(dir, '.mech/pages/news.page.md'))
+    await writeFile(
+      join(dir, '.mech/pages/news/index.page.md'),
+      serializePage({ content: [], data: {}, name: 'News' }),
+    )
+    await writeFile(join(dir, '.mech/pages/news/2.page.md'), serializePage({ content: [], data: {}, name: 'Two' }))
+
+    await expect(exportProject(dir, paginatedSsr)).rejects.toThrow(/\/news\/2/)
+  })
+
   it('skips preload links when the build produced no manifest', async () => {
     await exportProject(dir, ssr)
     const home = await readFile(join(dir, 'export/index.html'), 'utf-8')
