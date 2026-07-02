@@ -22,6 +22,14 @@ declare global {
     props?: T
     /** Slot names; auto-detected from `<slot>` when omitted. */
     slots?: string[] | Record<string, unknown>
+    /**
+     * Example prop values for previews (palette hover, `/@mechanica/preview`,
+     * `mechanica shot`), merged over schema defaults. A `$slots` key fills the
+     * block's slots with child blocks:
+     * `{ $slots: { default: [{ blockId: 'card', data: {…} }] } }` —
+     * slots without authored content preview as labelled placeholder boxes.
+     */
+    previewData?: Record<string, unknown>
   }
 
   /**

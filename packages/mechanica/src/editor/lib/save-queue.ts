@@ -43,6 +43,12 @@ export interface SaveQueue<T> {
   /** Drop unsaved edits (conflict resolution: the on-disk version wins). */
   discard(): void
   /**
+   * Send any unsaved edits now and wait for the outcome. Resolves `true` when
+   * everything is on disk, `false` when a save failed or conflicted (the
+   * caller should not proceed with e.g. a page switch).
+   */
+  flush(): Promise<boolean>
+  /**
    * Flush pending edits synchronously on unload via the beacon.
    * Returns true when nothing would be lost by leaving the page.
    */
@@ -64,34 +70,39 @@ export function createSaveQueue<T>(options: SaveQueueOptions<T>): SaveQueue<T> {
   let last: T | null = null
   /** A snapshot exists that the server hasn't confirmed yet. */
   let unsaved = false
-  let inflight = false
+  /** The save request currently in flight, if any. */
+  let inflight: Promise<void> | null = null
 
   const cancelTimer = () => {
     if (timer != null) clearTimeout(timer)
     timer = null
   }
 
-  async function send(): Promise<void> {
-    if (inflight || last == null) return
-    inflight = true
+  function send(): Promise<void> {
+    if (inflight) return inflight
+    if (last == null) return Promise.resolve()
     cancelTimer()
     state.status = 'saving'
     const snapshot = last
-    try {
-      await options.send(snapshot)
-      // Confirmed — unless newer edits arrived while the request was in flight.
-      if (last === snapshot) {
-        unsaved = false
-        state.status = 'saved'
-      } else {
-        state.status = 'pending'
-        schedule()
-      }
-    } catch (error) {
-      state.status = error instanceof SaveConflictError ? 'conflict' : 'error'
-    } finally {
-      inflight = false
-    }
+    inflight = options
+      .send(snapshot)
+      .then(() => {
+        // Confirmed — unless newer edits arrived while the request was in flight.
+        if (last === snapshot) {
+          unsaved = false
+          state.status = 'saved'
+        } else {
+          state.status = 'pending'
+          schedule()
+        }
+      })
+      .catch((error: unknown) => {
+        state.status = error instanceof SaveConflictError ? 'conflict' : 'error'
+      })
+      .finally(() => {
+        inflight = null
+      })
+    return inflight
   }
 
   const schedule = () => {
@@ -109,7 +120,13 @@ export function createSaveQueue<T>(options: SaveQueueOptions<T>): SaveQueue<T> {
       if (!inflight) state.status = 'pending'
       schedule()
     },
-    hasUnsaved: () => unsaved || inflight,
+    hasUnsaved: () => unsaved || inflight != null,
+    async flush() {
+      cancelTimer()
+      if (inflight) await inflight
+      if (unsaved && state.status !== 'error' && state.status !== 'conflict') await send()
+      return !unsaved
+    },
     retry() {
       if (state.status !== 'error' && state.status !== 'conflict') return
       void send()

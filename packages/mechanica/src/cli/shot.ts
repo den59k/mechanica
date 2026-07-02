@@ -1,11 +1,22 @@
 import fs from 'node:fs'
-import os from 'node:os'
 import { mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { spawn, type ChildProcess } from 'node:child_process'
+import {
+  launchBrowser,
+  resolveServer,
+  setViewport,
+  evaluateValue,
+  waitForCondition,
+  settlePageMedia,
+  freezeAnimations,
+  fullPageClip,
+  type LaunchedBrowser,
+} from './headless'
 
 export interface ShotOptions {
-  /** Prop overrides: inline JSON, or `@path/to/file.json`. */
+  /** Shoot a whole page by URL path instead of a block (`--page /docs`). */
+  page?: string
+  /** Prop overrides: inline JSON, or `@path/to/file.json` (block shots only). */
   data?: string
   /** Viewport width(s), comma-separated (e.g. `1440,768,390`). */
   width?: string
@@ -54,29 +65,43 @@ export function previewUrl(origin: string, blockId: string, data?: Record<string
 }
 
 /** Resolve the output PNG path for one width. */
-export function outputPath(out: string | undefined, blockId: string, width: number, multi: boolean): string {
+export function outputPath(out: string | undefined, name: string, width: number, multi: boolean): string {
   const suffix = multi ? `-w${width}` : ''
-  if (!out) return join('.mech', 'shots', `${blockId}${suffix}.png`)
+  if (!out) return join('.mech', 'shots', `${name}${suffix}.png`)
   if (out.endsWith('.png')) return multi ? out.replace(/\.png$/, `${suffix}.png`) : out
-  return join(out, `${blockId}${suffix}.png`)
+  return join(out, `${name}${suffix}.png`)
 }
 
+/** `/` → `index`, `/docs/getting-started` → `docs-getting-started`. */
+export function pageSlug(path: string): string {
+  const trimmed = path.replace(/^\/+|\/+$/g, '')
+  return trimmed ? trimmed.replace(/\//g, '-') : 'index'
+}
+
+/** Normalize a page path: leading slash, no trailing slash (except the root). */
+export function normalizePagePath(path: string): string {
+  const cleaned = '/' + path.trim().replace(/^\/+|\/+$/g, '')
+  return cleaned
+}
+
+const USAGE =
+  'Usage: mechanica shot <blockId | /page/path> [--page </path>] [--data <json|@file>] [--width 1440,768] [--out <path>] [--server <url>] [--browser <path>] [--full]'
+
 /**
- * `mechanica shot <blockId>` — render one block through the dev preview route
- * in a headless Chromium and write PNG screenshot(s). Made for agent loops:
+ * `mechanica shot <blockId>` / `mechanica shot /page/path` — render one block
+ * through the dev preview route (or a whole page, editor overlay stripped) in
+ * a headless Chromium and write PNG screenshot(s). Made for agent loops:
  * prints the image paths plus any console/render errors, and fails loudly when
- * the block itself failed to render.
- *
- * Talks raw CDP over the platform WebSocket instead of using an automation
- * library: Playwright/Puppeteer launch handshakes rely on Node-only fd pipes
- * that hang under Bun, and a screenshot needs only a handful of CDP calls.
+ * the block or page failed to render.
  */
-export async function runShot(blockId: string | undefined, options: ShotOptions = {}): Promise<void> {
-  if (!blockId) {
-    throw new Error(
-      'Usage: mechanica shot <blockId> [--data <json|@file>] [--width 1440,768] [--out <path>] [--server <url>] [--browser <path>] [--full]',
-    )
-  }
+export async function runShot(target: string | undefined, options: ShotOptions = {}): Promise<void> {
+  // A target starting with `/` is a page path; block ids are kebab-case names.
+  const rawPage = options.page ?? (target?.startsWith('/') ? target : undefined)
+  const pagePath = rawPage ? normalizePagePath(rawPage) : undefined
+  const blockId = pagePath ? undefined : target
+  if (!pagePath && !blockId) throw new Error(USAGE)
+  if (pagePath && options.data) throw new Error('--data applies to block shots only')
+
   const widths = parseWidths(options.width)
   const data = resolveDataArg(options.data)
 
@@ -114,29 +139,31 @@ export async function runShot(blockId: string | undefined, options: ShotOptions 
       sessionId,
     )
 
-    const navigation = await cdp.send('Page.navigate', { url: previewUrl(server.origin, blockId, data) }, sessionId)
+    // Page mode strips the editor overlay via ?mechanica-shot; block mode goes
+    // through the standalone preview route.
+    if (pagePath) await ensurePageExists(server.origin, pagePath)
+    const url = pagePath
+      ? `${server.origin}${pagePath}?mechanica-shot=1`
+      : previewUrl(server.origin, blockId!, data)
+    const navigation = await cdp.send('Page.navigate', { url }, sessionId)
     if (navigation.errorText) {
-      throw new Error(`Failed to open the preview route: ${navigation.errorText} (is this a Mechanica project?)`)
+      throw new Error(`Failed to open ${url}: ${navigation.errorText} (is this a Mechanica project?)`)
     }
 
-    await waitForCondition(cdp, sessionId, 'window.__MECHANICA_PREVIEW_READY__ === true', 15_000)
-    const previewError = await evaluateValue<string | null>(
-      cdp,
-      sessionId,
-      'window.__MECHANICA_PREVIEW_ERROR__ ?? null',
-    )
-    // Freeze animations/transitions so shots are deterministic across runs.
-    await cdp.send(
-      'Runtime.evaluate',
-      {
-        expression: `{
-          const style = document.createElement('style')
-          style.textContent = '*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }'
-          document.head.appendChild(style)
-        }`,
-      },
-      sessionId,
-    )
+    let previewError: string | null = null
+    if (pagePath) {
+      // Normal pages have no ready flag; wait for load, then fonts and images.
+      await waitForCondition(cdp, sessionId, "document.readyState === 'complete'", 15_000)
+      await settlePageMedia(cdp, sessionId)
+    } else {
+      await waitForCondition(cdp, sessionId, 'window.__MECHANICA_PREVIEW_READY__ === true', 15_000)
+      previewError = await evaluateValue<string | null>(
+        cdp,
+        sessionId,
+        'window.__MECHANICA_PREVIEW_ERROR__ ?? null',
+      )
+    }
+    await freezeAnimations(cdp, sessionId)
 
     const outputs: string[] = []
     for (const width of widths) {
@@ -151,31 +178,29 @@ export async function runShot(blockId: string | undefined, options: ShotOptions 
         sessionId,
       )
 
-      const out = outputPath(options.out, blockId, width, widths.length > 1)
+      const name = pagePath ? `page-${pageSlug(pagePath)}` : blockId!
+      const out = outputPath(options.out, name, width, widths.length > 1)
       await mkdir(dirname(out), { recursive: true })
 
-      const clip =
-        options.full || previewError
-          ? null
-          : await evaluateValue<{ x: number; y: number; width: number; height: number } | null>(
-              cdp,
-              sessionId,
-              `(() => {
-                const el = document.querySelector('[data-block-id]')
-                if (!el) return null
-                const rect = el.getBoundingClientRect()
-                if (rect.width < 1 || rect.height < 1) return null
-                return { x: rect.x + scrollX, y: rect.y + scrollY, width: rect.width, height: rect.height }
-              })()`,
-            )
+      const clipToBlock = !pagePath && !options.full && !previewError
+      const blockClip = clipToBlock
+        ? await evaluateValue<{ x: number; y: number; width: number; height: number } | null>(
+            cdp,
+            sessionId,
+            `(() => {
+              const el = document.querySelector('[data-block-id]')
+              if (!el) return null
+              const rect = el.getBoundingClientRect()
+              if (rect.width < 1 || rect.height < 1) return null
+              return { x: rect.x + scrollX, y: rect.y + scrollY, width: rect.width, height: rect.height }
+            })()`,
+          )
+        : null
+      const clip = blockClip ?? (await fullPageClip(cdp, sessionId))
 
       const shot = await cdp.send(
         'Page.captureScreenshot',
-        {
-          format: 'png',
-          captureBeyondViewport: true,
-          ...(clip ? { clip: { ...clip, scale: 1 } } : {}),
-        },
+        { format: 'png', captureBeyondViewport: true, clip: { ...clip, scale: 1 } },
         sessionId,
       )
       fs.writeFileSync(out, Buffer.from(shot.data as string, 'base64'))
@@ -185,291 +210,25 @@ export async function runShot(blockId: string | undefined, options: ShotOptions 
     for (const line of consoleLines) console.info(line)
     for (const out of outputs) console.info(`✓ ${out}`)
     if (previewError) throw new Error(`Block preview failed: ${previewError}`)
+    if (pagePath && consoleLines.some((line) => line.startsWith('[pageerror]'))) {
+      throw new Error('The page threw while rendering — see the [pageerror] output above')
+    }
   } finally {
     await browser?.close()
     await server.close()
   }
 }
 
-async function setViewport(cdp: CdpClient, sessionId: string, width: number): Promise<void> {
-  await cdp.send(
-    'Emulation.setDeviceMetricsOverride',
-    { width, height: 900, deviceScaleFactor: 1, mobile: false },
-    sessionId,
-  )
-}
-
-async function evaluateValue<T>(cdp: CdpClient, sessionId: string, expression: string): Promise<T> {
-  const reply = await cdp.send('Runtime.evaluate', { expression, returnByValue: true }, sessionId)
-  return reply.result?.value as T
-}
-
-/** Poll an expression on the page until it is `true` or the timeout elapses. */
-async function waitForCondition(
-  cdp: CdpClient,
-  sessionId: string,
-  expression: string,
-  timeout: number,
-): Promise<void> {
-  const deadline = Date.now() + timeout
-  while (Date.now() < deadline) {
-    if (await evaluateValue<boolean>(cdp, sessionId, expression)) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error(`Timed out after ${timeout}ms waiting for the preview to become ready`)
-}
-
-interface ResolvedServer {
-  origin: string
-  close: () => Promise<void>
-}
-
-/**
- * Find a dev server to shoot against: an explicit `--server`, a running local
- * Mechanica dev server, or an ephemeral one booted from the project's
- * `vite.config.ts` and torn down afterwards.
- */
-async function resolveServer(flag?: string): Promise<ResolvedServer> {
-  if (flag) return { origin: flag.replace(/\/+$/, ''), close: async () => {} }
-
-  for (const origin of ['http://127.0.0.1:5173', 'http://localhost:5173']) {
-    if (await isMechanicaServer(origin)) return { origin, close: async () => {} }
-  }
-
-  console.info('No running dev server found — starting one…')
-  const { createServer } = await import('vite')
-  const server = await createServer({ logLevel: 'warn' })
-  await server.listen()
-  const origin = server.resolvedUrls?.local[0]?.replace(/\/+$/, '')
-  if (!origin) {
-    await server.close()
-    throw new Error('Failed to start a dev server (no resolved URL)')
-  }
-  return { origin, close: () => server.close() }
-}
-
-async function isMechanicaServer(origin: string): Promise<boolean> {
+/** Fail early with the list of real pages instead of shooting an empty 200. */
+async function ensurePageExists(origin: string, pagePath: string): Promise<void> {
+  let pages: Array<{ path: string }> | null = null
   try {
-    const res = await fetch(`${origin}/@mechanica/folders`, { signal: AbortSignal.timeout(1000) })
-    return res.ok
+    const res = await fetch(`${origin}/@mechanica/pages`)
+    if (res.ok) pages = (await res.json()) as Array<{ path: string }>
   } catch {
-    return false
+    /* can't validate (older server?) — let navigation proceed */
   }
-}
-
-// ── Browser process + CDP transport ──────────────────────────────────────────
-
-interface LaunchedBrowser {
-  client: CdpClient
-  close: () => Promise<void>
-}
-
-/**
- * Spawn a headless Chromium-based browser with a DevTools endpoint and connect
- * to it. Prefers browsers already on the machine (Edge ships with Windows,
- * Chrome is everywhere), so nothing needs downloading.
- */
-async function launchBrowser(explicitPath?: string): Promise<LaunchedBrowser> {
-  const executable = findBrowserExecutable(explicitPath)
-  const userDataDir = fs.mkdtempSync(join(os.tmpdir(), 'mechanica-shot-'))
-  const child = spawn(
-    executable.path,
-    [
-      '--headless=new',
-      '--remote-debugging-port=0',
-      `--user-data-dir=${userDataDir}`,
-      '--no-first-run',
-      '--no-default-browser-check',
-      '--disable-extensions',
-      '--hide-scrollbars',
-      'about:blank',
-    ],
-    { stdio: ['ignore', 'ignore', 'pipe'] },
-  )
-
-  const cleanup = async (): Promise<void> => {
-    const exited = new Promise<void>((resolve) => {
-      if (child.exitCode != null) return resolve()
-      child.once('exit', () => resolve())
-      setTimeout(resolve, 3000)
-    })
-    child.kill()
-    await exited
-    // The profile dir can stay locked for a moment after exit on Windows.
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        fs.rmSync(userDataDir, { recursive: true, force: true })
-        return
-      } catch {
-        await new Promise((resolve) => setTimeout(resolve, 300))
-      }
-    }
-  }
-
-  let endpoint: string
-  try {
-    endpoint = await waitForDevtoolsEndpoint(child, 20_000)
-  } catch (error) {
-    await cleanup()
-    throw new Error(
-      `Failed to start ${executable.label} (${executable.path}): ${error instanceof Error ? error.message : error}`,
-    )
-  }
-
-  const client = await CdpClient.connect(endpoint)
-  return {
-    client,
-    close: async () => {
-      await client.send('Browser.close').catch(() => {})
-      client.dispose()
-      await cleanup()
-    },
-  }
-}
-
-/** Read the spawned browser's stderr until it prints its DevTools WebSocket URL. */
-function waitForDevtoolsEndpoint(child: ChildProcess, timeout: number): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let buffer = ''
-    const timer = setTimeout(
-      () => reject(new Error(`no DevTools endpoint within ${timeout}ms`)),
-      timeout,
-    )
-    child.stderr!.on('data', (chunk: Buffer) => {
-      buffer += chunk.toString()
-      const match = buffer.match(/DevTools listening on (ws:\/\/\S+)/)
-      if (match) {
-        clearTimeout(timer)
-        resolve(match[1]!)
-      }
-    })
-    child.on('error', (error) => {
-      clearTimeout(timer)
-      reject(error)
-    })
-    child.on('exit', (code) => {
-      clearTimeout(timer)
-      reject(new Error(`browser exited early (code ${code})`))
-    })
-  })
-}
-
-interface BrowserExecutable {
-  label: string
-  path: string
-}
-
-/** Find a Chromium-based executable: `--browser`, or a known install location. */
-function findBrowserExecutable(explicitPath?: string): BrowserExecutable {
-  if (explicitPath) {
-    if (!fs.existsSync(explicitPath)) throw new Error(`--browser not found: ${explicitPath}`)
-    return { label: 'browser from --browser', path: explicitPath }
-  }
-
-  const candidates = platformBrowserCandidates()
-  const found = candidates.find((candidate) => fs.existsSync(candidate.path))
-  if (!found) {
-    const looked = candidates.map((c) => `  ${c.label}: ${c.path}`).join('\n')
-    throw new Error(
-      `No Chromium-based browser found. Looked for:\n${looked}\n` +
-        'Install Chrome or Edge, or pass --browser <path-to-executable>.',
-    )
-  }
-  return found
-}
-
-function platformBrowserCandidates(): BrowserExecutable[] {
-  if (process.platform === 'win32') {
-    const programFiles = process.env['ProgramFiles'] ?? 'C:\\Program Files'
-    const programFilesX86 = process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)'
-    const localAppData = process.env['LOCALAPPDATA'] ?? join(os.homedir(), 'AppData', 'Local')
-    return [
-      { label: 'Microsoft Edge', path: join(programFilesX86, 'Microsoft', 'Edge', 'Application', 'msedge.exe') },
-      { label: 'Microsoft Edge', path: join(programFiles, 'Microsoft', 'Edge', 'Application', 'msedge.exe') },
-      { label: 'Google Chrome', path: join(programFiles, 'Google', 'Chrome', 'Application', 'chrome.exe') },
-      { label: 'Google Chrome', path: join(localAppData, 'Google', 'Chrome', 'Application', 'chrome.exe') },
-    ]
-  }
-  if (process.platform === 'darwin') {
-    return [
-      { label: 'Google Chrome', path: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' },
-      { label: 'Microsoft Edge', path: '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge' },
-      { label: 'Chromium', path: '/Applications/Chromium.app/Contents/MacOS/Chromium' },
-    ]
-  }
-  return [
-    { label: 'Google Chrome', path: '/usr/bin/google-chrome' },
-    { label: 'Chromium', path: '/usr/bin/chromium' },
-    { label: 'Chromium', path: '/usr/bin/chromium-browser' },
-    { label: 'Microsoft Edge', path: '/usr/bin/microsoft-edge' },
-  ]
-}
-
-type CdpEventListener = (method: string, params: any, sessionId?: string) => void
-
-/**
- * A minimal Chrome DevTools Protocol client over the platform `WebSocket`
- * (native in Bun and Node ≥ 22): request/response matching by id, plus event
- * fan-out. Flat session mode — pass a `sessionId` to address a page target.
- */
-class CdpClient {
-  private nextId = 1
-  private pending = new Map<number, { resolve: (value: any) => void; reject: (error: Error) => void }>()
-  private listeners: CdpEventListener[] = []
-
-  private constructor(private ws: WebSocket) {
-    ws.onmessage = (event) => this.onMessage(String(event.data))
-    ws.onclose = () => {
-      for (const { reject } of this.pending.values()) reject(new Error('CDP connection closed'))
-      this.pending.clear()
-    }
-  }
-
-  static connect(url: string): Promise<CdpClient> {
-    return new Promise((resolve, reject) => {
-      const ws = new WebSocket(url)
-      const timer = setTimeout(() => reject(new Error(`CDP connect timeout: ${url}`)), 10_000)
-      ws.onopen = () => {
-        clearTimeout(timer)
-        resolve(new CdpClient(ws))
-      }
-      ws.onerror = () => {
-        clearTimeout(timer)
-        reject(new Error(`CDP connection failed: ${url}`))
-      }
-    })
-  }
-
-  send(method: string, params: object = {}, sessionId?: string): Promise<any> {
-    const id = this.nextId++
-    this.ws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }))
-    return new Promise((resolve, reject) => this.pending.set(id, { resolve, reject }))
-  }
-
-  onEvent(listener: CdpEventListener): void {
-    this.listeners.push(listener)
-  }
-
-  dispose(): void {
-    try {
-      this.ws.close()
-    } catch {
-      /* already closed */
-    }
-  }
-
-  private onMessage(raw: string): void {
-    const message = JSON.parse(raw)
-    if (typeof message.id === 'number') {
-      const pending = this.pending.get(message.id)
-      if (!pending) return
-      this.pending.delete(message.id)
-      if (message.error) pending.reject(new Error(`${message.error.message ?? 'CDP error'}`))
-      else pending.resolve(message.result ?? {})
-      return
-    }
-    if (typeof message.method === 'string') {
-      for (const listener of this.listeners) listener(message.method, message.params ?? {}, message.sessionId)
-    }
-  }
+  if (!pages || pages.some((page) => page.path === pagePath)) return
+  const known = pages.map((page) => page.path).sort().join(', ')
+  throw new Error(`Unknown page "${pagePath}". Available pages: ${known}`)
 }

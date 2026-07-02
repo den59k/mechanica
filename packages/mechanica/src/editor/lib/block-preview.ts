@@ -1,7 +1,9 @@
-import { createApp, defineComponent, h, onErrorCaptured, ref, shallowRef, type Component } from 'vue'
+import { createApp, defineComponent, onErrorCaptured, ref, shallowRef } from 'vue'
 import type { ContentBlock } from '@mechanica/shared'
-import { mechanicaKey, type MechanicaContext } from '../../core/state'
+import { mechanicaKey, type BlocksMap, type MechanicaContext } from '../../core/state'
 import { createRouter } from '../../core/router'
+import { buildPreviewContent } from '../../core/preview'
+import { renderBlocks } from '../../core/render-blocks'
 
 /**
  * An inert runtime context for previews, so a block that injects the Mechanica
@@ -26,20 +28,36 @@ export interface BlockPreviewHandle {
   destroy(): void
 }
 
+export interface BlockPreviewOptions {
+  /** The available block components (`store.componentsById`). */
+  blocks: BlocksMap
+  /** Which block to preview. */
+  blockId: string
+  /** Prop overrides merged over the block's `previewData` and schema defaults. */
+  data?: Record<string, unknown>
+}
+
 /**
- * Mount a block component live into `target`, isolated in its own Vue app with a
- * stubbed Mechanica context. The palette only ever mounts the one block being
- * hovered and tears it down on leave, so at most one preview app is alive at a
- * time — none of the "100 live components" cost. If the block throws while
- * rendering, `onError` fires and the subtree renders nothing (the caller shows a
- * fallback) rather than breaking the preview.
+ * Mount a block preview live into `target`, isolated in its own Vue app with a
+ * stubbed Mechanica context. Slots are filled with the block's authored
+ * `previewData.$slots` children or labelled placeholders (same content tree as
+ * the `/@mechanica/preview` route — see `buildPreviewContent`). The palette
+ * only ever mounts the one block being hovered and tears it down on leave, so
+ * at most one preview app is alive at a time. If the block throws while
+ * rendering, `onError` fires and the subtree renders nothing (the caller shows
+ * a fallback) rather than breaking the preview.
  */
 export function mountBlockPreview(
   target: Element,
-  component: Component,
-  data: Record<string, unknown>,
+  options: BlockPreviewOptions,
   onError?: () => void,
 ): BlockPreviewHandle {
+  const preview = buildPreviewContent(options.blocks, options.blockId, options.data)
+  if (!preview) {
+    onError?.()
+    return { destroy: () => {} }
+  }
+
   const Boundary = defineComponent({
     name: 'BlockPreviewBoundary',
     setup() {
@@ -49,7 +67,7 @@ export function mountBlockPreview(
         onError?.()
         return false // handled — don't propagate or crash the preview app
       })
-      return () => (failed.value ? null : h(component, data))
+      return () => (failed.value ? null : renderBlocks([preview.content], preview.blocks))
     },
   })
 

@@ -161,11 +161,13 @@ import { pushStateUpdate } from './lib/bridge'
 import { useBlockFrames } from './lib/use-block-frames'
 import type { BlockComponent } from './lib/block-meta'
 import type { EditorSnapshot, SaveController } from './lib/types'
+import { navigationKey, fallbackNavigation, type PageNavigation } from './lib/navigation'
 import { createDialogStore, dialogKey } from './ui/dialog'
 import { createContextMenu, contextMenuKey } from './lib/context-menu'
 import VDialogHost from './ui/VDialogHost.vue'
 import VContextMenu from './components/VContextMenu.vue'
 import DataDialog from './dialogs/DataDialog.vue'
+import QuickSwitcher from './dialogs/QuickSwitcher.vue'
 import HierarchyTree from './components/HierarchyTree.vue'
 import BlockPalette from './components/BlockPalette.vue'
 import BlockSettings from './components/BlockSettings.vue'
@@ -187,6 +189,8 @@ const props = defineProps<{
   save?: SaveController
   /** Fresh state pushed when the page changes on disk (external edit, editor clean). */
   externalState?: ShallowRef<State | null>
+  /** In-place page switching (current path + switchPage), provided to dialogs. */
+  navigation?: PageNavigation
 }>()
 
 const store = createEditorStore(props.state, props.components, props.dataEntries)
@@ -203,6 +207,9 @@ provide(dragKey, drag)
 const dialog = createDialogStore()
 provide(dialogKey, dialog)
 const openData = () => dialog.open(DataDialog)
+
+const navigation = props.navigation ?? fallbackNavigation()
+provide(navigationKey, navigation)
 
 const contextMenu = createContextMenu()
 provide(contextMenuKey, contextMenu)
@@ -243,7 +250,12 @@ const onKeyDown = (event: KeyboardEvent) => {
 
   if (action === 'undo') history.undo()
   else if (action === 'redo') history.redo()
-  else if (action === 'deselect') store.select(null)
+  else if (action === 'quickSwitch') {
+    // Toggle: Cmd/Ctrl+K closes the switcher it opened; other dialogs keep focus.
+    const top = dialog.stack[dialog.stack.length - 1]
+    if (top?.component === QuickSwitcher) dialog.back()
+    else if (dialog.stack.length === 0) dialog.open(QuickSwitcher)
+  } else if (action === 'deselect') store.select(null)
   else if (action === 'paste') store.paste(store.selectedId)
   else if (store.selectedId) {
     if (action === 'delete') store.remove(store.selectedId)
@@ -293,9 +305,10 @@ watch(
   { deep: true },
 )
 
-// The page changed on disk while the editor was clean: apply the fresh state
-// in place (live sync with e.g. Claude editing the .page.md). The change is
-// still pushed to the runtime, and stays undoable through the history.
+// The page changed on disk while the editor was clean (live sync with e.g.
+// Claude editing the .page.md), or the user switched pages in place: apply the
+// fresh state, push it to the runtime, and keep it undoable through history.
+let currentPagePath = props.state.page?.path ?? null
 watch(
   () => props.externalState?.value,
   (next) => {
@@ -307,7 +320,20 @@ watch(
       folderData: clone(next.folderData ?? {}),
       pageData: clone(next.pageData ?? {}),
     })
-    pushStateUpdate({ content: clone(store.content) as never, data: clone(store.effective) })
+    store.folder = next.folder ?? null
+    store.canFolder = next.folder != null
+    pushStateUpdate({
+      content: clone(store.content) as never,
+      data: clone(store.effective),
+      page: next.page ? clone(next.page) : undefined,
+    })
+    // A page *switch* starts fresh undo history; a same-page external update
+    // stays undoable (so a bad on-disk edit can be rolled back locally).
+    const nextPath = next.page?.path ?? currentPagePath
+    if (nextPath !== currentPagePath) {
+      currentPagePath = nextPath
+      history.reset()
+    }
     void nextTick(() => {
       applyingExternal = false
     })

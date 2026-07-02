@@ -34,4 +34,10 @@ describe('resolveShortcut', () => {
     expect(resolveShortcut(ev({ key: 'z', metaKey: true, typing: true }))).toBeNull()
     expect(resolveShortcut(ev({ key: 'Delete', hasSelection: true, typing: true }))).toBeNull()
   })
+
+  it('opens the quick switcher with mod+K — even while typing', () => {
+    expect(resolveShortcut(ev({ key: 'k', ctrlKey: true }))).toBe('quickSwitch')
+    expect(resolveShortcut(ev({ key: 'K', metaKey: true, typing: true }))).toBe('quickSwitch')
+    expect(resolveShortcut(ev({ key: 'k' }))).toBeNull()
+  })
 })

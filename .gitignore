@@ -3,6 +3,7 @@ dist
 dist-ssr
 export
 .mech/shots
+.mech/thumbs
 coverage
 .vitest
 *.local

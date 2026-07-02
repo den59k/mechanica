@@ -39,6 +39,8 @@ export interface EditorStore {
   componentsById: Map<string, BlockComponent>
   /** Editable `defineData` entries. */
   dataEntries: DataEntry[]
+  /** The folder the current page lives in (null at the root). */
+  folder: string | null
   /** Whether the current page lives in a folder (so folder scope is offered). */
   canFolder: boolean
   selectedId: string | null
@@ -159,6 +161,7 @@ export function createEditorStore(
     blocksById,
     componentsById,
     dataEntries,
+    folder: initial.folder ?? null,
     canFolder: initial.folder != null,
     get effective() {
       return effective.value

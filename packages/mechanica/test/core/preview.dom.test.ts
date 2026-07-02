@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { defineComponent, h } from 'vue'
-import { mountPreviewApp } from '@/core/preview'
+import { buildPreviewContent, mountPreviewApp } from '@/core/preview'
 import type { BlocksMap } from '@/core/state'
 
 const Hero = defineComponent({
@@ -24,9 +24,48 @@ const Broken = defineComponent({
   },
 })
 
+const Section = defineComponent({
+  blockId: 'section',
+  blockSchema: { id: 'section', slots: { default: true } },
+  render() {
+    return h('section', { class: 'section' }, this.$slots.default?.())
+  },
+})
+
+const Split = defineComponent({
+  blockId: 'split',
+  blockSchema: {
+    id: 'split',
+    slots: { start: true, end: true },
+    previewData: { $slots: { start: [{ blockId: 'hero', data: { title: 'In start' } }] } },
+  },
+  render() {
+    return h('div', { class: 'split' }, [
+      h('div', { class: 'start' }, this.$slots.start?.()),
+      h('div', { class: 'end' }, this.$slots.end?.()),
+    ])
+  },
+})
+
+// A block whose previewData nests itself — must not recurse forever.
+const Loop = defineComponent({
+  blockId: 'loop',
+  blockSchema: {
+    id: 'loop',
+    slots: { default: true },
+    previewData: { $slots: { default: [{ blockId: 'loop' }] } },
+  },
+  render() {
+    return h('div', { class: 'loop' }, this.$slots.default?.())
+  },
+})
+
 const blocks: BlocksMap = new Map([
   ['hero', Hero as never],
   ['broken', Broken as never],
+  ['section', Section as never],
+  ['split', Split as never],
+  ['loop', Loop as never],
 ])
 
 let target: HTMLElement
@@ -93,5 +132,50 @@ describe('mountPreviewApp', () => {
     expect(w.__MECHANICA_PREVIEW_ERROR__).toContain('boom')
     expect(w.__MECHANICA_PREVIEW_READY__).toBe(true)
     result.app?.unmount()
+  })
+
+  it('fills an unauthored slot with a labelled placeholder', async () => {
+    const result = await mountPreviewApp({ blocks, target, request: { blockId: 'section' } })
+    expect(result.error).toBeUndefined()
+    expect(target.querySelector('.section')!.textContent).toContain('slot: default')
+    result.app!.unmount()
+  })
+
+  it('renders $slots children with their own preview data, placeholders elsewhere', async () => {
+    const result = await mountPreviewApp({ blocks, target, request: { blockId: 'split' } })
+    // `start` is authored: a hero whose overrides win, but previewData fills the rest.
+    expect(target.querySelector('.start .hero')!.textContent).toBe('In start:0')
+    // `end` is not authored → placeholder.
+    expect(target.querySelector('.end')!.textContent).toContain('slot: end')
+    result.app!.unmount()
+  })
+
+  it('caps self-referencing $slots instead of recursing forever', async () => {
+    const result = await mountPreviewApp({ blocks, target, request: { blockId: 'loop' } })
+    expect(result.error).toBeUndefined()
+    expect(target.querySelectorAll('.loop').length).toBeGreaterThan(1)
+    expect(target.querySelectorAll('.loop').length).toBeLessThanOrEqual(5)
+    result.app!.unmount()
+  })
+})
+
+describe('buildPreviewContent', () => {
+  it('returns null for an unknown block', () => {
+    expect(buildPreviewContent(blocks, 'nope')).toBeNull()
+  })
+
+  it('nests default-slot children as an array and named slots as a record', () => {
+    const section = buildPreviewContent(blocks, 'section')!
+    expect(Array.isArray(section.content.children)).toBe(true)
+
+    const split = buildPreviewContent(blocks, 'split')!
+    expect(Array.isArray(split.content.children)).toBe(false)
+    const children = split.content.children as Record<string, unknown[]>
+    expect(Object.keys(children)).toEqual(['start', 'end'])
+  })
+
+  it('strips $slots from the rendered prop data', () => {
+    const split = buildPreviewContent(blocks, 'split')!
+    expect('$slots' in split.content.data).toBe(false)
   })
 })

@@ -224,6 +224,21 @@ describe('dev middleware', () => {
     expect(absolute.status).toBe(403)
   })
 
+  it('serves page thumbnails from .mech/thumbs with the same containment', async () => {
+    fs.mkdirSync(join(mechDir, 'thumbs'), { recursive: true })
+    fs.writeFileSync(join(mechDir, 'thumbs', 'docs.png'), 'png-bytes')
+
+    const ok = await fetch(`${base}/thumbs/docs.png`)
+    expect(ok.status).toBe(200)
+    expect(ok.headers.get('cache-control')).toBe('no-cache')
+    expect(await ok.text()).toBe('png-bytes')
+
+    expect((await fetch(`${base}/thumbs/missing.png`)).status).toBe(404)
+
+    fs.writeFileSync(join(mechDir, 'data.json'), '{"secret":true}')
+    expect((await fetch(`${base}/thumbs/..%2Fdata.json`)).status).toBe(403)
+  })
+
   it('resolves getPages queries', async () => {
     fs.writeFileSync(join(mechDir, 'pages', 'index.page.md'), serializePage({ content: [], data: {}, name: 'Home' }))
     const pages = await (await fetch(`${base}/query?q=${encodeURIComponent('getPages.{}')}`)).json()

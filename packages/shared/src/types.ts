@@ -34,9 +34,18 @@ export interface Block {
   /** Available only in dev, stripped from production output. */
   devOnly?: boolean
   /**
+   * Restrict the block to pages under these folders (folder paths relative to
+   * `pages/`, e.g. `'docs'`; nested folders match by prefix). Omitted = offered
+   * everywhere. Placed blocks always keep rendering — this only filters what
+   * the palette offers.
+   */
+  folders?: string[]
+  /**
    * Example prop values used when the block renders outside a page — the
    * palette hover preview and the `/@mechanica/preview` route (`mechanica shot`).
    * Merged over schema defaults, so it only needs the props that matter visually.
+   * A `$slots` key fills the block's slots with child blocks (see
+   * `PreviewSlotEntry` in `mechanica`); unfilled slots preview as placeholders.
    */
   previewData?: Record<string, unknown>
   /** compact-json-schema describing the editable props. */

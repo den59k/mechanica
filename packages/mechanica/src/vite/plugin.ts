@@ -215,9 +215,13 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
           return html.replace('</body>', `${clientScript}\n</body>`)
         }
 
-        const urlPath = (ctx.originalUrl ?? '/').split('?')[0]!
+        const url = new URL(ctx.originalUrl ?? '/', 'http://localhost')
+        const urlPath = url.pathname
         // Skip asset requests; only inject for page navigations.
         if (/\.\w+$/.test(urlPath)) return html
+        // `mechanica shot` renders pages without the editor overlay so
+        // screenshots show the page as a visitor sees it.
+        const withEditor = !url.searchParams.has('mechanica-shot')
 
         // Ensure richText fields hydrate as Block[] (not raw Markdown).
         if (ctx.server) await ensurePageCodec(ctx.server)
@@ -228,7 +232,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
           `<script>window.state=${serializeState(state)}</script>`,
           `<script type="module">`,
           `import ${JSON.stringify(CLIENT_MODULE_ID)}`,
-          `import 'mechanica/editor'`,
+          ...(withEditor ? [`import 'mechanica/editor'`] : []),
           `</script>`,
         ].join('\n')
         // Resolve `{{ … }}` head placeholders the same way the build does, so the

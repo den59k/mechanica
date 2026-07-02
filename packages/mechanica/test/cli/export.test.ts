@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, readFile, rm, access } from 'node:fs/promises'
 import os from 'node:os'
 import { join } from 'node:path'
-import { serializePage } from '@mechanica/shared'
+import { serializePage, registerFieldSchemas, areFieldSchemasRegistered } from '@mechanica/shared'
 import { exportProject, type SsrBundle } from '@/cli/export'
+
+if (!areFieldSchemasRegistered()) registerFieldSchemas()
 
 let dir: string
 
@@ -42,7 +44,11 @@ afterEach(async () => {
 
 // Stand in for the loaded `dist/ssr.js` bundle.
 const ssr: SsrBundle = {
-  blocksList: [{ blockId: 'hero', __name: 'Hero', blockSchema: { name: 'Hero', props: { title: 'string' } } }],
+  blocksList: [
+    { blockId: 'hero', __name: 'Hero', blockSchema: { name: 'Hero', props: { title: 'string' } } },
+    { blockId: 'cta', __name: 'Cta', blockSchema: { name: 'CTA', props: { link: 'smartLink' } } },
+    { blockId: 'pic', __name: 'Pic', blockSchema: { name: 'Pic', props: { image: 'image' } } },
+  ],
   dataEntries: [
     { id: 'site', props: { type: 'object', properties: { name: { type: 'string' } } } },
     { id: 'head', props: { type: 'object', properties: { title: { type: 'string' } } } },
@@ -73,5 +79,74 @@ describe('mechanica export (golden)', () => {
   it('returns an empty list when there are no pages', async () => {
     await rm(join(dir, '.mech/pages'), { recursive: true, force: true })
     expect(await exportProject(dir, ssr)).toEqual([])
+  })
+
+  it('warns about internal links pointing at missing pages', async () => {
+    await writeFile(
+      join(dir, '.mech/pages/links.page.md'),
+      serializePage({
+        content: [
+          { id: 'ok', blockId: 'cta', data: { link: { url: '/blog/post' } } },
+          { id: 'dead', blockId: 'cta', data: { link: { url: '/missing' } } },
+          { id: 'ext', blockId: 'cta', data: { link: { url: 'https://x.com', external: true } } },
+        ],
+        data: {},
+      }),
+    )
+
+    const warnings: string[] = []
+    await exportProject(dir, ssr, { onWarn: (message) => warnings.push(message) })
+    const broken = warnings.filter((w) => w.includes('Broken link'))
+    expect(broken).toHaveLength(1)
+    expect(broken[0]).toContain('/missing')
+    expect(broken[0]).toContain('/links')
+  })
+
+  it('copies referenced uploads to /media and reports orphans', async () => {
+    await mkdir(join(dir, '.mech/assets'), { recursive: true })
+    await writeFile(join(dir, '.mech/assets/pic.png'), 'PIC')
+    await writeFile(join(dir, '.mech/assets/orphan.png'), 'ORPHAN')
+    await writeFile(
+      join(dir, '.mech/pages/gallery.page.md'),
+      serializePage({
+        content: [{ id: 'g', blockId: 'pic', data: { image: { src: '/@mechanica/assets/pic.png' } } }],
+        data: {},
+      }),
+    )
+
+    const warnings: string[] = []
+    await exportProject(dir, ssr, { onWarn: (message) => warnings.push(message) })
+
+    // The referenced upload is copied and its URL rewritten in the state.
+    expect(await readFile(join(dir, 'export/media/pic.png'), 'utf-8')).toBe('PIC')
+    const gallery = await readFile(join(dir, 'export/gallery/index.html'), 'utf-8')
+    expect(gallery).toContain('/media/pic.png')
+    expect(gallery).not.toContain('/@mechanica/assets/')
+
+    // The unreferenced one is reported, not copied.
+    await expect(access(join(dir, 'export/media/orphan.png'))).rejects.toThrow()
+    expect(warnings.some((w) => w.includes('orphan.png'))).toBe(true)
+  })
+
+  it('emits 404.html when a /404 page exists, and sitemap.xml with a site url', async () => {
+    await writeFile(
+      join(dir, '.mech/pages/404.page.md'),
+      serializePage({ content: [{ id: 'n', blockId: 'hero', data: { title: 'Not found' } }], data: {} }),
+    )
+
+    await exportProject(dir, ssr, { siteUrl: 'https://example.com/' })
+
+    const notFound = await readFile(join(dir, 'export/404.html'), 'utf-8')
+    expect(notFound).toContain('Not found')
+
+    const sitemap = await readFile(join(dir, 'export/sitemap.xml'), 'utf-8')
+    expect(sitemap).toContain('<loc>https://example.com/</loc>')
+    expect(sitemap).toContain('<loc>https://example.com/blog/post/</loc>')
+    expect(sitemap).not.toContain('/404')
+  })
+
+  it('fails loudly when index.html has no #app container', async () => {
+    await writeFile(join(dir, 'dist/index.html'), '<!doctype html><html><body></body></html>')
+    await expect(exportProject(dir, ssr)).rejects.toThrow(/id="app"/)
   })
 })

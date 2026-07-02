@@ -23,6 +23,7 @@ export function toBlockMeta(component: BlockComponent): Block {
     order: schema.order,
     hidden: schema.hidden,
     devOnly: schema.devOnly,
+    folders: schema.folders,
     previewData: schema.previewData,
     props: schema.props
       ? (unfoldSchema(schema.props) as Record<string, unknown>)
@@ -35,4 +36,21 @@ export function toBlockMeta(component: BlockComponent): Block {
 export function createContentBlock(block: Block): ContentBlock {
   const data = block.props ? (getDefaultValue(block.props) as Record<string, unknown>) : {}
   return { id: uid(), blockId: block.id, data: data ?? {} }
+}
+
+/**
+ * Whether the palette offers a block on a page in `folder` (null = root).
+ * A block without `folders` is offered everywhere; with `folders` it is
+ * offered only under those folders (nested folders match by prefix, so
+ * `'docs'` covers `docs/guides` too). Already-placed blocks always render —
+ * this only filters the palette.
+ */
+export function blockAvailableIn(block: Block, folder: string | null): boolean {
+  if (!block.folders || block.folders.length === 0) return true
+  if (folder == null) return false
+  const normalizedFolder = folder.replace(/^\/+|\/+$/g, '')
+  return block.folders.some((entry) => {
+    const scope = entry.replace(/^\/+|\/+$/g, '')
+    return normalizedFolder === scope || normalizedFolder.startsWith(scope + '/')
+  })
 }

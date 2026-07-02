@@ -38,6 +38,13 @@ export {
 } from './generate-page'
 
 export {
+  validateLinks,
+  collectInternalLinks,
+  normalizeInternalUrl,
+  type LinkIssue,
+} from './validate-links'
+
+export {
   parsePage,
   serializePage,
   PageParseError,

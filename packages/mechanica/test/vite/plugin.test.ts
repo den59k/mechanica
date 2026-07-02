@@ -56,6 +56,17 @@ describe('dev HTML injection', () => {
     expect(html).toContain('mechanica/editor')
   })
 
+  it('omits the editor overlay for ?mechanica-shot page shots', async () => {
+    const plugin = mechanica()
+    callHook(plugin.configResolved, { root, command: 'serve' })
+    const html = await callHook(plugin.transformIndexHtml, '<html><body></body></html>', {
+      originalUrl: '/?mechanica-shot=1',
+    })
+    expect(html).toContain('window.state=')
+    expect(html).toContain('virtual:mechanica/client')
+    expect(html).not.toContain('mechanica/editor')
+  })
+
   it('injects only the client entry on build (no state, no editor)', async () => {
     const plugin = mechanica()
     callHook(plugin.configResolved, { root, command: 'build' })

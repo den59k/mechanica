@@ -58,6 +58,16 @@
               :class="{ 'is-current': page.path === current, 'is-nested': !!group.folder }"
             >
               <button type="button" class="mech-pages-dialog__open" @click="open(page)">
+                <span class="mech-pages-dialog__thumb">
+                  <img
+                    v-if="!thumbFailed.has(page.path)"
+                    :src="thumbSrc(page)"
+                    loading="lazy"
+                    alt=""
+                    @error="thumbFailed.add(page.path)"
+                  />
+                  <span v-else>{{ (page.name || page.path).charAt(0).toUpperCase() }}</span>
+                </span>
                 <span class="mech-pages-dialog__name">{{ page.name }}</span>
                 <span class="mech-pages-dialog__path">{{ page.path }}</span>
                 <span v-if="page.path === current" class="mech-pages-dialog__badge">Current</span>
@@ -82,12 +92,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, useTemplateRef } from 'vue'
+import { computed, inject, nextTick, onMounted, reactive, ref, useTemplateRef } from 'vue'
 import VDialog from '../ui/VDialog.vue'
 import VIcon from '../components/VIcon.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { useDialog } from '../ui/dialog'
-import { filterPages, groupPagesByFolder, type PageItem } from '../lib/page-list'
+import { filterPages, groupPagesByFolder, pageThumbUrl, type PageItem } from '../lib/page-list'
+import { navigationKey, fallbackNavigation } from '../lib/navigation'
+import { recordRecent } from '../lib/recents'
 
 interface FormState {
   mode: 'create' | 'duplicate' | 'edit'
@@ -105,7 +117,8 @@ const error = ref('')
 const collapsedFolders = reactive(new Set<string>())
 const nameInput = useTemplateRef<HTMLInputElement>('nameInput')
 
-const current = typeof location !== 'undefined' ? location.pathname : '/'
+const navigation = inject(navigationKey, null) ?? fallbackNavigation()
+const current = computed(() => navigation.path.value)
 
 const filtered = computed(() => filterPages(pages.value, query.value))
 const groups = computed(() => groupPagesByFolder(filtered.value))
@@ -123,9 +136,17 @@ const formSubmit = computed(() =>
 
 onMounted(load)
 
+// Thumbnails are regenerated in place by `mechanica thumbs`; the stamp busts
+// the browser cache (and retries failures) each time the list reloads.
+const thumbStamp = ref(0)
+const thumbFailed = reactive(new Set<string>())
+const thumbSrc = (page: PageItem) => `${pageThumbUrl(page.path)}?v=${thumbStamp.value}`
+
 async function load() {
   try {
     pages.value = await fetch('/@mechanica/pages').then((response) => response.json())
+    thumbStamp.value = Date.now()
+    thumbFailed.clear()
   } catch {
     /* dev server unavailable */
   }
@@ -136,14 +157,14 @@ const isFolderOpen = (folder: string | null) => !folder || !!query.value || !col
 const toggleFolder = (folder: string) =>
   collapsedFolders.has(folder) ? collapsedFolders.delete(folder) : collapsedFolders.add(folder)
 
-function navigate(path: string) {
-  try {
-    location.assign(path)
-  } catch {
-    /* not available in tests */
-  }
+function openPath(path: string) {
+  recordRecent('pages', path)
+  // In-place switch (no reload); the dialog closes once the page state landed.
+  void navigation.switchPage(path).then((ok) => {
+    if (ok) dialog.close()
+  })
 }
-const open = (page: PageItem) => navigate(page.path)
+const open = (page: PageItem) => openPath(page.path)
 
 async function focusName() {
   await nextTick()
@@ -192,13 +213,13 @@ async function submitForm() {
   }
 
   const nextPath = data.path ?? path
-  // Editing the page we're on (incl. a path change) navigates to it; editing
+  // Editing the page we're on (incl. a path change) switches to it; editing
   // another page just refreshes the list. New/duplicate open the new page.
-  if (mode === 'edit' && source !== current) {
+  if (mode === 'edit' && source !== current.value) {
     form.value = null
     await load()
   } else {
-    navigate(nextPath)
+    openPath(nextPath)
   }
 }
 
@@ -217,7 +238,7 @@ async function remove(page: PageItem) {
   if (!response.ok) return
   await load()
   // If we deleted the page we're editing, move somewhere that still exists.
-  if (page.path === current) navigate(pages.value[0]?.path ?? '/')
+  if (page.path === current.value) openPath(pages.value[0]?.path ?? '/')
 }
 </script>
 
@@ -363,16 +384,40 @@ async function remove(page: PageItem) {
 .mech-pages-dialog__open {
   flex: 1;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
   min-width: 0;
-  padding: 10px 10px;
+  padding: 6px 10px;
   border: none;
   background: none;
   text-align: left;
   cursor: pointer;
   color: var(--mech-fg);
   font: inherit;
+}
+// A `mechanica thumbs` snapshot of the page top; falls back to a monogram tile.
+.mech-pages-dialog__thumb {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 42px;
+  border: 1px solid var(--mech-border);
+  border-radius: var(--mech-radius-sm);
+  background: var(--mech-active);
+  overflow: hidden;
+  color: var(--mech-muted);
+  font-size: 14px;
+  font-weight: 600;
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+  }
 }
 .mech-pages-dialog__name {
   font-weight: 500;

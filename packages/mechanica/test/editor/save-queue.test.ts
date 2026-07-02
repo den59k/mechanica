@@ -102,6 +102,40 @@ describe('createSaveQueue', () => {
     expect(queue.hasUnsaved()).toBe(true)
   })
 
+  it('flush sends pending edits immediately and reports the outcome', async () => {
+    const send = vi.fn().mockResolvedValue(undefined)
+    const queue = createSaveQueue<number>({ send, delay: 500 })
+
+    expect(await queue.flush()).toBe(true) // nothing pending
+
+    queue.push(9)
+    expect(await queue.flush()).toBe(true) // sent without waiting for the debounce
+    expect(send).toHaveBeenCalledWith(9)
+    expect(queue.status).toBe('saved')
+
+    // A failing save makes flush report false so callers don't proceed.
+    send.mockRejectedValueOnce(new Error('500'))
+    queue.push(10)
+    expect(await queue.flush()).toBe(false)
+    expect(queue.status).toBe('error')
+  })
+
+  it('flush waits for an in-flight save', async () => {
+    let release!: () => void
+    const first = new Promise<void>((resolve) => (release = resolve))
+    const send = vi.fn().mockReturnValueOnce(first)
+    const queue = createSaveQueue<number>({ send, delay: 100 })
+
+    queue.push(1)
+    await vi.advanceTimersByTimeAsync(100)
+    expect(queue.status).toBe('saving')
+
+    const flushed = queue.flush()
+    release()
+    expect(await flushed).toBe(true)
+    expect(queue.status).toBe('saved')
+  })
+
   it('enters conflict on SaveConflictError and resolves via retry (keep mine)', async () => {
     const send = vi.fn().mockRejectedValueOnce(new SaveConflictError()).mockResolvedValue(undefined)
     const queue = createSaveQueue<number>({ send, delay: 100 })

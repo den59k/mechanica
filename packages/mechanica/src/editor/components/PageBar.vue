@@ -10,24 +10,31 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
 import { useDialog } from '../ui/dialog'
 import PagesDialog from '../dialogs/PagesDialog.vue'
 import VIcon from './VIcon.vue'
 import type { PageItem } from '../lib/page-list'
+import { navigationKey, fallbackNavigation } from '../lib/navigation'
 
 const dialog = useDialog()
-const current = typeof location !== 'undefined' ? location.pathname : '/'
+const navigation = inject(navigationKey, null) ?? fallbackNavigation()
+const current = computed(() => navigation.path.value)
 const currentName = ref('')
 
-onMounted(async () => {
-  try {
-    const pages: PageItem[] = await fetch('/@mechanica/pages').then((response) => response.json())
-    currentName.value = pages.find((page) => page.path === current)?.name ?? ''
-  } catch {
-    /* dev server unavailable */
-  }
-})
+// Re-resolve the display name whenever the page switches in place.
+watch(
+  current,
+  async (path) => {
+    try {
+      const pages: PageItem[] = await fetch('/@mechanica/pages').then((response) => response.json())
+      currentName.value = pages.find((page) => page.path === path)?.name ?? ''
+    } catch {
+      /* dev server unavailable */
+    }
+  },
+  { immediate: true },
+)
 
 const openPages = () => dialog.open(PagesDialog)
 </script>

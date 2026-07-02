@@ -30,24 +30,28 @@
     </div>
 
     <p v-if="!groups.length" class="mech-tree__empty">No blocks match “{{ search }}”.</p>
+    <p v-if="scopedOut > 0" class="mech-palette__scoped">
+      {{ scopedOut }} {{ scopedOut === 1 ? 'block is' : 'blocks are' }} limited to other folders.
+    </p>
 
     <BlockPreview
       v-if="hovered"
       :key="hovered.block.id"
       :block="hovered.block"
-      :component="hovered.component"
-      :data="hovered.data"
+      :blocks="previewBlocks"
       :anchor="hovered.anchor"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, ref, type Component } from 'vue'
+import { computed, inject, onBeforeUnmount, ref } from 'vue'
 import { useSearch } from 'vuesix'
-import { buildPreviewData, type Block } from '@mechanica/shared'
+import type { Block } from '@mechanica/shared'
+import type { BlocksMap } from '../../core/state'
 import { editorStoreKey } from '../lib/store'
 import { dragKey } from '../lib/drag-controller'
+import { blockAvailableIn } from '../lib/block-meta'
 import VIcon from './VIcon.vue'
 import BlockPreview from './BlockPreview.vue'
 
@@ -55,9 +59,13 @@ const store = inject(editorStoreKey)!
 const drag = inject(dragKey)!
 const search = ref('')
 
+// Folder-scoped blocks: only offer what this page's folder allows.
+const available = computed(() => store.blocks.filter((block) => blockAvailableIn(block, store.folder)))
+const scopedOut = computed(() => store.blocks.length - available.value.length)
+
 const filtered = useSearch(
   search,
-  () => store.blocks,
+  () => available.value,
   (block: Block) => `${block.name} ${block.category ?? ''}`,
 )
 
@@ -85,22 +93,20 @@ function onDown(block: Block, event: PointerEvent) {
 // it's torn down on leave — so there's never more than one live block at a time.
 interface Hover {
   block: Block
-  component: Component
-  data: Record<string, unknown>
   anchor: { top: number; left: number; height: number }
 }
 const hovered = ref<Hover | null>(null)
 let timer: ReturnType<typeof setTimeout> | null = null
 
+const previewBlocks = store.componentsById as unknown as BlocksMap
+
 function onEnter(block: Block, event: MouseEvent) {
-  const component = store.componentsById.get(block.id) as unknown as Component | undefined
-  if (!component) return
+  if (!store.componentsById.has(block.id)) return
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   const anchor = { top: rect.top, left: rect.left, height: rect.height }
-  const data = buildPreviewData(block.props ?? emptySchema, block.previewData)
   if (timer) clearTimeout(timer)
   timer = setTimeout(() => {
-    hovered.value = { block, component, data, anchor }
+    hovered.value = { block, anchor }
   }, 90)
 }
 
@@ -114,8 +120,6 @@ function clearHover() {
   }
   hovered.value = null
 }
-
-const emptySchema = { type: 'object', properties: {} }
 
 onBeforeUnmount(clearHover)
 </script>
@@ -192,5 +196,11 @@ onBeforeUnmount(clearHover)
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.mech-palette__scoped {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--mech-muted);
+  text-align: center;
 }
 </style>

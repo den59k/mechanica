@@ -20,6 +20,17 @@ export function fetchPages(): Promise<PageItem[]> {
   return pagesPromise
 }
 
+/**
+ * The dev-server URL of a page's thumbnail (written by `mechanica thumbs` into
+ * `.mech/thumbs/`). Slug mirrors the CLI's `pageSlug`: `/` → `index`,
+ * `/docs/api` → `docs-api`. The file may not exist — callers need a fallback.
+ */
+export function pageThumbUrl(path: string): string {
+  const trimmed = path.replace(/^\/+|\/+$/g, '')
+  const slug = trimmed ? trimmed.replace(/\//g, '-') : 'index'
+  return `/@mechanica/thumbs/${slug}.png`
+}
+
 /** Filter pages by a free-text query matched against both name and path. */
 export function filterPages<T extends PageItem>(pages: T[], query: string): T[] {
   const q = query.trim().toLowerCase()

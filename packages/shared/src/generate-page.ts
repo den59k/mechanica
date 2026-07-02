@@ -80,13 +80,18 @@ export async function generatePage(options: GeneratePageOptions): Promise<string
   // Template against data plus the page meta, so `{{ page.meta.title }}` works.
   let index = passDataToHTML(options.index, { ...data, page: options.state.page })
 
-  // Inject the rendered markup into the #app container.
+  // Inject the rendered markup into the #app container. A template without it
+  // would export empty pages — fail loudly instead of silently shipping shells.
   const appMatch = index.match(/(<div[^>]*\bid="app"[^>]*>)([\s\S]*?)<\/div>/)
-  if (appMatch) {
-    const start = appMatch.index! + appMatch[1]!.length
-    const end = appMatch.index! + appMatch[0].length - '</div>'.length
-    index = index.slice(0, start) + rendered + index.slice(end)
+  if (!appMatch) {
+    throw new Error(
+      'index.html has no <div id="app"> container — the rendered page has nowhere to go. ' +
+        'Add <div id="app"></div> to the template body.',
+    )
   }
+  const start = appMatch.index! + appMatch[1]!.length
+  const end = appMatch.index! + appMatch[0].length - '</div>'.length
+  index = index.slice(0, start) + rendered + index.slice(end)
 
   if (options.assetsUrl) index = index.replace(/\/assets\//g, options.assetsUrl)
 

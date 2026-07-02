@@ -41,13 +41,21 @@ Blocks are gathered into the `virtual:mechanica/blocks` module (`src/vite/collec
 
 ## Block previews & `mechanica shot` (see your work!)
 
+Full user-facing doc: [PREVIEW.md](./PREVIEW.md). The essentials:
+
 A block can declare **`previewData`** in `defineBlock` — example prop values merged over schema defaults (`buildPreviewData` in `@mechanica/shared`). It feeds the palette hover preview and the standalone preview route, and doubles as documentation of what the block expects; give every new block meaningful `previewData`.
+
+**Slots preview too:** a `$slots` key in `previewData` fills the block's slots with child blocks — `$slots: { start: [{ blockId: 'card', data: {…} }] }` — each child resolving its own `previewData`/defaults recursively (depth-capped). Slots without authored content render as labelled dashed placeholder boxes, so container/layout blocks are verifiable in shots. The content tree is built by `buildPreviewContent` (`src/core/preview.ts`), shared by the preview route and the palette hover preview.
 
 **`GET /@mechanica/preview/<blockId>?data=<json>`** (dev) renders one block alone — real runtime context + the app's global CSS (the preview entry imports the user's app module without mounting it), site data fetched for `useData`. Readiness/errors are signaled via `window.__MECHANICA_PREVIEW_READY__` / `__MECHANICA_PREVIEW_ERROR__` (`src/core/preview.ts` `mountPreviewApp`, entry in `src/vite/entries.ts`, route in `src/vite/dev/preview.ts`).
 
-**`mechanica shot <blockId>`** (from `dev-app`: `bun ../mechanica/bin/mechanica.js shot <blockId>`) screenshots that route headless and prints the PNG path plus any console/render errors. Flags: `--data <json|@file>`, `--width 1440,768,390`, `--out <path>`, `--server <url>`, `--browser <path>`, `--full`. Output defaults to `.mech/shots/` (gitignored). It reuses a running dev server or boots an ephemeral one, and drives a system Edge/Chrome over **raw CDP on the native WebSocket** (`src/cli/shot.ts`) — deliberately no Playwright/Puppeteer: their launch handshake uses Node-only fd pipes that hang under Bun.
+**`mechanica shot <blockId>`** (from `dev-app`: `bun ../mechanica/bin/mechanica.js shot <blockId>`) screenshots that route headless and prints the PNG path plus any console/render errors. Flags: `--data <json|@file>`, `--width 1440,768,390`, `--out <path>`, `--server <url>`, `--browser <path>`, `--full`. Output defaults to `.mech/shots/` (gitignored). It reuses a running dev server (much faster — keep `bun run dev` running while iterating) or boots an ephemeral one, and drives a system Edge/Chrome over **raw CDP on the native WebSocket** (`src/cli/shot.ts`) — deliberately no Playwright/Puppeteer: their launch handshake uses Node-only fd pipes that hang under Bun.
 
-**After creating or visually changing a block, run `mechanica shot <blockId>` and Read the PNG before considering the work done** — check spacing, overflow, and responsive behavior (`--width 1440,390`).
+**`mechanica shot </page/path>`** (a target starting with `/`, or `--page </path>`) screenshots a **whole page** instead: the real dev page with the editor overlay stripped (`?mechanica-shot` skips the `mechanica/editor` import in `transformIndexHtml`), full-page capture, page existence validated against the store (unknown paths fail listing the real ones). Use it to verify `.page.md` compositions — block spacing, shared data flowing in, `{{ }}` head templating.
+
+**`mechanica thumbs [/prefix]`** walks every page (or those under a prefix) and writes 320px-wide top-of-page thumbnails to `.mech/thumbs/` (gitignored), which the dev middleware serves at `/@mechanica/thumbs/<slug>.png` and `PagesDialog` shows per row (monogram fallback when missing). Manual regeneration by design — run it after a content/styling session. Browser/CDP plumbing shared by both commands lives in `src/cli/headless.ts`.
+
+**After creating or visually changing a block, run `mechanica shot <blockId>`; after authoring or editing a `.page.md`, run `mechanica shot </its/path>` — and Read the PNG before considering the work done.** Check spacing, overflow, and responsive behavior (`--width 1440,390`).
 
 ## Runtime, modes, and entries
 

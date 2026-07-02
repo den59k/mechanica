@@ -14,15 +14,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, type Component } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Block } from '@mechanica/shared'
+import type { BlocksMap } from '../../core/state'
 import { mountBlockPreview, type BlockPreviewHandle } from '../lib/block-preview'
 import VIcon from './VIcon.vue'
 
 const props = defineProps<{
   block: Block
-  component: Component
-  data: Record<string, unknown>
+  /** The available block components (`store.componentsById`). */
+  blocks: BlocksMap
   /** The hovered card's viewport rect; the popover sits to its left. */
   anchor: { top: number; left: number; height: number }
 }>()
@@ -65,7 +66,11 @@ const boxStyle = computed(() => {
 onMounted(() => {
   const el = stageEl.value
   if (!el) return
-  handle = mountBlockPreview(el, props.component, props.data, () => (failed.value = true))
+  handle = mountBlockPreview(
+    el,
+    { blocks: props.blocks, blockId: props.block.id },
+    () => (failed.value = true),
+  )
   // Measure the block's natural (unscaled) height once it has painted, so the
   // popover can size snugly. scrollHeight ignores the CSS transform.
   void nextTick(() =>

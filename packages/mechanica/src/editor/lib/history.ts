@@ -8,6 +8,8 @@ export interface History {
   canRedo: ReturnType<typeof ref<boolean>>
   /** Flush a pending snapshot immediately (also used by tests). */
   commit(): void
+  /** Clear all entries and re-baseline on the current state (page switch). */
+  reset(): void
   /** Stop watching + clear the pending timer. */
   dispose(): void
 }
@@ -74,6 +76,13 @@ export function createHistory(store: EditorStore, delay = 350): History {
     canUndo,
     canRedo,
     commit,
+    reset() {
+      clearTimeout(timer)
+      past.length = 0
+      future.length = 0
+      baseline = snapshot()
+      update()
+    },
     dispose() {
       clearTimeout(timer)
       stop()

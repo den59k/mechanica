@@ -54,6 +54,11 @@ export function createMechanica(options: CreateMechanicaOptions = {}): Plugin {
             content.value = next
           },
           mergeData: (incoming) => mergeData(context.data, incoming),
+          setPage: (page) => {
+            // Same object, so everything holding the context sees the switch.
+            for (const key of Object.keys(context.page)) delete (context.page as Record<string, unknown>)[key]
+            Object.assign(context.page, page)
+          },
         })
       }
     },

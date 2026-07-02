@@ -43,21 +43,30 @@ export function createDevMiddleware(
       res.end(JSON.stringify(data))
     }
 
+    /**
+     * Stream a file from a directory under `.mech`, containing the resolved
+     * path so an encoded `..` (or an absolute path) cannot escape it.
+     */
+    const serveFrom = (dirName: string, prefix: string) => {
+      const dir = resolve(mechDir, dirName)
+      const file = resolve(dir, decodeURIComponent(pathname.slice(prefix.length)))
+      if (file !== dir && !file.startsWith(dir + sep)) {
+        res.statusCode = 403
+        return res.end('Forbidden')
+      }
+      if (!fs.existsSync(file)) {
+        res.statusCode = 404
+        return res.end('Not found')
+      }
+      return fs.createReadStream(file).pipe(res)
+    }
+
     try {
-      if (pathname.startsWith('/assets/')) {
-        const assetsDir = resolve(mechDir, 'assets')
-        const file = resolve(assetsDir, decodeURIComponent(pathname.slice('/assets/'.length)))
-        // Contain the resolved path: an encoded `..` (or an absolute path) must
-        // not escape the assets directory.
-        if (file !== assetsDir && !file.startsWith(assetsDir + sep)) {
-          res.statusCode = 403
-          return res.end('Forbidden')
-        }
-        if (!fs.existsSync(file)) {
-          res.statusCode = 404
-          return res.end('Asset not found')
-        }
-        return fs.createReadStream(file).pipe(res)
+      if (pathname.startsWith('/assets/')) return serveFrom('assets', '/assets/')
+      if (pathname.startsWith('/thumbs/')) {
+        // Regenerated in place by `mechanica thumbs` — always revalidate.
+        res.setHeader('cache-control', 'no-cache')
+        return serveFrom('thumbs', '/thumbs/')
       }
 
       if (pathname === '/images' && req.method === 'GET') return json(listImages(mechDir))

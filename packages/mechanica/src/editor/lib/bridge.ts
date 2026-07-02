@@ -1,4 +1,4 @@
-import type { ContentBlock } from '@mechanica/shared'
+import type { ContentBlock, PageMeta } from '@mechanica/shared'
 
 /** Global handle the runtime exposes for the in-page editor to drive. */
 const RUNTIME_KEY = '__MECHANICA_RUNTIME__'
@@ -9,6 +9,8 @@ const PROTOCOL_VERSION = 1
 export interface StateUpdatePayload {
   content: ContentBlock[]
   data?: Record<string, unknown>
+  /** Sent when the editor switches pages in place. */
+  page?: PageMeta
 }
 
 export interface StateUpdateMessage {
@@ -21,6 +23,8 @@ export interface StateUpdateMessage {
 export interface BridgeRuntime {
   setContent(content: ContentBlock[]): void
   mergeData(data: Record<string, unknown>): void
+  /** Replace the current page's metadata (in-place page switch). */
+  setPage?(page: PageMeta): void
 }
 
 /**
@@ -59,9 +63,10 @@ export function exposeRuntime(runtime: BridgeRuntime): () => void {
 
   const onMessage = (event: MessageEvent) => {
     if (!isStateUpdate(event.data)) return
-    const { content, data } = event.data.payload
+    const { content, data, page } = event.data.payload
     runtime.setContent(content)
     if (data) runtime.mergeData(data)
+    if (page) runtime.setPage?.(page)
   }
 
   window.addEventListener('message', onMessage)

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import { join } from 'node:path'
-import { parseWidths, resolveDataArg, previewUrl, outputPath } from '@/cli/shot'
+import { parseWidths, resolveDataArg, previewUrl, outputPath, pageSlug, normalizePagePath } from '@/cli/shot'
 
 describe('parseWidths', () => {
   it('defaults to a desktop width', () => {
@@ -57,6 +57,23 @@ describe('previewUrl', () => {
     expect(url).toContain('/@mechanica/preview/hero?data=')
     const encoded = url.split('?data=')[1]!
     expect(JSON.parse(decodeURIComponent(encoded))).toEqual({ title: 'A & B' })
+  })
+})
+
+describe('pageSlug', () => {
+  it('names the root page index and dashes nested paths', () => {
+    expect(pageSlug('/')).toBe('index')
+    expect(pageSlug('/docs')).toBe('docs')
+    expect(pageSlug('/docs/getting-started/')).toBe('docs-getting-started')
+  })
+})
+
+describe('normalizePagePath', () => {
+  it('ensures a leading slash and strips trailing slashes', () => {
+    expect(normalizePagePath('/')).toBe('/')
+    expect(normalizePagePath('docs')).toBe('/docs')
+    expect(normalizePagePath('/docs/')).toBe('/docs')
+    expect(normalizePagePath(' /docs/api ')).toBe('/docs/api')
   })
 })
 

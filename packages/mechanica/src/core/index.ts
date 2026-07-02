@@ -20,7 +20,10 @@ export { renderBlocks } from './render-blocks'
 export { Link, type LinkTarget } from './link'
 export {
   mountPreviewApp,
+  buildPreviewContent,
   type BlockPreviewRequest,
+  type PreviewSlotEntry,
+  type PreviewContent,
   type MountPreviewAppOptions,
   type MountPreviewAppResult,
 } from './preview'

@@ -7,6 +7,7 @@ export type ShortcutAction =
   | 'cut'
   | 'paste'
   | 'deselect'
+  | 'quickSwitch'
 
 export interface ShortcutEvent {
   key: string
@@ -26,10 +27,13 @@ export interface ShortcutEvent {
  */
 export function resolveShortcut(event: ShortcutEvent): ShortcutAction | null {
   if (event.key === 'Escape') return 'deselect'
-  if (event.typing) return null
 
   const mod = event.metaKey || event.ctrlKey
   const key = event.key.toLowerCase()
+
+  // The quick switcher opens even while typing (like every command palette).
+  if (mod && key === 'k') return 'quickSwitch'
+  if (event.typing) return null
 
   if (mod && key === 'z') return event.shiftKey ? 'redo' : 'undo'
   if (mod && key === 'y') return 'redo'
