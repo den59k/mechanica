@@ -341,3 +341,22 @@ describe('page-format: envelope', () => {
     expect(parsePage('')).toEqual({ data: {}, content: [] })
   })
 })
+
+describe('page-format: block schema versions', () => {
+  it('round-trips the v= attribute', () => {
+    const doc = parsePage(['::: hero #h1 v=2', 'title: Hi', ':::'].join('\n'))
+    expect(doc.content[0]!.v).toBe(2)
+
+    const text = serializePage(doc)
+    expect(text).toContain('::: hero #h1 v=2')
+    expect(parsePage(text).content[0]!.v).toBe(2)
+  })
+
+  it('omits v for unversioned blocks and rejects malformed values', () => {
+    const doc = parsePage(['::: hero #h1', 'title: Hi', ':::'].join('\n'))
+    expect(doc.content[0]!.v).toBeUndefined()
+    expect(serializePage(doc)).not.toContain('v=')
+
+    expect(() => parsePage('::: hero v=two\n:::')).toThrow(/Unknown block attribute/)
+  })
+})

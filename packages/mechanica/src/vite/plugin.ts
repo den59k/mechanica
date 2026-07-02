@@ -7,7 +7,8 @@ import { collectBlocks } from './collect-blocks'
 import { generateClientEntry, generatePreviewEntry, generateSsrEntry } from './entries'
 import { createDevMiddleware } from './dev/middleware'
 import { createPreviewMiddleware } from './dev/preview'
-import { setPageCodec, pageUrlOf } from './dev/pages-store'
+import { setPageCodec, setPageBlocks, pageUrlOf } from './dev/pages-store'
+import { toBlockMeta } from '../editor/lib/block-meta'
 import { buildPageState } from './dev/page-state'
 import { wasRecentlyMutated } from './dev/fs-utils'
 import { buildRichTextCodec } from './rich-text-codec'
@@ -67,7 +68,11 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
     if (!codecReady) {
       codecReady = server
         .ssrLoadModule(BLOCKS_MODULE_ID)
-        .then((mod) => setPageCodec(buildRichTextCodec(mod.blocksList ?? [])))
+        .then((mod) => {
+          setPageCodec(buildRichTextCodec(mod.blocksList ?? []))
+          // The same block set feeds page-read schema migrations.
+          setPageBlocks((mod.blocksList ?? []).map(toBlockMeta))
+        })
         .catch((error) => {
           server.config.logger.warn(`[mechanica] rich-text codec unavailable: ${error}`)
           codecReady = null

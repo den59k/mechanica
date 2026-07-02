@@ -2,7 +2,9 @@ import { readFile, writeFile, mkdir, rm, cp, readdir, copyFile } from 'node:fs/p
 import { dirname, join, parse } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
+  findUnknownBlocks,
   generateProject,
+  migrateContent,
   parsePage,
   registerFieldSchemas,
   validateLinks,
@@ -96,6 +98,15 @@ export async function exportProject(
   const richText = buildRichTextCodec(ssr.blocksList)
   const pages = await readPages(join(cwd, '.mech/pages'), readFoldersData(join(cwd, '.mech')), richText)
   const projectData = readSiteData(join(cwd, '.mech'))
+
+  // Upgrade data written with older block schemas, and surface blocks that no
+  // longer exist (they render as nothing — usually a renamed/deleted block).
+  for (const page of pages) {
+    migrateContent(page.content, blocksMap)
+    for (const id of findUnknownBlocks(page.content, blocksMap)) {
+      warn(`[mechanica] Page ${page.path} references unknown block "${id}" — it renders as nothing`)
+    }
+  }
 
   // Dead internal links: warn (not fail) — a target may be served elsewhere.
   for (const issue of validateLinks(pages, blocksMap)) {

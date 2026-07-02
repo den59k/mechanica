@@ -41,6 +41,19 @@ export interface Block {
    */
   folders?: string[]
   /**
+   * Schema version of this block (defaults to 1). Bump it together with a
+   * `migrate` function whenever a saved page's data needs reshaping (renamed
+   * prop, changed type); placed blocks record the version they were written
+   * with and migrate on load.
+   */
+  version?: number
+  /**
+   * Upgrade a placed block's data from an older schema version. Receives the
+   * stored data and the version it was written with; mutate it in place or
+   * return the replacement. Must handle every `from < version`.
+   */
+  migrate?: (data: Record<string, unknown>, from: number) => Record<string, unknown> | undefined | void
+  /**
    * Example prop values used when the block renders outside a page — the
    * palette hover preview and the `/@mechanica/preview` route (`mechanica shot`).
    * Merged over schema defaults, so it only needs the props that matter visually.
@@ -59,6 +72,8 @@ export interface ContentBlock {
   id: string
   blockId: string
   data: Record<string, unknown>
+  /** Schema version the data was written with (absent = 1); see `Block.version`. */
+  v?: number
   /** Either a single default-slot list or a map of named-slot lists. */
   children?: ContentBlock[] | Record<string, ContentBlock[]>
 }

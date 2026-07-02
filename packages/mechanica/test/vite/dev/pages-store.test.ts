@@ -16,6 +16,7 @@ import {
   listPages,
   pageVersion,
   pageUrlOf,
+  setPageBlocks,
   PageExistsError,
 } from '@/vite/dev/pages-store'
 
@@ -32,6 +33,37 @@ function writePage(relative: string, data: Record<string, unknown>) {
   fs.mkdirSync(dirname(file), { recursive: true })
   fs.writeFileSync(file, serializePage({ content: [], data: {}, ...data }))
 }
+
+describe('schema migrations on read', () => {
+  afterEach(() => setPageBlocks(undefined))
+
+  it('upgrades old block data when block metadata is configured', () => {
+    writePage('home.page.md', {
+      content: [{ id: 'h', blockId: 'hero', data: { title: 'Hi' } }],
+    })
+    setPageBlocks([
+      {
+        id: 'hero',
+        name: 'Hero',
+        version: 2,
+        migrate(data, from) {
+          if (from < 2) {
+            data.heading = data.title
+            delete data.title
+          }
+        },
+      },
+    ])
+
+    const page = readPage(mechDir, '/home')
+    expect(page.content[0]!.data).toEqual({ heading: 'Hi' })
+    expect(page.content[0]!.v).toBe(2)
+
+    // The read itself does not rewrite the file — the next save persists it.
+    const raw = fs.readFileSync(join(mechDir, 'pages', 'home.page.md'), 'utf-8')
+    expect(raw).toContain('title: Hi')
+  })
+})
 
 describe('pageVersion', () => {
   it('is null for a missing page and changes with the content', () => {

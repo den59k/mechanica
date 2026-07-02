@@ -44,6 +44,8 @@ export {
   type LinkIssue,
 } from './validate-links'
 
+export { migrateContent, findUnknownBlocks } from './migrate'
+
 export {
   parsePage,
   serializePage,

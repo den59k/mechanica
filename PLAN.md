@@ -24,6 +24,10 @@ entry is the contract a future hosted backend will call.
   (site/folder/page), atomic writes, optimistic concurrency (409 + conflict UI:
   Reload / Keep mine), live sync of external edits into the open editor
   (Claude co-authoring is a first-class flow).
+- **Schema evolution** — `defineBlock({ version, migrate })`: placed blocks
+  record the schema version they were written with (`v=` fence attribute);
+  older data migrates on load (dev + export) and persists on next save; export
+  warns about pages referencing deleted block types.
 - **Editor** — overlay panels (never move the page), palette with categories +
   live hover previews, hierarchy tree, undo/redo, save-status indicator,
   unload-safe saves (beacon flush), Ctrl/Cmd+K quick switcher (**pages only**),
@@ -39,12 +43,9 @@ entry is the contract a future hosted backend will call.
 
 1. **Palette previews** — reuse the preview route/thumbnail infra for palette
    card thumbnails; recently-used row in the palette.
-2. **Schema evolution** — per-block `version` + upgrade hook so prop
-   renames/type changes migrate page data instead of silently drifting;
-   warnings for pages referencing deleted blocks.
-3. **Query layer** — real `resolveQuery` implementations beyond the dev stub
+2. **Query layer** — real `resolveQuery` implementations beyond the dev stub
    (`getPages` etc.), caching, pagination.
-4. **SaaS / hosted backend** (deferred by design) — extract a transport
+3. **SaaS / hosted backend** (deferred by design) — extract a transport
    interface over `/@mechanica` + the bridge (postMessage/iframe-ready,
    version-negotiated), define the backend `render(state)` contract against
    the existing SSR entry, redesign `push` (auth, versioning, rollback).

@@ -83,9 +83,14 @@ Each content block is a fence opened by `:::` and closed by `:::`:
 - `#<id>` — **optional** content-block id. When absent, a fresh id is generated
   on load (so hand-authored files never carry uuids). The editor writes ids back
   so selection/history are stable; hand-authors normally omit them.
-- `<key>=<value>` — **optional** fence attributes. The only defined attribute is
-  `slot=<name>` (see [Named slots](#5-named-slots)). Unknown attributes are
-  reserved (currently an error, to catch typos).
+- `<key>=<value>` — **optional** fence attributes. Defined attributes:
+  - `slot=<name>` — see [Named slots](#5-named-slots);
+  - `v=<int>` — the block-schema version the data was written with (absent = 1).
+    Written by the editor for blocks that declare `version` in `defineBlock`; on
+    load, data older than the current schema runs the block's `migrate` hook.
+    Hand-authors normally omit it (the data is then treated as version 1).
+
+  Unknown attributes are reserved (currently an error, to catch typos).
 
 ### The head (block props)
 

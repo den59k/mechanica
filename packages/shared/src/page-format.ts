@@ -204,8 +204,9 @@ export function parsePage(text: string, options?: PageCodecOptions): PageDoc {
 
     if (token.kind === 'open') {
       if (frame) flushHead(frame, i + 1)
-      const { id, slot } = parseAttrs(token.rest, i + 1)
+      const { id, slot, v } = parseAttrs(token.rest, i + 1)
       const block: ContentBlock = { id: id ?? `auto${++counter.n}`, blockId: token.blockId, data: {} }
+      if (v !== undefined) block.v = v
       attach(root, frame, block, slot, i + 1)
       stack.push({ block, headBuf: [], region: null })
     } else if (token.kind === 'field') {
@@ -241,11 +242,12 @@ export function parsePage(text: string, options?: PageCodecOptions): PageDoc {
 }
 
 /** Parse the `#id` and `key=value` attributes after a block id on an open fence. */
-function parseAttrs(rest: string, line: number): { id?: string; slot?: string } {
-  const out: { id?: string; slot?: string } = {}
+function parseAttrs(rest: string, line: number): { id?: string; slot?: string; v?: number } {
+  const out: { id?: string; slot?: string; v?: number } = {}
   for (const part of rest.trim().split(/[ \t]+/).filter(Boolean)) {
     if (part.startsWith('#')) out.id = part.slice(1)
     else if (part.startsWith('slot=')) out.slot = part.slice(5)
+    else if (/^v=\d+$/.test(part)) out.v = Number(part.slice(2))
     else throw new PageParseError(`Unknown block attribute "${part}"`, line)
   }
   return out
@@ -311,6 +313,7 @@ function emitBlock(
   let open = `::: ${block.blockId}`
   if (block.id) open += ` #${block.id}`
   if (slot) open += ` slot=${slot}`
+  if (block.v !== undefined) open += ` v=${block.v}`
   out.push(open)
 
   const head: Record<string, unknown> = {}

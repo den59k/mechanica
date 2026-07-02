@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toBlockMeta, blockAvailableIn } from '@/editor/lib/block-meta'
+import { toBlockMeta, blockAvailableIn, createContentBlock } from '@/editor/lib/block-meta'
 import type { Block } from '@mechanica/shared'
 
 const block = (folders?: string[]): Block => ({ id: 'b', name: 'B', folders })
@@ -44,5 +44,22 @@ describe('toBlockMeta', () => {
       blockSchema: { name: 'Doc section', folders: ['docs'], props: {} },
     })
     expect(meta.folders).toEqual(['docs'])
+  })
+
+  it('extracts version and migrate', () => {
+    const migrate = (data: Record<string, unknown>) => data
+    const meta = toBlockMeta({
+      blockId: 'hero',
+      blockSchema: { name: 'Hero', version: 3, migrate, props: {} },
+    })
+    expect(meta.version).toBe(3)
+    expect(meta.migrate).toBe(migrate)
+  })
+})
+
+describe('createContentBlock', () => {
+  it('stamps the schema version on versioned blocks only', () => {
+    expect(createContentBlock({ id: 'a', name: 'A', version: 2 }).v).toBe(2)
+    expect(createContentBlock({ id: 'b', name: 'B' }).v).toBeUndefined()
   })
 })

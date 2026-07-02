@@ -145,6 +145,45 @@ describe('mechanica export (golden)', () => {
     expect(sitemap).not.toContain('/404')
   })
 
+  it('migrates old block data and warns about unknown blocks', async () => {
+    const versioned: SsrBundle = {
+      ...ssr,
+      blocksList: [
+        {
+          blockId: 'hero',
+          __name: 'Hero',
+          blockSchema: {
+            name: 'Hero',
+            version: 2,
+            props: { heading: 'string' },
+            migrate(data: Record<string, unknown>, from: number) {
+              if (from < 2) {
+                data.heading = data.title
+                delete data.title
+              }
+            },
+          },
+        },
+      ],
+      render: (state: any) => `<main><h1>${state.content[0]?.data?.heading ?? ''}</h1></main>`,
+    }
+    // index.page.md was written pre-migration: `title` instead of `heading`,
+    // and blog/post references `hero`… plus a block type that no longer exists.
+    await writeFile(
+      join(dir, '.mech/pages/blog/post.page.md'),
+      serializePage({ content: [{ id: 'x', blockId: 'retired', data: {} }], data: {} }),
+    )
+
+    const warnings: string[] = []
+    await exportProject(dir, versioned, { onWarn: (message) => warnings.push(message) })
+
+    const home = await readFile(join(dir, 'export/index.html'), 'utf-8')
+    expect(home).toContain('<h1>Welcome</h1>') // migrated title → heading
+    expect(home).toContain('"v":2') // stamped version in the hydration state
+
+    expect(warnings.some((w) => w.includes('unknown block "retired"') && w.includes('/blog/post'))).toBe(true)
+  })
+
   it('fails loudly when index.html has no #app container', async () => {
     await writeFile(join(dir, 'dist/index.html'), '<!doctype html><html><body></body></html>')
     await expect(exportProject(dir, ssr)).rejects.toThrow(/id="app"/)

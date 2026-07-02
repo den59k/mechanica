@@ -24,6 +24,8 @@ export function toBlockMeta(component: BlockComponent): Block {
     hidden: schema.hidden,
     devOnly: schema.devOnly,
     folders: schema.folders,
+    version: schema.version,
+    migrate: schema.migrate,
     previewData: schema.previewData,
     props: schema.props
       ? (unfoldSchema(schema.props) as Record<string, unknown>)
@@ -35,7 +37,10 @@ export function toBlockMeta(component: BlockComponent): Block {
 /** Create a fresh placed block with schema defaults for its data. */
 export function createContentBlock(block: Block): ContentBlock {
   const data = block.props ? (getDefaultValue(block.props) as Record<string, unknown>) : {}
-  return { id: uid(), blockId: block.id, data: data ?? {} }
+  const content: ContentBlock = { id: uid(), blockId: block.id, data: data ?? {} }
+  // Versioned blocks record the schema version their data was written with.
+  if (block.version) content.v = block.version
+  return content
 }
 
 /**

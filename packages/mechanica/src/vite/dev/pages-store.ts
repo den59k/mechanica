@@ -1,7 +1,15 @@
 import fs from 'node:fs'
 import { createHash } from 'node:crypto'
 import { dirname, join, parse, relative } from 'node:path'
-import { parsePage, serializePage, type ContentBlock, type PageDoc, type RichTextCodec } from '@mechanica/shared'
+import {
+  migrateContent,
+  parsePage,
+  serializePage,
+  type Block,
+  type ContentBlock,
+  type PageDoc,
+  type RichTextCodec,
+} from '@mechanica/shared'
 import { writeFileAtomic, markMutated } from './fs-utils'
 
 /** Shape of a page file under `<mech>/pages` (the parsed `.page.md` document). */
@@ -21,6 +29,15 @@ export function setPageCodec(codec: RichTextCodec | undefined): void {
 }
 
 const codecOptions = () => (richTextCodec ? { richText: richTextCodec } : undefined)
+
+// Block metadata (same lifecycle as the codec): lets page reads run schema
+// migrations, so the editor and dev render never see stale-shaped block data.
+let blocksMeta: Map<string, Block> | undefined
+
+/** Configure block metadata used to migrate page data on read. Dev server only. */
+export function setPageBlocks(blocks: Block[] | undefined): void {
+  blocksMeta = blocks ? new Map(blocks.map((block) => [block.id, block])) : undefined
+}
 
 /** A page entry as returned by {@link listPages}. */
 export interface PageListItem {
@@ -61,7 +78,11 @@ export function getPagePath(mechDir: string, urlPath: string): string {
 export function readPage(mechDir: string, urlPath: string): PageFile {
   const file = getPagePath(mechDir, urlPath)
   if (!fs.existsSync(file)) return emptyPage()
-  return readFile(file)
+  const page = readFile(file)
+  // Upgrade data written with an older block schema; the change persists with
+  // the page's next save (this read does not write).
+  if (blocksMeta && page.content) migrateContent(page.content, blocksMeta)
+  return page
 }
 
 /**
