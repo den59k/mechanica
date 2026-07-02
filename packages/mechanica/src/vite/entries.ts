@@ -25,6 +25,33 @@ export function generateClientEntry(options: ClientEntryOptions): string {
   ].join('\n')
 }
 
+export interface PreviewEntryOptions {
+  /** Import specifier for the user's `defineMechanicaApp` module. */
+  userEntry: string
+}
+
+/**
+ * Generate the standalone block-preview entry (`virtual:mechanica/preview`,
+ * served by the `/@mechanica/preview/<blockId>` dev route). Imports the user's
+ * app module for its side effects — global CSS, fonts, registered data entries
+ * — without mounting the root component, then mounts the requested block alone.
+ */
+export function generatePreviewEntry(options: PreviewEntryOptions): string {
+  return [
+    `import ${JSON.stringify(options.userEntry)}`,
+    `import { blocksMap } from 'virtual:mechanica/blocks'`,
+    `import { mountPreviewApp } from 'mechanica'`,
+    ``,
+    `// Site-scope data so blocks that read shared data (headers, footers) render`,
+    `// with real values; a failed fetch degrades to empty data, never a crash.`,
+    `const state = await fetch('/@mechanica/state?path=/')`,
+    `  .then((res) => (res.ok ? res.json() : null))`,
+    `  .catch(() => null)`,
+    `mountPreviewApp({ blocks: blocksMap, target: '#app', data: state?.data ?? {} })`,
+    ``,
+  ].join('\n')
+}
+
 export interface SsrEntryOptions {
   userEntry: string
 }

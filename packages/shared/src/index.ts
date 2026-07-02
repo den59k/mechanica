@@ -17,7 +17,14 @@ export {
   areFieldSchemasRegistered,
 } from './fields'
 
-export { getDefaultValue, passDefaultValue, walkTree, walkSchema } from './schema'
+export {
+  getDefaultValue,
+  passDefaultValue,
+  buildPreviewData,
+  mergePreviewData,
+  walkTree,
+  walkSchema,
+} from './schema'
 
 export {
   generatePage,

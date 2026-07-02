@@ -18,6 +18,12 @@ export { getDataEntries, registerDataEntry, clearDataEntries, type DataEntryInpu
 export { Content } from './content'
 export { renderBlocks } from './render-blocks'
 export { Link, type LinkTarget } from './link'
+export {
+  mountPreviewApp,
+  type BlockPreviewRequest,
+  type MountPreviewAppOptions,
+  type MountPreviewAppResult,
+} from './preview'
 
 // Routing
 export { useRouter, useRoute, createRouter, type MechanicaRouter } from './router'

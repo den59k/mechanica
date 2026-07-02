@@ -87,6 +87,27 @@
           >
             Save failed · Retry
           </button>
+          <template v-else-if="save && save.status === 'conflict'">
+            <span class="mech-editor__save is-error" title="This page was edited outside the editor while you had unsaved changes">
+              Changed on disk
+            </span>
+            <button
+              type="button"
+              class="mech-editor__save is-action"
+              title="Drop your unsaved edits and load the page from disk"
+              @click="save.reloadFromDisk?.()"
+            >
+              Reload
+            </button>
+            <button
+              type="button"
+              class="mech-editor__save is-action"
+              title="Overwrite the on-disk page with your edits"
+              @click="save.keepMine?.()"
+            >
+              Keep mine
+            </button>
+          </template>
           <span v-else-if="save && save.status !== 'saved'" class="mech-editor__save">Saving…</span>
           <button type="button" class="mech-icon-button" :disabled="!canUndo" title="Undo (Ctrl+Z)" @click="history.undo()"><VIcon name="undo" /></button>
           <button type="button" class="mech-icon-button" :disabled="!canRedo" title="Redo (Ctrl+Shift+Z)" @click="history.redo()"><VIcon name="redo" /></button>
@@ -130,7 +151,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, provide, ref, watch, onScopeDispose } from 'vue'
+import { computed, nextTick, provide, ref, watch, onScopeDispose, type ShallowRef } from 'vue'
 import type { DataEntry, State } from '@mechanica/shared'
 import { createEditorStore, editorStoreKey } from './lib/store'
 import { createDragController, dragKey } from './lib/drag-controller'
@@ -139,8 +160,7 @@ import { resolveShortcut } from './lib/shortcuts'
 import { pushStateUpdate } from './lib/bridge'
 import { useBlockFrames } from './lib/use-block-frames'
 import type { BlockComponent } from './lib/block-meta'
-import type { EditorSnapshot } from './lib/types'
-import type { SaveQueue } from './lib/save-queue'
+import type { EditorSnapshot, SaveController } from './lib/types'
 import { createDialogStore, dialogKey } from './ui/dialog'
 import { createContextMenu, contextMenuKey } from './lib/context-menu'
 import VDialogHost from './ui/VDialogHost.vue'
@@ -163,8 +183,10 @@ const props = defineProps<{
   /** List images already uploaded to the project, for the reuse-an-image picker. */
   listImages?: () => Promise<{ id: string; name: string; src: string }[]>
   onChange?: (snapshot: EditorSnapshot) => void
-  /** Live save status + retry, surfaced in the toolbar. */
-  save?: Pick<SaveQueue<EditorSnapshot>, 'status' | 'retry'>
+  /** Live save status + actions (retry / conflict resolution), surfaced in the toolbar. */
+  save?: SaveController
+  /** Fresh state pushed when the page changes on disk (external edit, editor clean). */
+  externalState?: ShallowRef<State | null>
 }>()
 
 const store = createEditorStore(props.state, props.components, props.dataEntries)
@@ -257,14 +279,39 @@ const toolbarLeft = computed(() => {
 
 // On any edit: push the effective data as a live preview to the runtime, and
 // report the snapshot (split into scope buckets) for the dev server to persist.
+// Suppressed while applying an external (on-disk) change — that state came
+// *from* the server, echoing it back as a save would be noise.
+let applyingExternal = false
 watch(
   () => [store.content, store.siteData, store.folderData, store.pageData],
   () => {
+    if (applyingExternal) return
     const snapshot: EditorSnapshot = store.snapshot() as EditorSnapshot
     pushStateUpdate({ content: snapshot.content as never, data: clone(store.effective) })
     props.onChange?.(snapshot)
   },
   { deep: true },
+)
+
+// The page changed on disk while the editor was clean: apply the fresh state
+// in place (live sync with e.g. Claude editing the .page.md). The change is
+// still pushed to the runtime, and stays undoable through the history.
+watch(
+  () => props.externalState?.value,
+  (next) => {
+    if (!next) return
+    applyingExternal = true
+    store.replace({
+      content: clone(next.content ?? []),
+      siteData: clone(next.siteData ?? {}),
+      folderData: clone(next.folderData ?? {}),
+      pageData: clone(next.pageData ?? {}),
+    })
+    pushStateUpdate({ content: clone(store.content) as never, data: clone(store.effective) })
+    void nextTick(() => {
+      applyingExternal = false
+    })
+  },
 )
 
 function clone<T>(value: T): T {

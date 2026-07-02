@@ -33,6 +33,12 @@ export interface Block {
   hidden?: boolean
   /** Available only in dev, stripped from production output. */
   devOnly?: boolean
+  /**
+   * Example prop values used when the block renders outside a page — the
+   * palette hover preview and the `/@mechanica/preview` route (`mechanica shot`).
+   * Merged over schema defaults, so it only needs the props that matter visually.
+   */
+  previewData?: Record<string, unknown>
   /** compact-json-schema describing the editable props. */
   props?: Record<string, unknown>
   /** Slot name → slot metadata (currently `true`). */

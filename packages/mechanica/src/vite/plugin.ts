@@ -4,10 +4,12 @@ import { parseVueRequest } from '@vitejs/plugin-vue'
 import { passDataToHTML, serializeState } from '@mechanica/shared'
 import { compileBlock } from '../compiler/compile-block'
 import { collectBlocks } from './collect-blocks'
-import { generateClientEntry, generateSsrEntry } from './entries'
+import { generateClientEntry, generatePreviewEntry, generateSsrEntry } from './entries'
 import { createDevMiddleware } from './dev/middleware'
-import { readPage, setPageCodec } from './dev/pages-store'
-import { readSiteData, readFolderData, folderOf } from './dev/data-store'
+import { createPreviewMiddleware } from './dev/preview'
+import { setPageCodec, pageUrlOf } from './dev/pages-store'
+import { buildPageState } from './dev/page-state'
+import { wasRecentlyMutated } from './dev/fs-utils'
 import { buildRichTextCodec } from './rich-text-codec'
 
 /** Virtual module exposing the collected block components. */
@@ -16,10 +18,13 @@ export const BLOCKS_MODULE_ID = 'virtual:mechanica/blocks'
 export const CLIENT_MODULE_ID = 'virtual:mechanica/client'
 /** Virtual module that exposes the SSR render contract. */
 export const SSR_MODULE_ID = 'virtual:mechanica/ssr'
+/** Virtual module mounting a single block standalone (the dev preview route). */
+export const PREVIEW_MODULE_ID = 'virtual:mechanica/preview'
 
 const RESOLVED_BLOCKS_ID = '\0' + BLOCKS_MODULE_ID
 const RESOLVED_CLIENT_ID = '\0' + CLIENT_MODULE_ID
 const RESOLVED_SSR_ID = '\0' + SSR_MODULE_ID
+const RESOLVED_PREVIEW_ID = '\0' + PREVIEW_MODULE_ID
 
 export interface MechanicaPluginOptions {
   /** The user's `defineMechanicaApp` entry module, relative to the Vite root. */
@@ -115,6 +120,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       if (id === BLOCKS_MODULE_ID) return RESOLVED_BLOCKS_ID
       if (id === CLIENT_MODULE_ID) return RESOLVED_CLIENT_ID
       if (id === SSR_MODULE_ID) return RESOLVED_SSR_ID
+      if (id === PREVIEW_MODULE_ID) return RESOLVED_PREVIEW_ID
     },
 
     load(id) {
@@ -127,10 +133,19 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       if (id === RESOLVED_SSR_ID) {
         return generateSsrEntry({ userEntry })
       }
+      if (id === RESOLVED_PREVIEW_ID) {
+        return generatePreviewEntry({ userEntry })
+      }
     },
 
     configureServer(server) {
-      server.middlewares.use('/@mechanica', createDevMiddleware(mechDir))
+      // Registered before the general middleware so `/preview/…` never falls
+      // through to the page-CRUD handler.
+      server.middlewares.use('/@mechanica/preview', createPreviewMiddleware())
+      server.middlewares.use(
+        '/@mechanica',
+        createDevMiddleware(mechDir, { ready: () => ensurePageCodec(server) }),
+      )
       // Start loading block schemas now so saves convert richText correctly even
       // before the first page render awaits the codec.
       void ensurePageCodec(server)
@@ -145,6 +160,25 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         blockSchemas.delete(slash(file))
         invalidateBlocks(server)
       })
+
+      // External edits to the `.mech` store (Claude editing a .page.md, manual
+      // file edits) are pushed to open editors so they refresh live. Our own
+      // writes are registered in fs-utils and skipped — otherwise every save
+      // would echo back as an "external" change.
+      const onMechFile = (file: string): void => {
+        if (wasRecentlyMutated(file)) return
+        const f = slash(file)
+        const pagePath = pageUrlOf(mechDir, file)
+        if (pagePath) {
+          server.ws.send({ type: 'custom', event: 'mechanica:store-changed', data: { path: pagePath } })
+        } else if (f === slash(mechDir) + '/data.json' || f === slash(mechDir) + '/folders.json') {
+          // Shared data affects every page; no path means "refresh regardless".
+          server.ws.send({ type: 'custom', event: 'mechanica:store-changed', data: {} })
+        }
+      }
+      server.watcher.on('add', onMechFile)
+      server.watcher.on('change', onMechFile)
+      server.watcher.on('unlink', onMechFile)
     },
 
     // Schema edits need a re-collect + full reload (the editor reads block
@@ -187,23 +221,9 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
 
         // Ensure richText fields hydrate as Block[] (not raw Markdown).
         if (ctx.server) await ensurePageCodec(ctx.server)
-        const page = readPage(mechDir, urlPath)
-        // Resolve site < folder < page so a page (and its folder) override shared
-        // site data. The buckets are injected too, so the editor can edit each
-        // level and tell which entries this page overrides.
-        const folder = folderOf(mechDir, urlPath)
-        const siteData = readSiteData(mechDir)
-        const folderData = readFolderData(mechDir, folder)
-        const pageData = page.data ?? {}
-        const state = {
-          content: page.content ?? [],
-          data: { ...siteData, ...folderData, ...pageData },
-          siteData,
-          folderData,
-          pageData,
-          folder,
-          page: { path: urlPath, meta: page.meta ?? {} },
-        }
+        // Site < folder < page resolution plus the editor's scope buckets and
+        // the page's on-disk version (for optimistic-concurrency saves).
+        const state = buildPageState(mechDir, urlPath)
         const inject = [
           `<script>window.state=${serializeState(state)}</script>`,
           `<script type="module">`,

@@ -151,6 +151,62 @@ describe('dev middleware', () => {
     expect(await served.text()).toBe('hello')
   })
 
+  it('serves merged page state with the on-disk version', async () => {
+    await fetch(`${base}/pages`, { method: 'POST', body: JSON.stringify({ path: '/about', name: 'About' }) })
+    await fetch(`${base}/save?path=/about`, {
+      method: 'POST',
+      body: JSON.stringify({
+        content: [{ id: '1', blockId: 'x', data: {} }],
+        siteData: { header: { logo: 'a.svg' } },
+        pageData: { seo: { title: 'About' } },
+      }),
+    })
+
+    const state = await (await fetch(`${base}/state?path=/about`)).json()
+    expect(state.content).toHaveLength(1)
+    expect(state.data).toEqual({ header: { logo: 'a.svg' }, seo: { title: 'About' } })
+    expect(state.siteData).toEqual({ header: { logo: 'a.svg' } })
+    expect(state.pageData).toEqual({ seo: { title: 'About' } })
+    expect(typeof state.version).toBe('string')
+  })
+
+  it('rejects saves over external edits unless forced', async () => {
+    await fetch(`${base}/pages`, { method: 'POST', body: JSON.stringify({ path: '/about', name: 'About' }) })
+    const first = await (
+      await fetch(`${base}/save?path=/about`, {
+        method: 'POST',
+        body: JSON.stringify({ content: [{ id: '1', blockId: 'x', data: {} }] }),
+      })
+    ).json()
+    expect(typeof first.version).toBe('string')
+
+    // Simulate an external edit (Claude touching the .page.md directly).
+    const file = join(mechDir, 'pages', 'about.page.md')
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf-8') + '\n')
+
+    const stale = await fetch(`${base}/save?path=/about`, {
+      method: 'POST',
+      body: JSON.stringify({ content: [], version: first.version }),
+    })
+    expect(stale.status).toBe(409)
+    expect((await stale.json()).error).toBe('conflict')
+
+    // A matching version saves fine and returns the next version.
+    const current = await (await fetch(`${base}/state?path=/about`)).json()
+    const ok = await fetch(`${base}/save?path=/about`, {
+      method: 'POST',
+      body: JSON.stringify({ content: [], version: current.version }),
+    })
+    expect(ok.status).toBe(200)
+
+    // Forcing overrides the check ("keep mine").
+    const forced = await fetch(`${base}/save?path=/about`, {
+      method: 'POST',
+      body: JSON.stringify({ content: [], version: first.version, force: true }),
+    })
+    expect(forced.status).toBe(200)
+  })
+
   it('refuses to serve assets outside the assets directory', async () => {
     // A file that must never be reachable through /assets/.
     fs.writeFileSync(join(mechDir, 'data.json'), '{"secret":true}')

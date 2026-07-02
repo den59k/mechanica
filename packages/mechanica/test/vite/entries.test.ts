@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateClientEntry, generateSsrEntry } from '@/vite/entries'
+import { generateClientEntry, generatePreviewEntry, generateSsrEntry } from '@/vite/entries'
 
 describe('generateClientEntry', () => {
   it('mounts the user app from the factory', () => {
@@ -14,6 +14,18 @@ describe('generateClientEntry', () => {
     const code = generateClientEntry({ userEntry: '/x.ts', mount: '#root', mode: 'client' })
     expect(code).toContain('mode: "client"')
     expect(code).toContain('.mount("#root")')
+  })
+})
+
+describe('generatePreviewEntry', () => {
+  it('imports the user app for side effects without mounting it', () => {
+    const code = generatePreviewEntry({ userEntry: '/src/main.ts' })
+    expect(code).toContain('import "/src/main.ts"')
+    expect(code).not.toContain('import definition')
+    expect(code).not.toContain('.mount(')
+    expect(code).toContain("import { mountPreviewApp } from 'mechanica'")
+    expect(code).toContain("mountPreviewApp({ blocks: blocksMap, target: '#app'")
+    expect(code).toContain("fetch('/@mechanica/state?path=/')")
   })
 })
 

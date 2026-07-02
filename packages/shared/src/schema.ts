@@ -44,6 +44,41 @@ export function passDefaultValue(state: any, schema: any): any {
   return state ?? getDefaultValue(schema)
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** Deep-merge `patch` over `base`: plain objects merge, arrays and scalars replace. */
+export function mergePreviewData(
+  base: Record<string, unknown>,
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...base }
+  for (const [key, value] of Object.entries(patch)) {
+    const current = out[key]
+    out[key] =
+      isPlainObject(current) && isPlainObject(value) ? mergePreviewData(current, value) : value
+  }
+  return out
+}
+
+/**
+ * Resolve the data a block should render with outside a page: schema defaults,
+ * overlaid with the block's authored `previewData`, overlaid with per-call
+ * overrides (e.g. the `?data=` payload of the preview route).
+ *
+ * @param props Unfolded (JSON-schema shaped) props schema, as on `Block.props`.
+ */
+export function buildPreviewData(
+  props: Record<string, unknown> | undefined,
+  previewData?: Record<string, unknown>,
+  overrides?: Record<string, unknown>,
+): Record<string, unknown> {
+  const defaults = props ? getDefaultValue(props) : {}
+  const base = isPlainObject(defaults) ? defaults : {}
+  return mergePreviewData(mergePreviewData(base, previewData ?? {}), overrides ?? {})
+}
+
 /** Depth-first walk over a content tree, including array and named-slot children. */
 export function walkTree(blocks: ContentBlock[], callback: (block: ContentBlock) => void): void {
   for (const block of blocks) {

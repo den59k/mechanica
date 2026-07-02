@@ -3,3 +3,11 @@ declare module 'virtual:mechanica/blocks' {
   export const blocksList: Component[]
   export const blocksMap: Map<string, Component>
 }
+
+// Minimal slice of Vite's HMR client API (avoids depending on vite/client
+// types, which would also claim .css/.svg module shapes we declare ourselves).
+interface ImportMeta {
+  readonly hot?: {
+    on(event: string, callback: (data: any) => void): void
+  }
+}

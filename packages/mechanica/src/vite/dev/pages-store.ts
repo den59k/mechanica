@@ -1,6 +1,8 @@
 import fs from 'node:fs'
-import { dirname, join, parse } from 'node:path'
+import { createHash } from 'node:crypto'
+import { dirname, join, parse, relative } from 'node:path'
 import { parsePage, serializePage, type ContentBlock, type PageDoc, type RichTextCodec } from '@mechanica/shared'
+import { writeFileAtomic, markMutated } from './fs-utils'
 
 /** Shape of a page file under `<mech>/pages` (the parsed `.page.md` document). */
 export type PageFile = PageDoc
@@ -43,8 +45,7 @@ const emptyPage = (): PageFile => ({ content: [], data: {} })
 const readFile = (file: string): PageFile => parsePage(fs.readFileSync(file, 'utf-8'), codecOptions())
 
 const writeFile = (file: string, page: PageFile): void => {
-  fs.mkdirSync(dirname(file), { recursive: true })
-  fs.writeFileSync(file, serializePage(page, codecOptions()))
+  writeFileAtomic(file, serializePage(page, codecOptions()))
 }
 
 /** Resolve a URL path to its page file under `<mechDir>/pages`. */
@@ -61,6 +62,30 @@ export function readPage(mechDir: string, urlPath: string): PageFile {
   const file = getPagePath(mechDir, urlPath)
   if (!fs.existsSync(file)) return emptyPage()
   return readFile(file)
+}
+
+/**
+ * A page's current on-disk version — a hash of its file content, `null` when
+ * the file does not exist. The editor sends the version it loaded back with
+ * each save so the dev server can reject saves over external edits.
+ */
+export function pageVersion(mechDir: string, urlPath: string): string | null {
+  const file = getPagePath(mechDir, urlPath)
+  if (!fs.existsSync(file)) return null
+  return createHash('sha1').update(fs.readFileSync(file)).digest('hex').slice(0, 16)
+}
+
+/**
+ * The inverse of {@link getPagePath}: the URL path a page file is served at,
+ * or `null` when the file is not a page document under `<mechDir>/pages`.
+ */
+export function pageUrlOf(mechDir: string, file: string): string | null {
+  const rel = relative(join(mechDir, 'pages'), file).replace(/\\/g, '/')
+  if (rel.startsWith('..') || !rel.endsWith(EXT)) return null
+  let path = rel.slice(0, -EXT.length)
+  if (path === 'index') path = ''
+  else if (path.endsWith('/index')) path = path.slice(0, -'/index'.length)
+  return '/' + path
 }
 
 /** Create a new page, throwing {@link PageExistsError} if it already exists. */
@@ -106,6 +131,7 @@ export function deletePage(mechDir: string, urlPath: string): boolean {
   const file = getPagePath(mechDir, urlPath)
   if (!fs.existsSync(file)) return false
   fs.rmSync(file)
+  markMutated(file)
 
   const dir = dirname(file)
   const pagesDir = join(mechDir, 'pages')
@@ -134,6 +160,7 @@ export function movePage(mechDir: string, fromPath: string, toPath: string): { p
 
   if (target !== file) {
     fs.rmSync(file)
+    markMutated(file)
     const dir = dirname(file)
     const pagesDir = join(mechDir, 'pages')
     if (dir !== pagesDir && fs.existsSync(dir) && fs.readdirSync(dir).length === 0) {
@@ -143,17 +170,18 @@ export function movePage(mechDir: string, fromPath: string, toPath: string): { p
   return { path: cleaned }
 }
 
-/** Merge content/data into a page and persist it. */
+/** Merge content/data into a page and persist it. Returns the new on-disk version. */
 export function savePage(
   mechDir: string,
   urlPath: string,
   patch: { content?: unknown[]; data?: Record<string, unknown> },
-): void {
+): string | null {
   const file = getPagePath(mechDir, urlPath)
   const page = fs.existsSync(file) ? readFile(file) : emptyPage()
   if (patch.content !== undefined) page.content = patch.content as ContentBlock[]
   if (patch.data !== undefined) page.data = patch.data
   writeFile(file, page)
+  return pageVersion(mechDir, urlPath)
 }
 
 /**

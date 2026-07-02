@@ -1,6 +1,13 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { registerFieldSchemas } from '@/fields'
-import { getDefaultValue, passDefaultValue, walkTree, walkSchema } from '@/schema'
+import {
+  getDefaultValue,
+  passDefaultValue,
+  buildPreviewData,
+  mergePreviewData,
+  walkTree,
+  walkSchema,
+} from '@/schema'
 import type { ContentBlock } from '@/types'
 
 // Register field defaults once so format-based defaults resolve. The alias
@@ -34,6 +41,48 @@ describe('getDefaultValue', () => {
       required: ['a'],
     })
     expect(value).toEqual({ a: '', b: undefined })
+  })
+})
+
+describe('mergePreviewData', () => {
+  it('deep-merges plain objects and replaces arrays and scalars', () => {
+    expect(
+      mergePreviewData(
+        { a: 1, nested: { x: 1, y: 2 }, list: [1, 2] },
+        { nested: { y: 3 }, list: [9] },
+      ),
+    ).toEqual({ a: 1, nested: { x: 1, y: 3 }, list: [9] })
+  })
+
+  it('does not mutate its inputs', () => {
+    const base = { nested: { x: 1 } }
+    mergePreviewData(base, { nested: { x: 2 } })
+    expect(base.nested.x).toBe(1)
+  })
+})
+
+describe('buildPreviewData', () => {
+  const props = {
+    type: 'object',
+    properties: { title: { type: 'string' }, count: { type: 'number' } },
+    required: ['title', 'count'],
+  }
+
+  it('layers overrides over previewData over schema defaults', () => {
+    expect(buildPreviewData(props)).toEqual({ title: '', count: 0 })
+    expect(buildPreviewData(props, { title: 'Hello' })).toEqual({ title: 'Hello', count: 0 })
+    expect(buildPreviewData(props, { title: 'Hello' }, { count: 5 })).toEqual({
+      title: 'Hello',
+      count: 5,
+    })
+    expect(buildPreviewData(props, { title: 'Hello' }, { title: 'Override' })).toEqual({
+      title: 'Override',
+      count: 0,
+    })
+  })
+
+  it('works without a props schema', () => {
+    expect(buildPreviewData(undefined, { title: 'Hi' })).toEqual({ title: 'Hi' })
   })
 })
 

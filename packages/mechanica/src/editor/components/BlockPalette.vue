@@ -45,7 +45,7 @@
 <script setup lang="ts">
 import { computed, inject, onBeforeUnmount, ref, type Component } from 'vue'
 import { useSearch } from 'vuesix'
-import { getDefaultValue, type Block } from '@mechanica/shared'
+import { buildPreviewData, type Block } from '@mechanica/shared'
 import { editorStoreKey } from '../lib/store'
 import { dragKey } from '../lib/drag-controller'
 import VIcon from './VIcon.vue'
@@ -97,7 +97,7 @@ function onEnter(block: Block, event: MouseEvent) {
   if (!component) return
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   const anchor = { top: rect.top, left: rect.left, height: rect.height }
-  const data = getDefaultValue(block.props ?? emptySchema) as Record<string, unknown>
+  const data = buildPreviewData(block.props ?? emptySchema, block.previewData)
   if (timer) clearTimeout(timer)
   timer = setTimeout(() => {
     hovered.value = { block, component, data, anchor }

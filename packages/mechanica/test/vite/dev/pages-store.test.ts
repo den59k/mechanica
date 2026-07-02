@@ -14,6 +14,8 @@ import {
   movePage,
   listFolders,
   listPages,
+  pageVersion,
+  pageUrlOf,
   PageExistsError,
 } from '@/vite/dev/pages-store'
 
@@ -30,6 +32,39 @@ function writePage(relative: string, data: Record<string, unknown>) {
   fs.mkdirSync(dirname(file), { recursive: true })
   fs.writeFileSync(file, serializePage({ content: [], data: {}, ...data }))
 }
+
+describe('pageVersion', () => {
+  it('is null for a missing page and changes with the content', () => {
+    expect(pageVersion(mechDir, '/about')).toBeNull()
+    writePage('about.page.md', { name: 'About' })
+    const v1 = pageVersion(mechDir, '/about')
+    expect(typeof v1).toBe('string')
+    expect(pageVersion(mechDir, '/about')).toBe(v1)
+
+    savePage(mechDir, '/about', { data: { seo: { title: 'About' } } })
+    expect(pageVersion(mechDir, '/about')).not.toBe(v1)
+  })
+
+  it('is returned by savePage', () => {
+    const version = savePage(mechDir, '/about', { content: [] })
+    expect(version).toBe(pageVersion(mechDir, '/about'))
+  })
+})
+
+describe('pageUrlOf', () => {
+  it('inverts getPagePath', () => {
+    expect(pageUrlOf(mechDir, join(mechDir, 'pages', 'index.page.md'))).toBe('/')
+    expect(pageUrlOf(mechDir, join(mechDir, 'pages', 'about.page.md'))).toBe('/about')
+    expect(pageUrlOf(mechDir, join(mechDir, 'pages', 'blog', 'index.page.md'))).toBe('/blog')
+    expect(pageUrlOf(mechDir, join(mechDir, 'pages', 'blog', 'post.page.md'))).toBe('/blog/post')
+  })
+
+  it('returns null for files outside pages or with other extensions', () => {
+    expect(pageUrlOf(mechDir, join(mechDir, 'data.json'))).toBeNull()
+    expect(pageUrlOf(mechDir, join(mechDir, 'pages', 'notes.md'))).toBeNull()
+    expect(pageUrlOf(mechDir, join(mechDir, '..', 'other', 'x.page.md'))).toBeNull()
+  })
+})
 
 describe('getPagePath', () => {
   it('maps the root path to index.page.md', () => {

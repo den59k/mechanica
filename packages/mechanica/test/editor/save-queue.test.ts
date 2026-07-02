@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createSaveQueue } from '@/editor/lib/save-queue'
+import { createSaveQueue, SaveConflictError } from '@/editor/lib/save-queue'
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -100,5 +100,52 @@ describe('createSaveQueue', () => {
     queue.push(1)
     expect(queue.flushOnUnload()).toBe(false)
     expect(queue.hasUnsaved()).toBe(true)
+  })
+
+  it('enters conflict on SaveConflictError and resolves via retry (keep mine)', async () => {
+    const send = vi.fn().mockRejectedValueOnce(new SaveConflictError()).mockResolvedValue(undefined)
+    const queue = createSaveQueue<number>({ send, delay: 100 })
+
+    queue.push(5)
+    await vi.advanceTimersByTimeAsync(100)
+    await settle()
+    expect(queue.status).toBe('conflict')
+    expect(queue.hasUnsaved()).toBe(true)
+
+    queue.retry()
+    await settle()
+    expect(send).toHaveBeenLastCalledWith(5)
+    expect(queue.status).toBe('saved')
+  })
+
+  it('resolves a conflict via discard (disk wins)', async () => {
+    const send = vi.fn().mockRejectedValue(new SaveConflictError())
+    const queue = createSaveQueue<number>({ send, delay: 100 })
+
+    queue.push(5)
+    await vi.advanceTimersByTimeAsync(100)
+    await settle()
+    expect(queue.status).toBe('conflict')
+
+    queue.discard()
+    expect(queue.status).toBe('saved')
+    expect(queue.hasUnsaved()).toBe(false)
+    // Nothing left to send.
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(send).toHaveBeenCalledTimes(1)
+  })
+
+  it('never resolves a conflict silently on unload', async () => {
+    const send = vi.fn().mockRejectedValue(new SaveConflictError())
+    const beacon = vi.fn().mockReturnValue(true)
+    const queue = createSaveQueue<number>({ send, beacon, delay: 100 })
+
+    queue.push(5)
+    await vi.advanceTimersByTimeAsync(100)
+    await settle()
+    expect(queue.status).toBe('conflict')
+
+    expect(queue.flushOnUnload()).toBe(false)
+    expect(beacon).not.toHaveBeenCalled()
   })
 })

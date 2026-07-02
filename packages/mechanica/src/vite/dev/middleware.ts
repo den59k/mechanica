@@ -10,18 +10,28 @@ import {
   movePage,
   listPages,
   listFolders,
+  pageVersion,
   PageExistsError,
 } from './pages-store'
 import { saveUpload, listImages } from './assets-store'
 import { resolveDevQuery } from './query-dev'
 import { mergeSiteData, mergeFolderData, folderOf } from './data-store'
+import { buildPageState } from './page-state'
+
+export interface DevMiddlewareOptions {
+  /** Awaited before serving `/state`, so richText fields convert consistently. */
+  ready?: () => Promise<void> | void
+}
 
 /**
  * The `/@mechanica` dev middleware: page CRUD, asset upload/serve, folder list,
  * and query resolution against the local `.mech` store. Mounted under the
  * `/@mechanica` prefix, so `req.url` here is already prefix-stripped.
  */
-export function createDevMiddleware(mechDir: string): Connect.NextHandleFunction {
+export function createDevMiddleware(
+  mechDir: string,
+  options: DevMiddlewareOptions = {},
+): Connect.NextHandleFunction {
   return async (req, res, next) => {
     const url = new URL(req.url ?? '/', 'http://localhost')
     const { pathname } = url
@@ -70,6 +80,13 @@ export function createDevMiddleware(mechDir: string): Connect.NextHandleFunction
           /* malformed encoding — keep the raw header value */
         }
         return json(await saveUpload(mechDir, name, body))
+      }
+
+      if (pathname === '/state' && req.method === 'GET') {
+        const pathParam = query.get('path')
+        if (!pathParam) return json({ error: 'Missing path' }, 400)
+        await options.ready?.()
+        return json(buildPageState(mechDir, pathParam))
       }
 
       if (pathname === '/pages' && req.method === 'GET') return json(listPages(mechDir))
@@ -121,12 +138,21 @@ export function createDevMiddleware(mechDir: string): Connect.NextHandleFunction
         const pathParam = query.get('path')
         if (!pathParam) return json({ error: 'Missing path' }, 400)
         const body = JSON.parse((await readBody(req)).toString('utf-8'))
+        // Optimistic concurrency: the editor sends back the version it loaded.
+        // A mismatch means the file changed externally (e.g. Claude edited the
+        // .page.md) — reject instead of overwriting; `force: true` overrides.
+        if (!body.force && typeof body.version === 'string') {
+          const current = pageVersion(mechDir, pathParam)
+          if (current != null && current !== body.version) {
+            return json({ error: 'conflict', version: current }, 409)
+          }
+        }
         // The editor pre-splits data into scope buckets; persist each to its store.
         // Page overrides replace the page's data; site/folder merge into shared files.
-        savePage(mechDir, pathParam, { content: body.content, data: body.pageData ?? {} })
+        const version = savePage(mechDir, pathParam, { content: body.content, data: body.pageData ?? {} })
         mergeSiteData(mechDir, body.siteData ?? {})
         mergeFolderData(mechDir, folderOf(mechDir, pathParam), body.folderData ?? {})
-        return json({ success: true })
+        return json({ success: true, version })
       }
 
       next()

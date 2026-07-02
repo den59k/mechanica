@@ -1,16 +1,22 @@
 export interface ParsedArgs {
   command?: string
+  /** Positional arguments after the command (excluding `--flag` values). */
+  args: string[]
   flags: Record<string, string | boolean>
 }
 
-/** Parse `argv` (without node/script) into a command and `--flag[=value]` map. */
+/** Parse `argv` (without node/script) into a command, positionals and a `--flag[=value]` map. */
 export function parseArgs(argv: string[]): ParsedArgs {
   const [command, ...rest] = argv
+  const args: string[] = []
   const flags: Record<string, string | boolean> = {}
 
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i]!
-    if (!arg.startsWith('--')) continue
+    if (!arg.startsWith('--')) {
+      args.push(arg)
+      continue
+    }
     const key = arg.slice(2)
 
     if (key.includes('=')) {
@@ -23,5 +29,5 @@ export function parseArgs(argv: string[]): ParsedArgs {
     }
   }
 
-  return { command, flags }
+  return { command, args, flags }
 }

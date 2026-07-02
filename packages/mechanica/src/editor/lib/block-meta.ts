@@ -23,6 +23,7 @@ export function toBlockMeta(component: BlockComponent): Block {
     order: schema.order,
     hidden: schema.hidden,
     devOnly: schema.devOnly,
+    previewData: schema.previewData,
     props: schema.props
       ? (unfoldSchema(schema.props) as Record<string, unknown>)
       : { type: 'object', properties: {} },

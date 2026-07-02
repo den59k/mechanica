@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { createApp, nextTick } from 'vue'
+import { createApp, nextTick, shallowRef } from 'vue'
 import { registerFieldSchemas } from '@mechanica/shared'
 import EditorApp from '@/editor/EditorApp.vue'
 import { registerBuiltinFieldEditors } from '@/editor/fields/builtin'
@@ -119,6 +119,60 @@ describe('EditorApp', () => {
     await new Promise((resolve) => setTimeout(resolve))
     await nextTick()
     expect(document.querySelector('.mech-image-picker__item')).toBeTruthy()
+
+    app.unmount()
+  })
+
+  it('applies external on-disk state without echoing a save', async () => {
+    const changes: unknown[] = []
+    const externalState = shallowRef<Record<string, unknown> | null>(null)
+    const el = document.createElement('div')
+    const app = createApp(EditorApp, {
+      state: { content: [], data: {} },
+      components,
+      onChange: (snapshot: unknown) => changes.push(snapshot),
+      externalState,
+    })
+    app.mount(el)
+    expect(el.textContent).toContain('No blocks yet')
+
+    // The page changed on disk (e.g. Claude edited the .page.md).
+    externalState.value = {
+      content: [{ id: 'b1', blockId: 'hero', data: { title: 'From disk' } }],
+      data: {},
+    }
+    await nextTick()
+    await nextTick()
+
+    // The hierarchy shows the new block, and no save was echoed back.
+    expect(el.textContent).not.toContain('No blocks yet')
+    expect(el.querySelector('.mech-tree')).toBeTruthy()
+    expect(changes).toHaveLength(0)
+
+    app.unmount()
+  })
+
+  it('offers conflict resolution when the save controller reports a conflict', async () => {
+    const actions: string[] = []
+    const el = document.createElement('div')
+    const app = createApp(EditorApp, {
+      state: { content: [], data: {} },
+      components,
+      save: {
+        status: 'conflict',
+        retry: () => actions.push('retry'),
+        keepMine: () => actions.push('keepMine'),
+        reloadFromDisk: () => actions.push('reload'),
+      },
+    })
+    app.mount(el)
+
+    expect(el.textContent).toContain('Changed on disk')
+    const buttons = [...el.querySelectorAll('button.mech-editor__save')] as HTMLButtonElement[]
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(['Reload', 'Keep mine'])
+    buttons[0]!.click()
+    buttons[1]!.click()
+    expect(actions).toEqual(['reload', 'keepMine'])
 
     app.unmount()
   })

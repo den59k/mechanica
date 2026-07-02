@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { createServer, type ViteDevServer } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { mechanica, BLOCKS_MODULE_ID } from '@/vite/plugin'
+import { savePage } from '@/vite/dev/pages-store'
 
 const block = (title: string, template = '<h1>hi</h1>') =>
   `<template>${template}</template>\n<script setup lang="ts">\nconst props = defineBlock({ props: { ${title}: 'string' } })\n</script>\n`
@@ -84,6 +85,44 @@ describe('mechanica plugin (dev HMR)', () => {
     await expect(server.transformRequest('/src/blocks/Broken.vue')).rejects.toThrow(
       /defineBlock\(\) may only be called once/,
     )
+  })
+
+  it('notifies clients about external page changes, but not our own saves', () => {
+    const mechDir = join(root, '.mech')
+    const pageFile = join(mechDir, 'pages', 'blog', 'post.page.md')
+    fs.mkdirSync(join(mechDir, 'pages', 'blog'), { recursive: true })
+    fs.writeFileSync(pageFile, '---\nname: Post\n---\n')
+
+    const sendSpy = vi.spyOn(server.ws, 'send')
+
+    // External edit (e.g. Claude writing the .page.md directly).
+    server.watcher.emit('change', pageFile)
+    expect(sendSpy).toHaveBeenCalledWith({
+      type: 'custom',
+      event: 'mechanica:store-changed',
+      data: { path: '/blog/post' },
+    })
+
+    // Our own save registers as a self-mutation — no echo.
+    sendSpy.mockClear()
+    savePage(mechDir, '/blog/post', { content: [] })
+    server.watcher.emit('change', pageFile)
+    expect(sendSpy).not.toHaveBeenCalled()
+  })
+
+  it('notifies clients about shared-data changes without a path', () => {
+    const dataFile = join(root, '.mech', 'data.json')
+    fs.mkdirSync(join(root, '.mech'), { recursive: true })
+    fs.writeFileSync(dataFile, '{}')
+
+    const sendSpy = vi.spyOn(server.ws, 'send')
+    server.watcher.emit('change', dataFile)
+    expect(sendSpy).toHaveBeenCalledWith({ type: 'custom', event: 'mechanica:store-changed', data: {} })
+
+    // Unrelated files are ignored.
+    sendSpy.mockClear()
+    server.watcher.emit('change', join(root, 'README.md'))
+    expect(sendSpy).not.toHaveBeenCalled()
   })
 
   it('ignores mid-edit syntax errors instead of breaking HMR', async () => {

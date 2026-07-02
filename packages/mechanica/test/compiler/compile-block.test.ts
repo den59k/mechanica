@@ -42,6 +42,15 @@ describe('compileBlock', () => {
     ).toBe('hero')
   })
 
+  it('preserves previewData in the generated blockSchema', () => {
+    const out = compileBlock(
+      sfc(`const p = defineBlock({ props: { title: 'string' }, previewData: { title: 'Hello' } })`),
+      'Hero.vue',
+    )!
+    expect(out.code).toContain(`previewData: { title: 'Hello' }`)
+    expect(out.schema).toContain('previewData')
+  })
+
   it('auto-detects slots from the template', () => {
     const out = compileBlock(
       sfc(`const p = defineBlock({ props: {} })`, '<div><slot/><slot name="footer"/></div>'),

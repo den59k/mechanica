@@ -13,5 +13,9 @@ const props = defineBlock({
     title: { type: 'string', default: 'Hello' },
     subtitle: 'text',
   },
+  previewData: {
+    title: 'Build sites visually',
+    subtitle: 'Blocks are plain Vue components — this text comes from previewData.',
+  },
 })
 </script>

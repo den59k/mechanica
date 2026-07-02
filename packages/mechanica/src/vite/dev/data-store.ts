@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { getPagePath } from './pages-store'
+import { writeFileAtomic } from './fs-utils'
 
 /** Site-wide data lives in a single file alongside the pages directory. */
 const SITE_DATA_FILE = 'data.json'
@@ -36,8 +37,7 @@ export function mergeSiteData(mechDir: string, partial: Record<string, unknown>)
   if (Object.keys(partial).length === 0) return
   const file = join(mechDir, SITE_DATA_FILE)
   const merged = { ...readSiteData(mechDir), ...partial }
-  fs.mkdirSync(dirname(file), { recursive: true })
-  fs.writeFileSync(file, JSON.stringify(merged, null, 2))
+  writeFileAtomic(file, JSON.stringify(merged, null, 2))
 }
 
 /** All folder data, keyed by folder path. */
@@ -57,6 +57,5 @@ export function mergeFolderData(mechDir: string, folder: string | null, partial:
   const file = join(mechDir, FOLDERS_DATA_FILE)
   const all = readFoldersData(mechDir)
   all[folder] = { ...all[folder], ...partial }
-  fs.mkdirSync(dirname(file), { recursive: true })
-  fs.writeFileSync(file, JSON.stringify(all, null, 2))
+  writeFileAtomic(file, JSON.stringify(all, null, 2))
 }
