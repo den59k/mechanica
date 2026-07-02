@@ -21,6 +21,12 @@ export interface CreateRouterOptions {
    * current blocks map doesn't have yet.
    */
   ensureBlocks?: (content: ContentBlock[]) => Promise<void>
+  /**
+   * Called with the target page's full serialized state right before the
+   * content swap — applies its page meta and baked query results to the
+   * runtime context.
+   */
+  applyState?: (state: State) => void
 }
 
 /**
@@ -90,6 +96,7 @@ export function createRouter(
       Object.assign(target, value)
     }
 
+    options.applyState?.(state)
     content.value = state.content
     currentRoute.path = path
 

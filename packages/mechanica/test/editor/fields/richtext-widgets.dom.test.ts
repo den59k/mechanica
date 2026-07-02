@@ -24,7 +24,7 @@ describe('registerRichTextWidgets', () => {
   it('appends site widgets after the built-ins', () => {
     registerRichTextWidgets([widget()])
     const types = allRichTextWidgets().map((w) => w.type)
-    expect(types).toEqual(['img', 'code', 'callout', 'cta'])
+    expect(types).toEqual(['img', 'code', 'callout', 'table', 'cta'])
   })
 
   it('skips duplicates of built-in, reserved and already-registered types', () => {
@@ -43,7 +43,7 @@ describe('registerRichTextWidgets', () => {
   it('rejects malformed definitions instead of breaking the editor', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     registerRichTextWidgets([{ title: 'nope' } as unknown as RichTextWidget])
-    expect(allRichTextWidgets()).toHaveLength(3)
+    expect(allRichTextWidgets()).toHaveLength(4)
     expect(warn).toHaveBeenCalledOnce()
   })
 
@@ -90,6 +90,27 @@ describe('RichTextEditor widget slots', () => {
     app.unmount()
   })
 
+  it('renders the built-in table widget as an editable grid', () => {
+    const { el, app } = mountEditor([
+      {
+        id: '1',
+        text: '',
+        type: 'table',
+        editable: false,
+        rows: [
+          [{ text: 'Name' }, { text: 'Role' }],
+          [{ text: 'Ada' }, { text: 'Engineer' }],
+        ],
+      } as Block,
+    ])
+    // Each cell hosts a nested single-line editor; the th also carries the
+    // hover remove buttons, so read the editable surface only.
+    const headers = [...el.querySelectorAll('th.vw-table-cell [contenteditable]')]
+    expect(headers.map((th) => th.textContent?.trim())).toEqual(['Name', 'Role'])
+    expect(el.querySelectorAll('td.vw-table-cell')).toHaveLength(2)
+    app.unmount()
+  })
+
   it('lists registered widgets in the Insert menu', async () => {
     registerRichTextWidgets([widget()])
     const { el, app } = mountEditor([{ id: '1', text: 'Hello' }])
@@ -97,6 +118,7 @@ describe('RichTextEditor widget slots', () => {
     await nextTick()
     // VPopover teleports to body.
     const items = [...document.body.querySelectorAll('.mech-rte__insert-item')]
+    expect(items.map((b) => b.textContent?.trim())).toContain('Table')
     expect(items.map((b) => b.textContent?.trim())).toContain('CTA button')
     app.unmount()
   })

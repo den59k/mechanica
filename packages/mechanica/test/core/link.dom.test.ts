@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { createApp, h } from 'vue'
-import type { State } from '@mechanica/shared'
+import { createApp, h, nextTick } from 'vue'
+import type { PageMeta, State } from '@mechanica/shared'
 import { createMechanica } from '@/core/create-mechanica'
 import { Link } from '@/core/link'
 
@@ -31,5 +31,17 @@ describe('<Link>', () => {
     expect(a.getAttribute('href')).toBe('https://x.com')
     expect(a.getAttribute('target')).toBe('_blank')
     expect(a.getAttribute('rel')).toBe('noopener')
+  })
+
+  it('updates its active class after an in-place page switch (bridge setPage)', async () => {
+    const a = render('/pricing')
+    expect(a.classList.contains('is-active')).toBe(false)
+
+    const runtime = (window as unknown as Record<string, unknown>).__MECHANICA_RUNTIME__ as {
+      setPage?: (page: PageMeta) => void
+    }
+    runtime.setPage?.({ path: '/pricing' })
+    await nextTick()
+    expect(a.classList.contains('is-active')).toBe(true)
   })
 })

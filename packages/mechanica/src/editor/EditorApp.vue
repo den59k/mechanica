@@ -271,7 +271,11 @@ onScopeDispose(() => {
 })
 
 const collapsed = ref(false)
-const { hovered, selected } = useBlockFrames(store)
+// Links clicked on the live page follow through the in-place page switch, so
+// the editor (save path, page version, undo history) moves with the page.
+const { hovered, selected } = useBlockFrames(store, {
+  followLink: (path) => void navigation.switchPage(path),
+})
 
 const selectedName = computed(() =>
   store.selected ? store.blocksById.get(store.selected.blockId)?.name : '',

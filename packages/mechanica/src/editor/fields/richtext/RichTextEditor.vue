@@ -116,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, provide, ref, shallowRef, watch } from 'vue'
 import { TextEditor, uid } from 'vuewrite'
 import type { Block, TextEditorRef } from 'vuewrite'
 import { blocksToMarkdown, markdownToBlocks } from 'vuewrite/markdown'
@@ -125,6 +125,7 @@ import VSelect from '../../components/VSelect.vue'
 import VPopover from '../../components/VPopover.vue'
 import WidgetBoundary from './WidgetBoundary.vue'
 import { allRichTextWidgets, type RichTextWidget } from './widgets'
+import { richTextEditorRefKey } from './keys'
 import { renderer, decorator, htmlParser, blockTypes } from './config'
 
 const props = withDefaults(
@@ -140,6 +141,10 @@ const emit = defineEmits<{ 'update:modelValue': [Block[]] }>()
 
 const editorRef = shallowRef<TextEditorRef>()
 const mode = ref<'rich' | 'markdown'>('rich')
+
+// Deeper integration for widgets that need it (the table pushes cell edits
+// onto this editor's history and removes its own block on delete).
+provide(richTextEditorRefKey, editorRef)
 
 /** Always edit a non-empty document so vuewrite has a focusable block. */
 const blank = (): Block[] => [{ id: uid(), text: '' }]

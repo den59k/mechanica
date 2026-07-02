@@ -1,5 +1,5 @@
-import { shallowRef, type App, type Plugin } from 'vue'
-import type { ContentBlock, State } from '@mechanica/shared'
+import { shallowReactive, shallowRef, type App, type Plugin } from 'vue'
+import type { ContentBlock, PageMeta, State } from '@mechanica/shared'
 import {
   mechanicaKey,
   type BlocksMap,
@@ -42,6 +42,19 @@ export function createMechanica(options: CreateMechanicaOptions = {}): Plugin {
 
       const blocks = options.blocks ?? new Map()
       const loaders = options.blockLoaders
+
+      // Reactive so <Content> re-keys blocks when e.g. the pagination context
+      // changes. Wraps the state's own object, so mutations write through
+      // (the dev query resolver reads `window.state.page` directly).
+      const page = shallowReactive<PageMeta>(initial?.page ?? {})
+      const queryData = (initial?.query ?? {}) as Record<string, unknown>
+
+      const applyPage = (next: PageMeta) => {
+        // Same object, so everything holding the context sees the switch.
+        for (const key of Object.keys(page)) delete (page as Record<string, unknown>)[key]
+        Object.assign(page, next)
+      }
+
       const context: MechanicaContext = {
         mode,
         content,
@@ -55,10 +68,18 @@ export function createMechanica(options: CreateMechanicaOptions = {}): Plugin {
                 await loadBlocks(loaders, next, blocks)
               }
             : undefined,
+          // SPA navigation carries the target page's meta and baked query
+          // results; blocks remounted for the new page must read *its* slice
+          // under the same query key, not the previous page's.
+          applyState: (state) => {
+            if (state.page) applyPage(state.page)
+            for (const key of Object.keys(queryData)) delete queryData[key]
+            Object.assign(queryData, state.query ?? {})
+          },
         }),
-        queryData: (initial?.query ?? {}) as Record<string, unknown>,
+        queryData,
         resolveQuery: options.resolveQuery,
-        page: initial?.page ?? {},
+        page,
       }
 
       app.provide(mechanicaKey, context)
@@ -70,10 +91,10 @@ export function createMechanica(options: CreateMechanicaOptions = {}): Plugin {
             content.value = next
           },
           mergeData: (incoming) => mergeData(context.data, incoming),
-          setPage: (page) => {
-            // Same object, so everything holding the context sees the switch.
-            for (const key of Object.keys(context.page)) delete (context.page as Record<string, unknown>)[key]
-            Object.assign(context.page, page)
+          setPage: (next) => {
+            applyPage(next)
+            // Keep <Link> active classes in step with in-place page switches.
+            if (next.path) context.router.currentRoute.path = context.router.normalizePath(next.path)
           },
         })
       }

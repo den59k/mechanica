@@ -1,7 +1,9 @@
 import type { Component } from 'vue'
 import type { Block } from 'vuewrite'
+import { createTableBlock } from 'vuewrite/table'
 import RichImageWidget from './RichImageWidget.vue'
 import RichCodeWidget from './RichCodeWidget.vue'
+import RichTableWidget from './RichTableWidget.vue'
 
 /**
  * A rich-text widget: a vuewrite custom block that flows inside prose (image,
@@ -60,6 +62,15 @@ const builtinWidgets: RichTextWidget[] = [
     keywords: ['callout', 'note', 'admonition', 'tip', 'warning'],
     // Editable rich text (vuewrite-managed) styled by tone via the renderer.
     create: () => ({ type: 'callout', tone: 'info', text: '' }),
+  },
+  {
+    type: 'table',
+    title: 'Table',
+    icon: 'table',
+    keywords: ['table', 'grid', 'rows', 'columns', 'cells'],
+    // Header row + two body rows; persists as a GFM pipe table in .page.md.
+    create: () => createTableBlock(3, 3),
+    editor: RichTableWidget,
   },
 ]
 

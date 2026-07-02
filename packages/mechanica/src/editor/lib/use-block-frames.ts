@@ -30,6 +30,35 @@ export function isEditorUI(element: Element | null): boolean {
   return false
 }
 
+/** The nearest anchor (with an href) a click landed on, if any. */
+export function findLink(element: Element | null): HTMLAnchorElement | null {
+  const link = element?.closest?.('a[href]')
+  return link instanceof HTMLAnchorElement ? link : null
+}
+
+/**
+ * What a click on a link inside the live page should do: `'native'` leaves it
+ * to the browser (modified clicks, new tabs, downloads, external targets,
+ * same-page hash jumps), `'follow'` switches the editor to the target page in
+ * place — the runtime's own SPA navigation must not run under the editor, or
+ * saves would target the old page's path with the new page's URL.
+ */
+export function linkClickAction(
+  link: HTMLAnchorElement,
+  event: Pick<MouseEvent, 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey'>,
+): 'native' | 'follow' {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return 'native'
+  if (link.target === '_blank' || link.hasAttribute('download')) return 'native'
+  if (link.origin !== location.origin) return 'native'
+  if (link.pathname === location.pathname && link.hash) return 'native'
+  return 'follow'
+}
+
+export interface BlockFramesOptions {
+  /** Follow an internal page link clicked on the live page (in-place switch). */
+  followLink?: (path: string) => void
+}
+
 function rectOf(id: string): BlockRect | null {
   const element = document.querySelector(`[data-block-id="${id}"]`)
   if (!element) return null
@@ -40,11 +69,12 @@ function rectOf(id: string): BlockRect | null {
 /**
  * Track hover/selection frames over the live page. Hover is shared state on the
  * store (`hoverId`), so moving over the page *or* a hierarchy row frames the same
- * block — keeping the two surfaces visually in sync. Clicking a block selects it.
+ * block — keeping the two surfaces visually in sync. Clicking a block selects it,
+ * except on links — those stay followable (internal ones through `followLink`).
  * Both frames stay glued to their block via a requestAnimationFrame loop, so they
  * follow layout and scrolling.
  */
-export function useBlockFrames(store: EditorStore) {
+export function useBlockFrames(store: EditorStore, options: BlockFramesOptions = {}) {
   const hovered = ref<BlockRect | null>(null)
   const selected = ref<BlockRect | null>(null)
 
@@ -59,6 +89,14 @@ export function useBlockFrames(store: EditorStore) {
   const onClick = (event: MouseEvent) => {
     const target = event.target as Element
     if (isEditorUI(target)) return
+    const link = findLink(target)
+    if (link) {
+      if (linkClickAction(link, event) === 'native' || !options.followLink) return
+      event.preventDefault()
+      event.stopPropagation()
+      options.followLink(link.pathname)
+      return
+    }
     const id = findBlockId(target)
     if (!id) return
     event.preventDefault()

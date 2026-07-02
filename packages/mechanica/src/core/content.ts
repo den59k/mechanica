@@ -13,6 +13,12 @@ export const Content = defineComponent({
     if (!ctx) {
       throw new Error('[mechanica] <Content> was used without createMechanica() installed')
     }
-    return () => renderBlocks(ctx.content.value, ctx.blocks)
+    return () => {
+      // Paginated variants of a page share its content tree (same node ids), so
+      // the keys carry the page number — moving /blog → /blog/2 remounts the
+      // blocks, and their mount-time queries re-run for the new slice.
+      const page = ctx.page.pagination?.page ?? 1
+      return renderBlocks(ctx.content.value, ctx.blocks, page > 1 ? `p${page}-` : undefined)
+    }
   },
 })

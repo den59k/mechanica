@@ -33,7 +33,9 @@ entry is the contract a future hosted backend will call.
   recently-used row, and in-category sorting via `defineBlock`'s `order`,
   hierarchy tree, undo/redo, save-status indicator,
   unload-safe saves (beacon flush), Ctrl/Cmd+K quick switcher (**pages only**),
-  in-place page switching (no reload, back/forward aware), folder-scoped
+  in-place page switching (no reload, back/forward aware) — including links
+  clicked on the live page (internal links follow in place instead of
+  selecting their block), folder-scoped
   blocks (`folders: ['docs']` in `defineBlock`), page browser with thumbnails
   (`mechanica thumbs`).
 - **Export** — static SSG with data scoping and `{{ }}` head templating,

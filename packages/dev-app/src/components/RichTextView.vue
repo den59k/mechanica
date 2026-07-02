@@ -15,6 +15,11 @@
         <pre><code>{{ block.text }}</code></pre>
       </div>
     </template>
+    <template #table="{ block }">
+      <div class="richtext__table">
+        <TableViewer :block="block" :decorator="decorator" />
+      </div>
+    </template>
     <!-- The `cta` widget (src/widgets/cta-button.widget.ts). -->
     <template #cta="{ block }">
       <div class="richtext__cta">
@@ -33,6 +38,8 @@
 <script setup lang="ts">
 import { TextViewer } from 'vuewrite'
 import type { Block } from 'vuewrite'
+import { TableViewer } from 'vuewrite/table'
+import 'vuewrite/style.css'
 import { renderer, decorator, listParser } from '../utils/richtext'
 
 // The page-side rich-text renderer: a vuewrite TextViewer wired with the shared
@@ -137,6 +144,21 @@ defineProps<{ value: Block[] }>()
 .richtext :deep(.rt-callout--warning) {
   --c-border: #f4d39a;
   --c-soft: #fdf4e3;
+}
+.richtext__table {
+  margin: 16px 0;
+  overflow-x: auto;
+}
+.richtext__table :deep(.vw-table-cell) {
+  border-color: var(--border);
+  padding: 8px 14px;
+  font-size: 15px;
+}
+.richtext__table :deep(th.vw-table-cell) {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  text-align: left;
 }
 .richtext__cta {
   margin: 18px 0;

@@ -22,9 +22,13 @@ registerRichTextWidgets(widgetsList)
 
 const dataEntries = getDataEntries()
 
-const savePath = () => `/@mechanica/save?path=${encodeURIComponent(location.pathname)}`
-
 const state: State = (window as { state?: State }).state ?? { content: [], data: {} }
+
+// Saves target the page the state came from (`page.path`), not the URL: on a
+// paginated variant URL (/blog/2) the state is the base page's, and saving to
+// the raw pathname would silently create a page file at /blog/2.
+let pagePath = state.page?.path ?? location.pathname
+const savePath = () => `/@mechanica/save?path=${encodeURIComponent(pagePath)}`
 
 // Optimistic concurrency: saves carry the version of the page we loaded; the
 // dev server rejects the save (409) when the file changed externally, so the
@@ -79,13 +83,14 @@ async function loadState(path: string): Promise<boolean> {
   if (!response.ok) return false
   const fresh = (await response.json()) as State & { version?: string | null }
   pageVersion = fresh.version ?? null
+  pagePath = fresh.page?.path ?? path
   externalState.value = fresh
   return true
 }
 
 if (import.meta.hot) {
   import.meta.hot.on('mechanica:store-changed', (data: { path?: string } | undefined) => {
-    if (data?.path && normalizePathname(data.path) !== normalizePathname(location.pathname)) return
+    if (data?.path && normalizePathname(data.path) !== normalizePathname(pagePath)) return
     if (saveQueue.hasUnsaved()) return
     void loadState(location.pathname)
   })
@@ -103,6 +108,8 @@ const navigation: PageNavigation = {
     if (!(await loadState(path))) return false
     history.pushState({}, '', path)
     navigation.path.value = location.pathname
+    // Land at the top of the new page, like a real navigation would.
+    window.scrollTo(0, 0)
     return true
   },
 }

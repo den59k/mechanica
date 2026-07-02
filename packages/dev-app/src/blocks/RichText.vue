@@ -28,6 +28,17 @@ const props = defineBlock({
         ],
       },
       { id: 'p3', type: 'cta', editable: false, label: 'Get started', href: '/', variant: 'primary' },
+      {
+        id: 'p4',
+        type: 'table',
+        editable: false,
+        text: '',
+        rows: [
+          [{ text: 'Plan' }, { text: 'Pages' }, { text: 'Price' }],
+          [{ text: 'Free' }, { text: '3' }, { text: '$0' }],
+          [{ text: 'Pro' }, { text: 'Unlimited' }, { text: '$12/mo' }],
+        ],
+      },
     ],
   },
 })
