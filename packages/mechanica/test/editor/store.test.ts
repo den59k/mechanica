@@ -34,6 +34,22 @@ describe('editor store', () => {
     expect(store.selectedId).toBeNull()
   })
 
+  it('tracks recently inserted blocks, most recent first and deduplicated', () => {
+    const store = createEditorStore({ content: [], data: {} }, components)
+    expect(store.recentBlockIds).toEqual([])
+
+    store.addBlock('hero')
+    store.addBlockAt('section', { anchorId: null, position: 'after' })
+    store.addBlock('hero')
+    expect(store.recentBlockIds).toEqual(['hero', 'section'])
+
+    // Unknown ids and non-palette paths (paste/duplicate) don't register.
+    store.addBlock('nope')
+    store.copy(store.content[0]!.id)
+    store.paste(null)
+    expect(store.recentBlockIds).toEqual(['hero', 'section'])
+  })
+
   it('copies and pastes a block with fresh ids', () => {
     const store = createEditorStore({ content: [], data: {} }, components)
     store.addBlock('hero')

@@ -21,6 +21,9 @@ const props = defineBlock({
       items: { name: 'string' },
     },
   },
+  previewData: {
+    items: [{ name: 'Vite 8' }, { name: 'Vue 3.5' }, { name: 'Bun' }, { name: 'Vitest 4' }, { name: 'TypeScript' }],
+  },
 })
 </script>
 

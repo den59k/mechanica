@@ -61,6 +61,36 @@ const props = defineBlock({
       },
     },
   },
+  previewData: {
+    eyebrow: 'Pricing',
+    subtitle: 'The editor and static export are open source. Hosted rendering is on the way.',
+    plans: [
+      {
+        name: 'Open source',
+        price: '$0',
+        period: 'forever',
+        description: 'Everything you need to build and export a site.',
+        features: [{ text: 'Visual block editor' }, { text: 'Static site export' }, { text: 'MIT licensed' }],
+        ctaLabel: 'Get started',
+      },
+      {
+        name: 'Team',
+        price: '$19',
+        period: '/ editor / mo',
+        description: 'Collaboration and hosted rendering for growing teams.',
+        features: [{ text: 'Hosted SSR rendering' }, { text: 'Shared asset library' }, { text: 'Roles & review' }],
+        ctaLabel: 'Start free trial',
+        featured: true,
+      },
+      {
+        name: 'Enterprise',
+        price: "Let's talk",
+        description: 'Security, SSO and support for large organizations.',
+        features: [{ text: 'SSO & audit logs' }, { text: 'Priority support' }, { text: 'On-prem option' }],
+        ctaLabel: 'Contact sales',
+      },
+    ],
+  },
 })
 </script>
 

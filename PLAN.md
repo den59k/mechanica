@@ -29,7 +29,9 @@ entry is the contract a future hosted backend will call.
   older data migrates on load (dev + export) and persists on next save; export
   warns about pages referencing deleted block types.
 - **Editor** — overlay panels (never move the page), palette with categories +
-  live hover previews, hierarchy tree, undo/redo, save-status indicator,
+  live hover previews, card thumbnails (`mechanica thumbs --blocks`), a
+  recently-used row, and in-category sorting via `defineBlock`'s `order`,
+  hierarchy tree, undo/redo, save-status indicator,
   unload-safe saves (beacon flush), Ctrl/Cmd+K quick switcher (**pages only**),
   in-place page switching (no reload, back/forward aware), folder-scoped
   blocks (`folders: ['docs']` in `defineBlock`), page browser with thumbnails
@@ -47,11 +49,9 @@ entry is the contract a future hosted backend will call.
 
 ## Next
 
-1. **Palette previews** — reuse the preview route/thumbnail infra for palette
-   card thumbnails; recently-used row in the palette.
-2. **Query layer** — real `resolveQuery` implementations beyond the dev stub
+1. **Query layer** — real `resolveQuery` implementations beyond the dev stub
    (`getPages` etc.), caching, pagination.
-3. **SaaS / hosted backend** (deferred by design) — extract a transport
+2. **SaaS / hosted backend** (deferred by design) — extract a transport
    interface over `/@mechanica` + the bridge (postMessage/iframe-ready,
    version-negotiated), define the backend `render(state)` contract against
    the existing SSR entry, redesign `push` (auth, versioning, rollback).

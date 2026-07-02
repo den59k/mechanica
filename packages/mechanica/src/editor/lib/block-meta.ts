@@ -34,6 +34,17 @@ export function toBlockMeta(component: BlockComponent): Block {
   }
 }
 
+/**
+ * Palette order within a category: blocks with an explicit `order` first
+ * (ascending), then the rest alphabetically by name.
+ */
+export function compareBlocks(a: Block, b: Block): number {
+  const orderA = a.order ?? Number.POSITIVE_INFINITY
+  const orderB = b.order ?? Number.POSITIVE_INFINITY
+  if (orderA !== orderB) return orderA - orderB
+  return a.name.localeCompare(b.name)
+}
+
 /** Create a fresh placed block with schema defaults for its data. */
 export function createContentBlock(block: Block): ContentBlock {
   const data = block.props ? (getDefaultValue(block.props) as Record<string, unknown>) : {}

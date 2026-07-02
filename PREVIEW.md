@@ -155,6 +155,29 @@ mechanica thumbs /docs      # only pages under /docs
   or after restyling blocks. Flags: `--out <dir>`, `--server <url>`,
   `--browser <path>`.
 
+## 5. Block thumbnails (`mechanica thumbs --blocks`)
+
+The palette's block cards carry the same treatment: a rendered miniature of
+each block, so the palette scans like a component library instead of a text
+menu.
+
+```bash
+mechanica thumbs --blocks           # thumbnail every palette-visible block
+mechanica thumbs --blocks pricing   # only ids matching / starting with "pricing"
+```
+
+- Each block renders through the standalone preview route (so `previewData`
+  and schema defaults resolve, slots show their placeholders) at 1200px wide,
+  clipped to the block's own height (capped at 900), and is captured
+  downscaled to 240px wide into `.mech/thumbs/blocks/<blockId>.png`.
+- The palette lazy-loads them per card from `/@mechanica/thumbs/blocks/…`,
+  keeping the icon/monogram tile as the fallback for blocks without one.
+- Hidden blocks are skipped (they're not in the palette); thumbnails of
+  deleted blocks are cleaned up on full runs. Same flags as page thumbs.
+- **A mostly-empty thumbnail is a signal**: the block probably lacks
+  `previewData` and its main content is an array (which defaults to empty).
+  Author `previewData` and re-run.
+
 ### How it works (and why no Playwright)
 
 `shot` drives a browser over **raw CDP on the platform `WebSocket`**

@@ -33,6 +33,17 @@ const props = defineBlock({
       items: { icon: 'string', title: 'string', text: 'text' },
     },
   },
+  previewData: {
+    eyebrow: 'Why Mechanica',
+    items: [
+      { icon: '🪄', title: 'Live in-browser editor', text: 'Drag, drop, nest and edit props on the real page.' },
+      { icon: '🧩', title: 'Author in SFCs', text: 'A block is a Vue component that calls defineBlock.' },
+      { icon: '🗂️', title: 'Scoped data', text: 'Site, folder and page data — authored once, shared correctly.' },
+      { icon: '📦', title: 'Static export', text: 'Render every page to HTML with SEO head templating.' },
+      { icon: '🧱', title: 'Slots & containers', text: 'Blocks nest. Drop a block inside a card or section.' },
+      { icon: '⚡', title: 'Vite 8 + Bun', text: 'Source-level compile. Fast dev, fast builds.' },
+    ],
+  },
 })
 </script>
 

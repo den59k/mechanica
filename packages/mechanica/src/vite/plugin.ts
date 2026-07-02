@@ -199,7 +199,18 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       server.middlewares.use('/@mechanica/preview', createPreviewMiddleware())
       server.middlewares.use(
         '/@mechanica',
-        createDevMiddleware(mechDir, { ready: () => ensurePageCodec(server) }),
+        createDevMiddleware(mechDir, {
+          ready: () => ensurePageCodec(server),
+          // Block listing for `mechanica thumbs --blocks` — loaded fresh so a
+          // re-collected blocks module (HMR add/remove) is reflected.
+          blocks: async () => {
+            const mod = await server.ssrLoadModule(BLOCKS_MODULE_ID)
+            return ((mod.blocksList ?? []) as Parameters<typeof toBlockMeta>[0][]).map((component) => {
+              const meta = toBlockMeta(component)
+              return { id: meta.id, name: meta.name, hidden: meta.hidden }
+            })
+          },
+        }),
       )
       // Start loading block schemas now so saves convert richText correctly even
       // before the first page render awaits the codec.

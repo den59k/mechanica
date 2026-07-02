@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toBlockMeta, blockAvailableIn, createContentBlock } from '@/editor/lib/block-meta'
+import { toBlockMeta, blockAvailableIn, createContentBlock, compareBlocks } from '@/editor/lib/block-meta'
 import type { Block } from '@mechanica/shared'
 
 const block = (folders?: string[]): Block => ({ id: 'b', name: 'B', folders })
@@ -54,6 +54,20 @@ describe('toBlockMeta', () => {
     })
     expect(meta.version).toBe(3)
     expect(meta.migrate).toBe(migrate)
+  })
+})
+
+describe('compareBlocks', () => {
+  const make = (name: string, order?: number): Block => ({ id: name.toLowerCase(), name, order })
+
+  it('sorts by explicit order first, then alphabetically', () => {
+    const sorted = [make('Zeta'), make('Card', 2), make('Alpha'), make('Hero', 1)].sort(compareBlocks)
+    expect(sorted.map((block) => block.name)).toEqual(['Hero', 'Card', 'Alpha', 'Zeta'])
+  })
+
+  it('breaks order ties by name', () => {
+    const sorted = [make('B', 1), make('A', 1)].sort(compareBlocks)
+    expect(sorted.map((block) => block.name)).toEqual(['A', 'B'])
   })
 })
 

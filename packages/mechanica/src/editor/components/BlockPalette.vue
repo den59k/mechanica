@@ -7,7 +7,7 @@
       @input="search = ($event.target as HTMLInputElement).value"
     />
 
-    <div v-for="group in groups" :key="group.name" class="mech-palette__group">
+    <div v-for="group in displayGroups" :key="group.name" class="mech-palette__group">
       <div v-if="group.name" class="mech-palette__group-title">{{ group.name }}</div>
       <div class="mech-palette__grid">
         <button
@@ -23,6 +23,16 @@
           <span class="mech-palette__thumb">
             <VIcon v-if="block.icon" :name="block.icon" />
             <span v-else>{{ monogram(block) }}</span>
+            <!-- A rendered thumbnail (mechanica thumbs --blocks) covers the
+                 icon/monogram when it exists; a 404 just leaves the fallback. -->
+            <img
+              v-if="!thumbFailed.has(block.id)"
+              class="mech-palette__thumb-img"
+              :src="thumbSrc(block.id)"
+              alt=""
+              loading="lazy"
+              @error="thumbFailed.add(block.id)"
+            />
           </span>
           <span class="mech-palette__name">{{ block.name }}</span>
         </button>
@@ -51,7 +61,7 @@ import type { Block } from '@mechanica/shared'
 import type { BlocksMap } from '../../core/state'
 import { editorStoreKey } from '../lib/store'
 import { dragKey } from '../lib/drag-controller'
-import { blockAvailableIn } from '../lib/block-meta'
+import { blockAvailableIn, compareBlocks } from '../lib/block-meta'
 import VIcon from './VIcon.vue'
 import BlockPreview from './BlockPreview.vue'
 
@@ -76,10 +86,30 @@ const groups = computed(() => {
     if (!byCategory.has(category)) byCategory.set(category, [])
     byCategory.get(category)!.push(block)
   }
-  return [...byCategory.entries()].map(([name, blocks]) => ({ name, blocks }))
+  // Within a category: explicit `order` first, then alphabetical (see compareBlocks).
+  return [...byCategory.entries()].map(([name, blocks]) => ({ name, blocks: [...blocks].sort(compareBlocks) }))
 })
 
+// Recently inserted blocks lead the palette (kept in insertion order, not
+// compareBlocks order) — hidden while searching, where relevance rules.
+const recent = computed(() => {
+  if (search.value) return []
+  return store.recentBlockIds
+    .map((id) => store.blocksById.get(id))
+    .filter((block): block is Block => !!block && blockAvailableIn(block, store.folder))
+    .slice(0, 6)
+})
+
+const displayGroups = computed(() =>
+  recent.value.length ? [{ name: 'Recent', blocks: recent.value }, ...groups.value] : groups.value,
+)
+
 const monogram = (block: Block) => block.name.charAt(0).toUpperCase()
+
+// Card thumbnails, pre-rendered by `mechanica thumbs --blocks`. Blocks without
+// one 404 once and keep their icon/monogram fallback.
+const thumbFailed = ref(new Set<string>())
+const thumbSrc = (id: string) => `/@mechanica/thumbs/blocks/${encodeURIComponent(id)}.png`
 
 // A press begins a drag (or a tap to append) — drop any hover preview so it
 // doesn't linger over the page while dragging.
@@ -174,20 +204,32 @@ onBeforeUnmount(clearHover)
   }
 }
 .mech-palette__thumb {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 44px;
+  height: 56px;
   border-radius: var(--mech-radius-sm);
   background: var(--mech-active);
   color: var(--mech-muted);
   font-size: 16px;
   font-weight: 600;
+  overflow: hidden;
 
   .vicon {
     width: 20px;
     height: 20px;
   }
+}
+// The rendered thumbnail sits over the icon/monogram; while it loads (or when
+// it 404s and is removed) the fallback shows through.
+.mech-palette__thumb-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
 }
 .mech-palette__name {
   font-size: 12.5px;

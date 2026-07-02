@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filterByPrefix, orphanThumbs } from '@/cli/thumbs'
+import { filterByPrefix, filterBlockTargets, orphanThumbs } from '@/cli/thumbs'
 
 describe('filterByPrefix', () => {
   const pages = [{ path: '/' }, { path: '/docs' }, { path: '/docs/api' }, { path: '/docs-old' }, { path: '/about' }]
@@ -11,6 +11,20 @@ describe('filterByPrefix', () => {
 
   it('matches the prefix page and its children, not lookalike siblings', () => {
     expect(filterByPrefix(pages, '/docs').map((p) => p.path)).toEqual(['/docs', '/docs/api'])
+  })
+})
+
+describe('filterBlockTargets', () => {
+  const blocks = [{ id: 'hero' }, { id: 'hero-split' }, { id: 'card' }, { id: 'internal', hidden: true }]
+
+  it('always drops hidden blocks (they are not in the palette)', () => {
+    expect(filterBlockTargets(blocks).map((b) => b.id)).toEqual(['hero', 'hero-split', 'card'])
+  })
+
+  it('narrows to an exact id or id prefix', () => {
+    expect(filterBlockTargets(blocks, 'hero').map((b) => b.id)).toEqual(['hero', 'hero-split'])
+    expect(filterBlockTargets(blocks, 'card').map((b) => b.id)).toEqual(['card'])
+    expect(filterBlockTargets(blocks, 'nope')).toEqual([])
   })
 })
 

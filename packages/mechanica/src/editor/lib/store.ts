@@ -18,6 +18,7 @@ import {
   type DropPosition,
 } from './content-tree'
 import { toBlockMeta, createContentBlock, type BlockComponent } from './block-meta'
+import { getRecents, recordRecent } from './recents'
 
 /** The editable, undo-able slice of state (content + the three data scope buckets). */
 export interface EditableState {
@@ -37,6 +38,8 @@ export interface EditorStore {
   blocksById: Map<string, Block>
   /** The live block components keyed by id, for rendering hover previews. */
   componentsById: Map<string, BlockComponent>
+  /** Ids of recently inserted blocks, most recent first (palette's Recent row). */
+  recentBlockIds: string[]
   /** Editable `defineData` entries. */
   dataEntries: DataEntry[]
   /** The folder the current page lives in (null at the root). */
@@ -105,6 +108,17 @@ export function createEditorStore(
 
   const buckets: Record<DataScope, Record<string, unknown>> = { site: siteData, folder: folderData, page: pageData }
 
+  // Recently inserted blocks: seeded from localStorage (ids of since-deleted
+  // blocks dropped), updated on every palette insertion, persisted best-effort.
+  const recentBlockIds = reactive<string[]>(getRecents('blocks').filter((id) => blocksById.has(id)))
+  function markBlockUsed(blockId: string): void {
+    recordRecent('blocks', blockId)
+    const at = recentBlockIds.indexOf(blockId)
+    if (at !== -1) recentBlockIds.splice(at, 1)
+    recentBlockIds.unshift(blockId)
+    if (recentBlockIds.length > 8) recentBlockIds.length = 8
+  }
+
   const schemaOf = (id: string) => dataEntries.find((entry) => entry.id === id)?.props ?? emptySchema
 
   /** The value a page resolves for an entry: page over folder over site, else default. */
@@ -160,6 +174,7 @@ export function createEditorStore(
     blocks,
     blocksById,
     componentsById,
+    recentBlockIds,
     dataEntries,
     folder: initial.folder ?? null,
     canFolder: initial.folder != null,
@@ -196,6 +211,7 @@ export function createEditorStore(
       const block = createContentBlock(meta)
       content.push(block)
       ui.selectedId = block.id
+      markBlockUsed(blockId)
     },
     remove(id: string) {
       removeBlock(content, id)
@@ -210,6 +226,7 @@ export function createEditorStore(
       const block = createContentBlock(meta)
       placeBlock(content, block, drop)
       ui.selectedId = block.id
+      markBlockUsed(blockId)
     },
     relocate(id: string, drop: DropPosition) {
       relocateBlock(content, id, drop)

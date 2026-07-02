@@ -14,7 +14,12 @@ beforeEach(async () => {
   mechDir = fs.mkdtempSync(join(os.tmpdir(), 'mech-'))
   fs.mkdirSync(join(mechDir, 'pages'), { recursive: true })
 
-  const middleware = createDevMiddleware(mechDir)
+  const middleware = createDevMiddleware(mechDir, {
+    blocks: () => [
+      { id: 'hero', name: 'Hero' },
+      { id: 'internal', name: 'Internal', hidden: true },
+    ],
+  })
   server = createServer((req, res) =>
     middleware(req as never, res as never, () => {
       res.statusCode = 404
@@ -237,6 +242,14 @@ describe('dev middleware', () => {
 
     fs.writeFileSync(join(mechDir, 'data.json'), '{"secret":true}')
     expect((await fetch(`${base}/thumbs/..%2Fdata.json`)).status).toBe(403)
+  })
+
+  it('lists blocks through the provider', async () => {
+    const blocks = await (await fetch(`${base}/blocks`)).json()
+    expect(blocks).toEqual([
+      { id: 'hero', name: 'Hero' },
+      { id: 'internal', name: 'Internal', hidden: true },
+    ])
   })
 
   it('resolves getPages queries', async () => {

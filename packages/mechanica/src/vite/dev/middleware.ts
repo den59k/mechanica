@@ -18,9 +18,18 @@ import { resolveDevQuery } from './query-dev'
 import { mergeSiteData, mergeFolderData, folderOf } from './data-store'
 import { buildPageState } from './page-state'
 
+/** What `/blocks` reports per block — enough for the thumbs CLI to walk them. */
+export interface BlockListing {
+  id: string
+  name: string
+  hidden?: boolean
+}
+
 export interface DevMiddlewareOptions {
   /** Awaited before serving `/state`, so richText fields convert consistently. */
   ready?: () => Promise<void> | void
+  /** Lists the project's blocks (for `mechanica thumbs --blocks`). */
+  blocks?: () => Promise<BlockListing[]> | BlockListing[]
 }
 
 /**
@@ -99,6 +108,11 @@ export function createDevMiddleware(
       }
 
       if (pathname === '/pages' && req.method === 'GET') return json(listPages(mechDir))
+
+      if (pathname === '/blocks' && req.method === 'GET') {
+        if (!options.blocks) return json({ error: 'Block listing unavailable' }, 503)
+        return json(await options.blocks())
+      }
 
       if (pathname === '/pages' && req.method === 'DELETE') {
         const pathParam = query.get('path')
