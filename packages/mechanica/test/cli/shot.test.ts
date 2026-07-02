@@ -28,10 +28,15 @@ describe('resolveDataArg', () => {
     expect(resolveDataArg('{"title":"Hi"}')).toEqual({ title: 'Hi' })
   })
 
-  it('reads @file payloads', () => {
-    const file = join(fs.mkdtempSync(join(os.tmpdir(), 'mech-shot-')), 'data.json')
+  it('reads @file payloads, tolerating a UTF-8 BOM', () => {
+    const dir = fs.mkdtempSync(join(os.tmpdir(), 'mech-shot-'))
+    const file = join(dir, 'data.json')
     fs.writeFileSync(file, '{"count": 3}')
     expect(resolveDataArg(`@${file}`)).toEqual({ count: 3 })
+
+    const bomFile = join(dir, 'bom.json')
+    fs.writeFileSync(bomFile, '﻿{"count": 4}')
+    expect(resolveDataArg(`@${bomFile}`)).toEqual({ count: 4 })
   })
 
   it('rejects malformed JSON and non-objects', () => {

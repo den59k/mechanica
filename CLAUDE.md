@@ -29,7 +29,7 @@ cd packages/dev-app && bun run dev      # bunx --bun vite (the editor playground
 cd packages/dev-app && bun run export   # mechanica build + static SSG → export/
 ```
 
-Per-package scripts: `test` (`vitest run`), `test:watch`, `typecheck` (`tsc --noEmit`). The CLI bin is `packages/mechanica/bin/mechanica.js <build|export|push>` (resolved as `mechanica …` inside `dev-app`).
+Per-package scripts: `test` (`vitest run`), `test:watch`, `typecheck` (`tsc --noEmit`). The CLI bin is `packages/mechanica/bin/mechanica.js <build|export|push|shot>` (resolved as `mechanica …` inside `dev-app`).
 
 There is no repo-wide lint. After non-trivial changes, run `bun run --filter mechanica test` **and** `bun run --filter mechanica typecheck` — both must stay green. `tsc --noEmit` does not check inside `.vue` templates/scripts, so also sanity-check components by booting the dev server (SCSS + `?svg-glob` only resolve through Vite, not tsc).
 
@@ -38,6 +38,16 @@ There is no repo-wide lint. After non-trivial changes, run `bun run --filter mec
 A block is a Vue SFC whose `<script setup>` calls the global **`defineBlock`** macro (no import). The Vite plugin runs `enforce: 'pre'` and rewrites it at the **source level** (`src/compiler/compile-block.ts`): `defineBlock({...})` → `defineProps([...]) + defineOptions({ blockId, blockSchema })`, then lets `@vitejs/plugin-vue` compile normally. This deliberately avoids v1's string-surgery on plugin-vue's internal `?vue&type=script` request URLs — the thing that pinned v1 to Vite 5. `defineBlock` is the **only** macro; `defineData` / `defineMechanicaApp` / `defineFieldType` are ordinary imported functions. Field types come from `compact-json-schema` with format aliases (`image`, `file`, `color`, `smartLink`, `multiselect`, `richText`) registered in `@mechanica/shared`.
 
 Blocks are gathered into the `virtual:mechanica/blocks` module (`src/vite/collect-blocks.ts`).
+
+## Block previews & `mechanica shot` (see your work!)
+
+A block can declare **`previewData`** in `defineBlock` — example prop values merged over schema defaults (`buildPreviewData` in `@mechanica/shared`). It feeds the palette hover preview and the standalone preview route, and doubles as documentation of what the block expects; give every new block meaningful `previewData`.
+
+**`GET /@mechanica/preview/<blockId>?data=<json>`** (dev) renders one block alone — real runtime context + the app's global CSS (the preview entry imports the user's app module without mounting it), site data fetched for `useData`. Readiness/errors are signaled via `window.__MECHANICA_PREVIEW_READY__` / `__MECHANICA_PREVIEW_ERROR__` (`src/core/preview.ts` `mountPreviewApp`, entry in `src/vite/entries.ts`, route in `src/vite/dev/preview.ts`).
+
+**`mechanica shot <blockId>`** (from `dev-app`: `bun ../mechanica/bin/mechanica.js shot <blockId>`) screenshots that route headless and prints the PNG path plus any console/render errors. Flags: `--data <json|@file>`, `--width 1440,768,390`, `--out <path>`, `--server <url>`, `--browser <path>`, `--full`. Output defaults to `.mech/shots/` (gitignored). It reuses a running dev server or boots an ephemeral one, and drives a system Edge/Chrome over **raw CDP on the native WebSocket** (`src/cli/shot.ts`) — deliberately no Playwright/Puppeteer: their launch handshake uses Node-only fd pipes that hang under Bun.
+
+**After creating or visually changing a block, run `mechanica shot <blockId>` and Read the PNG before considering the work done** — check spacing, overflow, and responsive behavior (`--width 1440,390`).
 
 ## Runtime, modes, and entries
 
