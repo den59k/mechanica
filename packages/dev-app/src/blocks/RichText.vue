@@ -16,6 +16,20 @@ const props = defineBlock({
   category: 'Docs',
   description: 'A standalone rich-text region with inline widgets',
   props: { content: 'richText' },
+  previewData: {
+    content: [
+      { id: 'p1', type: 'h2', text: 'Write anything' },
+      {
+        id: 'p2',
+        text: 'Prose with bold and linked text, plus inline widgets like the CTA button below.',
+        styles: [
+          { start: 11, end: 15, style: 'bold' },
+          { start: 20, end: 26, style: 'link', meta: { href: '/' } },
+        ],
+      },
+      { id: 'p3', type: 'cta', editable: false, label: 'Get started', href: '/', variant: 'primary' },
+    ],
+  },
 })
 
 const value = computed<Block[]>(() => {

@@ -18,6 +18,10 @@
     },
     "./editor": {
       "import": "./src/editor/editor.ts"
+    },
+    "./widgets": {
+      "types": "./src/editor/widget-api.ts",
+      "import": "./src/editor/widget-api.ts"
     }
   },
   "scripts": {

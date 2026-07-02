@@ -15,6 +15,18 @@
         <pre><code>{{ block.text }}</code></pre>
       </div>
     </template>
+    <!-- The `cta` widget (src/widgets/cta-button.widget.ts). -->
+    <template #cta="{ block }">
+      <div class="richtext__cta">
+        <a
+          class="mc-btn"
+          :class="block.variant === 'ghost' ? 'mc-btn--ghost' : 'mc-btn--primary'"
+          :href="(block.href as string) || '#'"
+        >
+          {{ (block.label as string) || 'Learn more' }}
+        </a>
+      </div>
+    </template>
   </TextViewer>
 </template>
 
@@ -125,6 +137,20 @@ defineProps<{ value: Block[] }>()
 .richtext :deep(.rt-callout--warning) {
   --c-border: #f4d39a;
   --c-soft: #fdf4e3;
+}
+.richtext__cta {
+  margin: 18px 0;
+}
+/* The prose link rule above (.richtext a) outranks .mc-btn's own colors —
+   restore the button look inside the widget. */
+.richtext__cta .mc-btn {
+  text-decoration: none;
+}
+.richtext__cta .mc-btn--primary {
+  color: #fff;
+}
+.richtext__cta .mc-btn--ghost {
+  color: var(--ink);
 }
 .richtext__code {
   position: relative;

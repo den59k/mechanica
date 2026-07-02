@@ -65,14 +65,16 @@
           @update:open="insertOpen = $event"
         >
           <button
-            v-for="w in richTextWidgets"
+            v-for="w in widgets"
             :key="w.type"
             type="button"
             class="mech-rte__insert-item"
             @mousedown.prevent
             @click="insertWidget(w)"
           >
-            <VIcon :name="w.icon" class="mech-rte__insert-icon" />
+            <!-- Site widgets may carry a raw <svg> string instead of a VIcon name. -->
+            <span v-if="isRawSvg(w.icon)" class="mech-rte__insert-icon" v-html="w.icon" />
+            <VIcon v-else :name="w.icon" class="mech-rte__insert-icon" />
             <span>{{ w.title }}</span>
           </button>
         </VPopover>
@@ -88,11 +90,12 @@
         :html-parser="htmlParser"
         @keydown="onKeyDown"
       >
-        <template #code="{ block }">
-          <RichCodeWidget :block="block" @change="onWidgetChange" />
-        </template>
-        <template #img="{ block }">
-          <RichImageWidget :block="block" @change="onWidgetChange" />
+        <!-- Every widget with an editing component (built-in or site-defined)
+             renders through its own per-type slot, behind an error boundary. -->
+        <template v-for="w in editorWidgets" :key="w.type" #[w.type]="{ block }">
+          <WidgetBoundary :label="w.title">
+            <component :is="w.editor" :block="block" @change="onWidgetChange" />
+          </WidgetBoundary>
         </template>
         <template #placeholder>
           <div class="mech-rte__placeholder" :contenteditable="false">{{ placeholder }}</div>
@@ -120,9 +123,8 @@ import { blocksToMarkdown, markdownToBlocks } from 'vuewrite/markdown'
 import VIcon from '../../components/VIcon.vue'
 import VSelect from '../../components/VSelect.vue'
 import VPopover from '../../components/VPopover.vue'
-import RichImageWidget from './RichImageWidget.vue'
-import RichCodeWidget from './RichCodeWidget.vue'
-import { richTextWidgets, type RichTextWidget } from './widgets'
+import WidgetBoundary from './WidgetBoundary.vue'
+import { allRichTextWidgets, type RichTextWidget } from './widgets'
 import { renderer, decorator, htmlParser, blockTypes } from './config'
 
 const props = withDefaults(
@@ -215,6 +217,13 @@ function toggleStyle(style: string): void {
 
 const insertBtn = ref<HTMLElement | null>(null)
 const insertOpen = ref(false)
+
+// Registration happens once in the editor entry, before anything mounts — a
+// plain snapshot at setup is enough.
+const widgets = allRichTextWidgets()
+const editorWidgets = widgets.filter((w) => w.editor)
+
+const isRawSvg = (icon: string): boolean => icon.trimStart().startsWith('<svg')
 
 /**
  * Make sure there's a caret to insert at. `@mousedown.prevent` keeps the editor
@@ -419,7 +428,15 @@ function onKeyDown(event: KeyboardEvent): void {
 .mech-rte__insert-icon {
   width: 16px;
   height: 16px;
+  flex: none;
   color: var(--mech-muted);
+
+  // Raw-svg widget icons (v-html) — size the inner svg to the chip.
+  :deep(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
 }
 
 // Segmented Rich / Markdown switch.

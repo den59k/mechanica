@@ -4,6 +4,11 @@ declare module 'virtual:mechanica/blocks' {
   export const blocksMap: Map<string, Component>
 }
 
+declare module 'virtual:mechanica/widgets' {
+  import type { RichTextWidget } from './editor/fields/richtext/widgets'
+  export const widgetsList: RichTextWidget[]
+}
+
 // Minimal slice of Vite's HMR client API (avoids depending on vite/client
 // types, which would also claim .css/.svg module shapes we declare ourselves).
 interface ImportMeta {

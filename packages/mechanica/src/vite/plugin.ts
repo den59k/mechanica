@@ -4,6 +4,7 @@ import { parseVueRequest } from '@vitejs/plugin-vue'
 import { passDataToHTML, serializeState } from '@mechanica/shared'
 import { compileBlock } from '../compiler/compile-block'
 import { collectBlocks } from './collect-blocks'
+import { collectWidgets } from './collect-widgets'
 import { generateClientEntry, generatePreviewEntry, generateSsrEntry } from './entries'
 import { createDevMiddleware } from './dev/middleware'
 import { createPreviewMiddleware } from './dev/preview'
@@ -21,11 +22,14 @@ export const CLIENT_MODULE_ID = 'virtual:mechanica/client'
 export const SSR_MODULE_ID = 'virtual:mechanica/ssr'
 /** Virtual module mounting a single block standalone (the dev preview route). */
 export const PREVIEW_MODULE_ID = 'virtual:mechanica/preview'
+/** Virtual module exposing the site's rich-text widgets (editor-only). */
+export const WIDGETS_MODULE_ID = 'virtual:mechanica/widgets'
 
 const RESOLVED_BLOCKS_ID = '\0' + BLOCKS_MODULE_ID
 const RESOLVED_CLIENT_ID = '\0' + CLIENT_MODULE_ID
 const RESOLVED_SSR_ID = '\0' + SSR_MODULE_ID
 const RESOLVED_PREVIEW_ID = '\0' + PREVIEW_MODULE_ID
+const RESOLVED_WIDGETS_ID = '\0' + WIDGETS_MODULE_ID
 
 export interface MechanicaPluginOptions {
   /** The user's `defineMechanicaApp` entry module, relative to the Vite root. */
@@ -34,6 +38,8 @@ export interface MechanicaPluginOptions {
   mount?: string
   /** Directory scanned for block SFCs, relative to the Vite root. */
   blocksDir?: string
+  /** Directory scanned for `defineWidget` modules, relative to the Vite root. */
+  widgetsDir?: string
   /** Directory holding local editor state, relative to the Vite root. */
   mechDir?: string
 }
@@ -48,6 +54,7 @@ const slash = (p: string): string => p.replace(/\\/g, '/')
 
 export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
   let blocksDir = ''
+  let widgetsDir = ''
   let mechDir = ''
   let userEntry = ''
   let mount = ''
@@ -59,6 +66,8 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
   const blockSchemas = new Map<string, string>()
   const isBlockFile = (file: string): boolean =>
     file.endsWith('.vue') && slash(file).startsWith(slash(blocksDir) + '/')
+  const isWidgetFile = (file: string): boolean =>
+    /\.(ts|js|mts|mjs)$/.test(file) && slash(file).startsWith(slash(widgetsDir) + '/')
 
   // Configure the page store's rich-text codec once, from the project's block
   // schemas (loaded via SSR so we read the compiled `blockSchema`). Memoized;
@@ -92,12 +101,22 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
     void ensurePageCodec(server)
   }
 
+  // Re-collect `virtual:mechanica/widgets` and reload when a widget module is
+  // added or removed. (Edits to an existing widget file propagate through the
+  // module graph on their own — the editor entry takes no HMR, so they reload.)
+  const invalidateWidgets = (server: import('vite').ViteDevServer): void => {
+    const mod = server.moduleGraph.getModuleById(RESOLVED_WIDGETS_ID)
+    if (mod) server.moduleGraph.invalidateModule(mod)
+    server.ws.send({ type: 'full-reload' })
+  }
+
   return {
     name: 'mechanica',
     enforce: 'pre',
 
     configResolved(config) {
       blocksDir = join(config.root, options.blocksDir ?? 'src/blocks')
+      widgetsDir = join(config.root, options.widgetsDir ?? 'src/widgets')
       mechDir = join(config.root, options.mechDir ?? '.mech')
       userEntry = '/' + (options.entry ?? 'src/main.ts').replace(/^\/+/, '')
       mount = options.mount ?? '#app'
@@ -126,6 +145,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       if (id === CLIENT_MODULE_ID) return RESOLVED_CLIENT_ID
       if (id === SSR_MODULE_ID) return RESOLVED_SSR_ID
       if (id === PREVIEW_MODULE_ID) return RESOLVED_PREVIEW_ID
+      if (id === WIDGETS_MODULE_ID) return RESOLVED_WIDGETS_ID
     },
 
     load(id) {
@@ -140,6 +160,9 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       }
       if (id === RESOLVED_PREVIEW_ID) {
         return generatePreviewEntry({ userEntry })
+      }
+      if (id === RESOLVED_WIDGETS_ID) {
+        return collectWidgets(widgetsDir, (p) => this.resolve(p))
       }
     },
 
@@ -159,8 +182,10 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       // reloads, so new blocks appear in the palette without a server restart.
       server.watcher.on('add', (file) => {
         if (isBlockFile(file)) invalidateBlocks(server)
+        else if (isWidgetFile(file)) invalidateWidgets(server)
       })
       server.watcher.on('unlink', (file) => {
+        if (isWidgetFile(file)) invalidateWidgets(server)
         if (!isBlockFile(file)) return
         blockSchemas.delete(slash(file))
         invalidateBlocks(server)

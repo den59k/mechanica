@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { tmpdir } from 'node:os'
-import { mechanica, BLOCKS_MODULE_ID } from '@/vite/plugin'
+import { mechanica, BLOCKS_MODULE_ID, WIDGETS_MODULE_ID } from '@/vite/plugin'
 
 const block = `<template><div>{{ props.title }}</div></template>
 <script setup lang="ts">
@@ -39,6 +39,11 @@ describe('mechanica plugin', () => {
   it('resolves the blocks virtual module', () => {
     const out = callHook(mechanica().resolveId, BLOCKS_MODULE_ID)
     expect(out).toBe('\0' + BLOCKS_MODULE_ID)
+  })
+
+  it('resolves the widgets virtual module', () => {
+    const out = callHook(mechanica().resolveId, WIDGETS_MODULE_ID)
+    expect(out).toBe('\0' + WIDGETS_MODULE_ID)
   })
 })
 
