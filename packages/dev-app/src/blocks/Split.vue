@@ -14,6 +14,11 @@ defineBlock({
   name: 'Split',
   category: 'Layout',
   description: 'Two side-by-side named slots — start and end',
+  previewData: {
+    $slots: {
+      start: [{ blockId: 'card', data: { title: 'Start column' } }],
+    },
+  },
 })
 </script>
 
