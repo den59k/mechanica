@@ -15,6 +15,8 @@ export interface CompileBlockResult {
   map: ReturnType<MagicString['generateMap']>
   /** The resolved block id (explicit `id`, otherwise derived from the filename). */
   blockId: string
+  /** The generated `blockSchema` literal — compared across recompiles to drive HMR. */
+  schema: string
 }
 
 /**
@@ -45,7 +47,7 @@ export function compileBlock(code: string, filename: string): CompileBlockResult
   const ast = babelParse(content, { sourceType: 'module', plugins: ['typescript'] })
 
   // Find the `defineBlock(...)` call expression.
-  let call: any = null
+  const calls: any[] = []
   walk(ast.program as any, {
     enter(node: any) {
       if (
@@ -53,11 +55,17 @@ export function compileBlock(code: string, filename: string): CompileBlockResult
         node.callee?.type === 'Identifier' &&
         node.callee.name === MACRO
       ) {
-        call = node
+        calls.push(node)
       }
     },
   })
-  if (!call) return null
+  if (calls.length === 0) return null
+  if (calls.length > 1) {
+    throw new Error(
+      `defineBlock() may only be called once per block, found ${calls.length} calls in ${filename}`,
+    )
+  }
+  const call = calls[0]
 
   const arg = call.arguments[0]
   const hasDescriptor = arg?.type === 'ObjectExpression'
@@ -99,6 +107,7 @@ export function compileBlock(code: string, filename: string): CompileBlockResult
     code: s.toString(),
     map: s.generateMap({ source: filename, hires: true }),
     blockId,
+    schema: blockSchema,
   }
 }
 

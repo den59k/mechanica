@@ -78,6 +78,16 @@
             <span>Page data</span>
           </button>
           <span class="mech-editor__toolbar-gap" />
+          <button
+            v-if="save && save.status === 'error'"
+            type="button"
+            class="mech-editor__save is-error"
+            title="Saving to the dev server failed — click to retry"
+            @click="save.retry()"
+          >
+            Save failed · Retry
+          </button>
+          <span v-else-if="save && save.status !== 'saved'" class="mech-editor__save">Saving…</span>
           <button type="button" class="mech-icon-button" :disabled="!canUndo" title="Undo (Ctrl+Z)" @click="history.undo()"><VIcon name="undo" /></button>
           <button type="button" class="mech-icon-button" :disabled="!canRedo" title="Redo (Ctrl+Shift+Z)" @click="history.redo()"><VIcon name="redo" /></button>
         </div>
@@ -130,6 +140,7 @@ import { pushStateUpdate } from './lib/bridge'
 import { useBlockFrames } from './lib/use-block-frames'
 import type { BlockComponent } from './lib/block-meta'
 import type { EditorSnapshot } from './lib/types'
+import type { SaveQueue } from './lib/save-queue'
 import { createDialogStore, dialogKey } from './ui/dialog'
 import { createContextMenu, contextMenuKey } from './lib/context-menu'
 import VDialogHost from './ui/VDialogHost.vue'
@@ -152,6 +163,8 @@ const props = defineProps<{
   /** List images already uploaded to the project, for the reuse-an-image picker. */
   listImages?: () => Promise<{ id: string; name: string; src: string }[]>
   onChange?: (snapshot: EditorSnapshot) => void
+  /** Live save status + retry, surfaced in the toolbar. */
+  save?: Pick<SaveQueue<EditorSnapshot>, 'status' | 'retry'>
 }>()
 
 const store = createEditorStore(props.state, props.components, props.dataEntries)

@@ -151,6 +151,23 @@ describe('dev middleware', () => {
     expect(await served.text()).toBe('hello')
   })
 
+  it('refuses to serve assets outside the assets directory', async () => {
+    // A file that must never be reachable through /assets/.
+    fs.writeFileSync(join(mechDir, 'data.json'), '{"secret":true}')
+    fs.mkdirSync(join(mechDir, 'assets'), { recursive: true })
+
+    // Encoded `..` survives client-side URL normalization; the middleware
+    // decodes it and must still contain the path.
+    const traversal = await fetch(`${base}/assets/..%2Fdata.json`)
+    expect(traversal.status).toBe(403)
+
+    const deep = await fetch(`${base}/assets/..%2F..%2F..%2Fetc%2Fpasswd`)
+    expect(deep.status).toBe(403)
+
+    const absolute = await fetch(`${base}/assets/${encodeURIComponent(join(mechDir, 'data.json'))}`)
+    expect(absolute.status).toBe(403)
+  })
+
   it('resolves getPages queries', async () => {
     fs.writeFileSync(join(mechDir, 'pages', 'index.page.md'), serializePage({ content: [], data: {}, name: 'Home' }))
     const pages = await (await fetch(`${base}/query?q=${encodeURIComponent('getPages.{}')}`)).json()

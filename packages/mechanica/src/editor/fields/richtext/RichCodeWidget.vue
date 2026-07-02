@@ -1,5 +1,18 @@
 <template>
-  <div class="mech-rt-code" contenteditable="false">
+  <!-- The inputs live inside vuewrite's contenteditable, whose root listens for
+       beforeinput/keydown/clipboard/IME events. Stop those here so typing in the
+       code stays in the textarea instead of being inserted into the document. -->
+  <div
+    class="mech-rt-code"
+    contenteditable="false"
+    @beforeinput.stop
+    @keydown.stop
+    @paste.stop
+    @copy.stop
+    @cut.stop
+    @compositionstart.stop
+    @compositionend.stop
+  >
     <input
       class="mech-rt-code__lang"
       :value="lang"

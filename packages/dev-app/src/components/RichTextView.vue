@@ -152,4 +152,14 @@ defineProps<{ value: Block[] }>()
   line-height: 1.6;
   color: #e7e9f2;
 }
+/* The block's <code> must not inherit the inline-code chip styling above
+   (light box + border), or it'd render light text on a light box. */
+.richtext__code pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+  font: inherit;
+  color: inherit;
+}
 </style>

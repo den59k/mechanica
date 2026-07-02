@@ -5,6 +5,7 @@ import { getDataEntries } from '../core/data-registry'
 import { registerBuiltinFieldEditors } from './fields/builtin'
 import EditorApp from './EditorApp.vue'
 import type { EditorSnapshot } from './lib/types'
+import { createSaveQueue } from './lib/save-queue'
 import './styles/editor.scss'
 
 /**
@@ -15,25 +16,34 @@ import './styles/editor.scss'
 registerFieldSchemas()
 registerBuiltinFieldEditors()
 
-function debounce<T extends (...args: any[]) => void>(fn: T, ms: number): T {
-  let timer: ReturnType<typeof setTimeout>
-  return ((...args: any[]) => {
-    clearTimeout(timer)
-    timer = setTimeout(() => fn(...args), ms)
-  }) as T
-}
-
 const dataEntries = getDataEntries()
 
+const savePath = () => `/@mechanica/save?path=${encodeURIComponent(location.pathname)}`
+
 // The snapshot already carries the scope buckets (site/folder/page); the dev
-// server persists each to its store.
-const save = debounce((snapshot: EditorSnapshot) => {
-  void fetch(`/@mechanica/save?path=${encodeURIComponent(location.pathname)}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(snapshot),
-  })
-}, 500)
+// server persists each to its store. The queue debounces, tracks status for
+// the toolbar indicator, and keeps a failed snapshot around for retry.
+const saveQueue = createSaveQueue<EditorSnapshot>({
+  send: async (snapshot) => {
+    const response = await fetch(savePath(), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(snapshot),
+    })
+    if (!response.ok) throw new Error(`Save failed (${response.status})`)
+  },
+  beacon: (snapshot) =>
+    navigator.sendBeacon(savePath(), new Blob([JSON.stringify(snapshot)], { type: 'application/json' })),
+})
+
+// Leaving the page (including Vite's full reload) flushes pending edits via
+// the beacon; the confirm prompt only appears when the flush can't be queued
+// (e.g. saves are failing), so edits are never silently lost.
+window.addEventListener('beforeunload', (event) => {
+  if (saveQueue.flushOnUnload()) return
+  event.preventDefault()
+  event.returnValue = ''
+})
 
 /** Upload a picked file to the dev server, returning its public src. */
 const uploadFile = async (file: File): Promise<{ src: string }> => {
@@ -65,5 +75,6 @@ createApp(EditorApp, {
   dataEntries,
   uploadFile,
   listImages,
-  onChange: save,
+  onChange: (snapshot: EditorSnapshot) => saveQueue.push(snapshot),
+  save: saveQueue,
 }).mount(mountPoint)

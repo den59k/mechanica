@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { join } from 'node:path'
+import { resolve, sep } from 'node:path'
 import type { Connect } from 'vite'
 import {
   createPage,
@@ -35,7 +35,14 @@ export function createDevMiddleware(mechDir: string): Connect.NextHandleFunction
 
     try {
       if (pathname.startsWith('/assets/')) {
-        const file = join(mechDir, 'assets', decodeURIComponent(pathname.slice('/assets/'.length)))
+        const assetsDir = resolve(mechDir, 'assets')
+        const file = resolve(assetsDir, decodeURIComponent(pathname.slice('/assets/'.length)))
+        // Contain the resolved path: an encoded `..` (or an absolute path) must
+        // not escape the assets directory.
+        if (file !== assetsDir && !file.startsWith(assetsDir + sep)) {
+          res.statusCode = 403
+          return res.end('Forbidden')
+        }
         if (!fs.existsSync(file)) {
           res.statusCode = 404
           return res.end('Asset not found')

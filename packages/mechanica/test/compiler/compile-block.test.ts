@@ -96,4 +96,27 @@ describe('compileBlock', () => {
     expect(script.content).toContain('blockSchema')
     expect(script.content).toContain('title')
   })
+
+  it('throws on duplicate defineBlock calls', () => {
+    const script = `const a = defineBlock({ props: {} })\nconst b = defineBlock({ props: {} })`
+    expect(() => compileBlock(sfc(script), 'Twice.vue')).toThrow(/only be called once/)
+  })
+
+  it('rewrites a generic defineBlock<T>() call entirely', () => {
+    const out = compileBlock(
+      sfc(`const p = defineBlock<{ title: string }>({ props: { title: 'string' } })`),
+      'Hero.vue',
+    )!
+    expect(out.code).toContain('defineProps(["title"])')
+    expect(out.code).not.toContain('defineBlock')
+  })
+
+  it('exposes the blockSchema literal so callers can diff schemas across edits', () => {
+    const one = compileBlock(sfc(`const p = defineBlock({ props: { title: 'string' } })`), 'A.vue')!
+    const same = compileBlock(sfc(`const p = defineBlock({ props: { title: 'string' } })`), 'A.vue')!
+    const changed = compileBlock(sfc(`const p = defineBlock({ props: { title: 'text' } })`), 'A.vue')!
+    expect(one.schema).toContain(`title: 'string'`)
+    expect(same.schema).toBe(one.schema)
+    expect(changed.schema).not.toBe(one.schema)
+  })
 })
