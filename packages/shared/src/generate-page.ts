@@ -50,6 +50,12 @@ export interface GeneratePageOptions {
   path?: string
   /** Rewrite `/assets/` to this base when set. */
   assetsUrl?: string
+  /**
+   * Extra `<link>` tags for this page's content, injected before `</head>` —
+   * used by the export to preload the block chunks/CSS the page uses (blocks
+   * are code-split out of the client entry).
+   */
+  pageLinks?: (content: any[]) => string[]
   /** Render the page state to HTML (provided by the SSR bundle). */
   render: (state: any, path: string) => Promise<string> | string
 }
@@ -92,6 +98,9 @@ export async function generatePage(options: GeneratePageOptions): Promise<string
   const start = appMatch.index! + appMatch[1]!.length
   const end = appMatch.index! + appMatch[0].length - '</div>'.length
   index = index.slice(0, start) + rendered + index.slice(end)
+
+  const links = options.pageLinks?.(options.state.content) ?? []
+  if (links.length) index = index.replace('</head>', `${links.join('\n')}\n</head>`)
 
   if (options.assetsUrl) index = index.replace(/\/assets\//g, options.assetsUrl)
 

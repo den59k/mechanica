@@ -15,6 +15,16 @@ describe('generateClientEntry', () => {
     expect(code).toContain('mode: "client"')
     expect(code).toContain('.mount("#root")')
   })
+
+  it('lazy mode awaits the page blocks before mounting and passes the loaders on', () => {
+    const code = generateClientEntry({ userEntry: '/src/main.ts', mount: '#app', mode: 'client', lazy: true })
+    expect(code).toContain("import { blockLoaders } from 'virtual:mechanica/blocks'")
+    expect(code).not.toContain('blocksMap') // nothing eager left
+    expect(code).toContain('loadBlocks(blockLoaders, state.content ?? []).then((blocks) => {')
+    // Loaders reach the runtime so SPA navigation can fetch missing chunks.
+    expect(code).toContain('{ mode: "client", state, blocks, blockLoaders }')
+    expect(code).toContain('.mount("#app")')
+  })
 })
 
 describe('generatePreviewEntry', () => {

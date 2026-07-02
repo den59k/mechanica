@@ -59,6 +59,34 @@ describe('generatePage', () => {
     expect(html).toContain('window.state=')
   })
 
+  it('injects pageLinks for the page content before </head>', async () => {
+    const content = [{ id: '1', blockId: 'hero', data: { title: 'Hi' } }]
+    const html = await generatePage({
+      index,
+      blocksMap,
+      dataEntries: [],
+      state: { content, data: {} },
+      render: () => '',
+      pageLinks: (c) => {
+        expect(c).toBe(content)
+        return ['<link rel="modulepreload" href="/assets/hero.js">']
+      },
+    })
+    expect(html).toContain('<link rel="modulepreload" href="/assets/hero.js">\n</head>')
+  })
+
+  it('leaves the html untouched when pageLinks returns nothing', async () => {
+    const html = await generatePage({
+      index,
+      blocksMap,
+      dataEntries: [],
+      state: { content: [], data: {} },
+      render: () => '',
+      pageLinks: () => [],
+    })
+    expect(html).not.toContain('<link')
+  })
+
   it('rewrites asset URLs when assetsUrl is set', async () => {
     const html = await generatePage({
       index: '<body><div id="app"></div><img src="/assets/x.png"></body>',

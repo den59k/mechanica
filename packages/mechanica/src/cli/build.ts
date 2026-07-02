@@ -14,7 +14,9 @@ export async function runBuild(options: { entry?: string } = {}): Promise<void> 
   const userEntry = '/' + (options.entry ?? 'src/main.ts').replace(/^\/+/, '')
 
   console.info('Building client bundle…')
-  await build({ build: { outDir: 'dist', emptyOutDir: true } })
+  // `manifest` maps each module to its emitted chunk + CSS, so `export` can
+  // preload exactly the block chunks a page uses (blocks are code-split).
+  await build({ build: { outDir: 'dist', emptyOutDir: true, manifest: true } })
 
   console.info('Building SSR bundle…')
   const ssrEntryPath = join(process.cwd(), 'node_modules/.mechanica/ssr-entry.mjs')

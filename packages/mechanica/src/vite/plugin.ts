@@ -1,9 +1,9 @@
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
 import type { Plugin } from 'vite'
 import { parseVueRequest } from '@vitejs/plugin-vue'
 import { passDataToHTML, serializeState } from '@mechanica/shared'
 import { compileBlock } from '../compiler/compile-block'
-import { collectBlocks } from './collect-blocks'
+import { collectBlocks, collectBlocksLazy } from './collect-blocks'
 import { collectWidgets } from './collect-widgets'
 import { generateClientEntry, generatePreviewEntry, generateSsrEntry } from './entries'
 import { createDevMiddleware } from './dev/middleware'
@@ -13,6 +13,7 @@ import { toBlockMeta } from '../editor/lib/block-meta'
 import { buildPageState } from './dev/page-state'
 import { wasRecentlyMutated } from './dev/fs-utils'
 import { buildRichTextCodec } from './rich-text-codec'
+import { BLOCKS_MANIFEST_FILE } from '../cli/page-assets'
 
 /** Virtual module exposing the collected block components. */
 export const BLOCKS_MODULE_ID = 'virtual:mechanica/blocks'
@@ -58,7 +59,14 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
   let mechDir = ''
   let userEntry = ''
   let mount = ''
+  let root = ''
   let isDev = false
+  // The client (non-SSR) production build code-splits blocks: the blocks
+  // virtual module becomes dynamic imports and the entry loads per page.
+  let isClientBuild = false
+  // blockId → source file, captured when the lazy blocks module is generated;
+  // emitted as `mechanica-blocks.json` for `mechanica export`.
+  let lazyBlockFiles: Map<string, string> | null = null
 
   // Last compiled `blockSchema` literal per block file (normalized path), so a
   // hot update can tell schema edits (need a re-collect + reload so the editor
@@ -120,7 +128,9 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       mechDir = join(config.root, options.mechDir ?? '.mech')
       userEntry = '/' + (options.entry ?? 'src/main.ts').replace(/^\/+/, '')
       mount = options.mount ?? '#app'
+      root = config.root
       isDev = config.command === 'serve'
+      isClientBuild = config.command === 'build' && !config.build?.ssr
     },
 
     transform(code, id) {
@@ -148,12 +158,17 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       if (id === WIDGETS_MODULE_ID) return RESOLVED_WIDGETS_ID
     },
 
-    load(id) {
+    async load(id) {
       if (id === RESOLVED_BLOCKS_ID) {
-        return collectBlocks(blocksDir, (p) => this.resolve(p))
+        // The SSR build and the dev server need every block up front (render
+        // any page, palette metadata); only the client build splits.
+        if (!isClientBuild) return collectBlocks(blocksDir, (p) => this.resolve(p))
+        const lazy = await collectBlocksLazy(blocksDir, (p) => this.resolve(p))
+        lazyBlockFiles = lazy.files
+        return lazy.code
       }
       if (id === RESOLVED_CLIENT_ID) {
-        return generateClientEntry({ userEntry, mount, mode: isDev ? 'dev' : 'client' })
+        return generateClientEntry({ userEntry, mount, mode: isDev ? 'dev' : 'client', lazy: isClientBuild })
       }
       if (id === RESOLVED_SSR_ID) {
         return generateSsrEntry({ userEntry })
@@ -164,6 +179,18 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       if (id === RESOLVED_WIDGETS_ID) {
         return collectWidgets(widgetsDir, (p) => this.resolve(p))
       }
+    },
+
+    generateBundle() {
+      if (!isClientBuild || !lazyBlockFiles) return
+      const map = Object.fromEntries(
+        [...lazyBlockFiles].map(([blockId, file]) => [blockId, slash(relative(root, file))]),
+      )
+      this.emitFile({
+        type: 'asset',
+        fileName: BLOCKS_MANIFEST_FILE,
+        source: JSON.stringify(map, null, 2) + '\n',
+      })
     },
 
     configureServer(server) {

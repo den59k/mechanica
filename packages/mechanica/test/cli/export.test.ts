@@ -184,6 +184,46 @@ describe('mechanica export (golden)', () => {
     expect(warnings.some((w) => w.includes('unknown block "retired"') && w.includes('/blog/post'))).toBe(true)
   })
 
+  it('preloads each page’s block chunks from the build manifest', async () => {
+    await mkdir(join(dir, 'dist/.vite'), { recursive: true })
+    await writeFile(
+      join(dir, 'dist/.vite/manifest.json'),
+      JSON.stringify({
+        'src/blocks/Hero.vue': { file: 'assets/Hero-a1.js', css: ['assets/Hero-a1.css'], imports: ['_shared.js'] },
+        'src/blocks/Cta.vue': { file: 'assets/Cta-b2.js', css: ['assets/Cta-b2.css'] },
+        '_shared.js': { file: 'assets/shared-x9.js' },
+      }),
+    )
+    await writeFile(
+      join(dir, 'dist/mechanica-blocks.json'),
+      JSON.stringify({ hero: 'src/blocks/Hero.vue', cta: 'src/blocks/Cta.vue' }),
+    )
+    await writeFile(
+      join(dir, '.mech/pages/contact.page.md'),
+      serializePage({ content: [{ id: 'c', blockId: 'cta', data: { link: { url: '/' } } }], data: {} }),
+    )
+
+    await exportProject(dir, ssr)
+
+    // The home page uses `hero` only: its chunk, css and shared import — no cta.
+    const home = await readFile(join(dir, 'export/index.html'), 'utf-8')
+    expect(home).toContain('<link rel="stylesheet" href="/assets/Hero-a1.css">')
+    expect(home).toContain('<link rel="modulepreload" href="/assets/Hero-a1.js">')
+    expect(home).toContain('<link rel="modulepreload" href="/assets/shared-x9.js">')
+    expect(home).not.toContain('Cta-b2')
+
+    const contact = await readFile(join(dir, 'export/contact/index.html'), 'utf-8')
+    expect(contact).toContain('<link rel="stylesheet" href="/assets/Cta-b2.css">')
+    expect(contact).toContain('<link rel="modulepreload" href="/assets/Cta-b2.js">')
+    expect(contact).not.toContain('Hero-a1')
+  })
+
+  it('skips preload links when the build produced no manifest', async () => {
+    await exportProject(dir, ssr)
+    const home = await readFile(join(dir, 'export/index.html'), 'utf-8')
+    expect(home).not.toContain('modulepreload')
+  })
+
   it('fails loudly when index.html has no #app container', async () => {
     await writeFile(join(dir, 'dist/index.html'), '<!doctype html><html><body></body></html>')
     await expect(exportProject(dir, ssr)).rejects.toThrow(/id="app"/)

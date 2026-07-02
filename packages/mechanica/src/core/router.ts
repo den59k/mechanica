@@ -15,6 +15,12 @@ export interface MechanicaRouter {
 export interface CreateRouterOptions {
   mode: MechanicaMode
   baseUrl?: string
+  /**
+   * Awaited with the target page's content before it is swapped in. The lazy
+   * client build uses this to fetch block chunks the page needs but the
+   * current blocks map doesn't have yet.
+   */
+  ensureBlocks?: (content: ContentBlock[]) => Promise<void>
 }
 
 /**
@@ -71,6 +77,10 @@ export function createRouter(
     await fetchPage(path)
     const state = cache.get(path)
     if (!state) return
+
+    // Missing block code must arrive before the content swap, or the new
+    // page's unknown blocks would render as nothing.
+    if (options.ensureBlocks) await options.ensureBlocks(state.content ?? [])
 
     for (const [key, value] of Object.entries(state.data ?? {})) {
       const target = (data[key] ??= {}) as Record<string, unknown>

@@ -5,6 +5,13 @@ export interface ClientEntryOptions {
   mount: string
   /** Runtime mode for the generated entry. */
   mode: 'client' | 'dev'
+  /**
+   * Build-mode code splitting: the blocks module exposes `blockLoaders`
+   * (dynamic imports) instead of an eager `blocksMap`, and the entry awaits
+   * exactly the blocks the page uses before mounting — so hydration sees real
+   * components while unused blocks stay in their own chunks, never downloaded.
+   */
+  lazy?: boolean
 }
 
 /**
@@ -13,6 +20,21 @@ export interface ClientEntryOptions {
  * `createApp().mount()` with an explicit, generated entry.
  */
 export function generateClientEntry(options: ClientEntryOptions): string {
+  if (options.lazy) {
+    return [
+      `import definition from ${JSON.stringify(options.userEntry)}`,
+      `import { blockLoaders } from 'virtual:mechanica/blocks'`,
+      `import { createMechanicaApp, loadBlocks } from 'mechanica'`,
+      ``,
+      `const state = window.state ?? { content: [], data: {} }`,
+      `loadBlocks(blockLoaders, state.content ?? []).then((blocks) => {`,
+      `  createMechanicaApp(definition, { mode: ${JSON.stringify(options.mode)}, state, blocks, blockLoaders })`,
+      `    .mount(${JSON.stringify(options.mount)})`,
+      `})`,
+      ``,
+    ].join('\n')
+  }
+
   return [
     `import definition from ${JSON.stringify(options.userEntry)}`,
     `import { blocksMap } from 'virtual:mechanica/blocks'`,

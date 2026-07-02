@@ -37,6 +37,12 @@ entry is the contract a future hosted backend will call.
 - **Export** — static SSG with data scoping and `{{ }}` head templating,
   uploads copied to `/media/`, dead-link + orphan-asset warnings, `404.html`,
   `sitemap.xml` (`--site-url`), loud failure on a missing `#app`.
+- **Per-page code splitting** — the client build turns
+  `virtual:mechanica/blocks` into `blockLoaders` (one chunk + CSS per block);
+  the entry awaits only the page's blocks before hydrating, exported pages get
+  per-page stylesheet/`modulepreload` links (Vite manifest +
+  `mechanica-blocks.json`), and SPA navigation loads missing chunks before the
+  content swap. Dev and SSR stay eager.
 - **CLI** — `build`, `export`, `push` (legacy v1 contract), `shot`, `thumbs`.
 
 ## Next

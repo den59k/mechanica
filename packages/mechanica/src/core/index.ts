@@ -17,6 +17,7 @@ export { getDataEntries, registerDataEntry, clearDataEntries, type DataEntryInpu
 // Rendering
 export { Content } from './content'
 export { renderBlocks } from './render-blocks'
+export { loadBlocks, usedBlockIds, type BlockLoader, type BlockLoaders } from './load-blocks'
 export { Link, type LinkTarget } from './link'
 export {
   mountPreviewApp,

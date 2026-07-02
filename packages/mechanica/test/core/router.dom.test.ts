@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { shallowRef } from 'vue'
 import type { ContentBlock } from '@mechanica/shared'
 import { createRouter } from '@/core/router'
@@ -22,5 +22,31 @@ describe('createRouter', () => {
   it('exposes a reactive current route', () => {
     const router = makeRouter()
     expect(router.currentRoute.path).toBeTypeOf('string')
+  })
+})
+
+describe('ensureBlocks on navigation', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('awaits missing block code before swapping in the new content', async () => {
+    const nextContent = [{ id: '1', blockId: 'hero', data: {} }]
+    const state = JSON.stringify({ content: nextContent, data: {} })
+    const html = `<html><head><title>Next</title></head><body><script>window.state=${state}</script></body></html>`
+    vi.stubGlobal('fetch', vi.fn(async () => ({ text: async () => html })))
+
+    const content = shallowRef<ContentBlock[]>([])
+    const seen: string[] = []
+    const router = createRouter(content, {}, {
+      mode: 'client',
+      ensureBlocks: async (next) => {
+        // Called with the incoming tree, before the visible content changes.
+        seen.push(...next.map((block) => block.blockId))
+        expect(content.value).toHaveLength(0)
+      },
+    })
+
+    await router.push('/next')
+    expect(seen).toEqual(['hero'])
+    expect(content.value).toHaveLength(1)
   })
 })

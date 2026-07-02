@@ -8,6 +8,7 @@ import {
   type QueryResolver,
 } from './state'
 import { createRouter } from './router'
+import { loadBlocks, type BlockLoaders } from './load-blocks'
 import { exposeRuntime, mergeData } from '../editor/lib/bridge'
 
 export interface CreateMechanicaOptions {
@@ -15,6 +16,11 @@ export interface CreateMechanicaOptions {
   state?: State
   /** Block components keyed by `blockId` (from the blocks virtual module). */
   blocks?: BlocksMap
+  /**
+   * Dynamic imports per block id (the lazy client build). When set, SPA
+   * navigation loads a page's missing block chunks before rendering it.
+   */
+  blockLoaders?: BlockLoaders
   /** Execution mode. Defaults to `'client'`. */
   mode?: MechanicaMode
   /** Query resolver for server/dev modes. */
@@ -34,12 +40,22 @@ export function createMechanica(options: CreateMechanicaOptions = {}): Plugin {
       const content = shallowRef<ContentBlock[]>(initial?.content ?? [])
       const data = (initial?.data ?? {}) as Record<string, unknown>
 
+      const blocks = options.blocks ?? new Map()
+      const loaders = options.blockLoaders
       const context: MechanicaContext = {
         mode,
         content,
         data,
-        blocks: options.blocks ?? new Map(),
-        router: createRouter(content, data, { mode, baseUrl: initial?.baseUrl }),
+        blocks,
+        router: createRouter(content, data, {
+          mode,
+          baseUrl: initial?.baseUrl,
+          ensureBlocks: loaders
+            ? async (next) => {
+                await loadBlocks(loaders, next, blocks)
+              }
+            : undefined,
+        }),
         queryData: (initial?.query ?? {}) as Record<string, unknown>,
         resolveQuery: options.resolveQuery,
         page: initial?.page ?? {},

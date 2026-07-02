@@ -1,6 +1,7 @@
 import { createApp, createSSRApp, type App, type Component } from 'vue'
 import type { State } from '@mechanica/shared'
 import { createMechanica } from './create-mechanica'
+import type { BlockLoaders } from './load-blocks'
 import type { BlocksMap, MechanicaMode, QueryResolver } from './state'
 
 export interface MechanicaAppDefinition {
@@ -26,6 +27,7 @@ export interface CreateMechanicaAppOptions {
   mode?: MechanicaMode
   state?: State
   blocks?: BlocksMap
+  blockLoaders?: BlockLoaders
   resolveQuery?: QueryResolver
 }
 
@@ -43,6 +45,7 @@ export function createMechanicaApp(
       mode: options.mode ?? (options.ssr ? 'server' : 'client'),
       state: options.state,
       blocks: options.blocks,
+      blockLoaders: options.blockLoaders,
       resolveQuery: options.resolveQuery,
     }),
   )

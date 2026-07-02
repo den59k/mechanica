@@ -8,12 +8,14 @@ import {
   parsePage,
   registerFieldSchemas,
   validateLinks,
+  walkTree,
   type Block,
   type RichTextCodec,
 } from '@mechanica/shared'
 import { toBlockMeta, type BlockComponent } from '../editor/lib/block-meta'
 import { readSiteData, readFoldersData } from '../vite/dev/data-store'
 import { buildRichTextCodec } from '../vite/rich-text-codec'
+import { blockAssetLinks, BLOCKS_MANIFEST_FILE, type ViteManifest } from './page-assets'
 import { runBuild } from './build'
 
 interface ExportPage {
@@ -64,6 +66,25 @@ export interface ExportOptions {
   siteUrl?: string
   /** Warning sink (broken links, orphaned assets). Defaults to `console.warn`. */
   onWarn?: (message: string) => void
+}
+
+/**
+ * Load the pieces needed to preload per-page block chunks: the client build's
+ * Vite manifest and the plugin's block map. Older builds (or builds outside
+ * `mechanica build`) may not have them — links are simply skipped then.
+ */
+async function readBlockAssets(
+  cwd: string,
+): Promise<{ manifest: ViteManifest; blockFiles: Record<string, string> } | null> {
+  try {
+    const [manifest, blockFiles] = await Promise.all([
+      readFile(join(cwd, 'dist/.vite/manifest.json'), 'utf-8').then(JSON.parse),
+      readFile(join(cwd, 'dist', BLOCKS_MANIFEST_FILE), 'utf-8').then(JSON.parse),
+    ])
+    return { manifest, blockFiles }
+  } catch {
+    return null
+  }
 }
 
 /** The dev-server URL prefix uploaded assets are referenced by in page data. */
@@ -128,6 +149,23 @@ export async function exportProject(
     return `/${MEDIA_DIR}/${relative}`
   }
 
+  // Blocks are code-split in the client build: give each page stylesheet +
+  // modulepreload links for exactly the block chunks its content uses.
+  const blockAssets = await readBlockAssets(cwd)
+  const pageLinks = blockAssets
+    ? (content: any[]): string[] => {
+        const blockIds = new Set<string>()
+        walkTree(content, (block) => {
+          blockIds.add(block.blockId)
+        })
+        return blockAssetLinks({
+          blockIds,
+          ...blockAssets,
+          alreadyLinked: (file) => index.includes(file),
+        })
+      }
+    : undefined
+
   const written: string[] = []
   const iterator = generateProject({
     index,
@@ -137,6 +175,7 @@ export async function exportProject(
     pages,
     render: (state: any) => ssr.render(state),
     onFile,
+    pageLinks,
   })
 
   for await (const [html, path] of iterator) {

@@ -67,6 +67,8 @@ The user exports `defineMechanicaApp({ root })`; the plugin generates entries (`
 
 `mechanica build` runs two Vite builds; the SSR build writes the generated entry to a **real temp file** because rolldown (Vite 8's bundler) can't use a `\0`-virtual module as a build entry.
 
+**Blocks are code-split in the client build** (dev + SSR stay eager): `virtual:mechanica/blocks` becomes a `blockLoaders` map of dynamic imports (one chunk + CSS file per block), the generated entry awaits only the blocks `window.state.content` uses (`loadBlocks` in `src/core/load-blocks.ts`) before mounting, and the router's `ensureBlocks` hook loads missing chunks before SPA content swaps. The plugin emits `dist/mechanica-blocks.json` (blockId → source file) and the build enables Vite's manifest; `mechanica export` combines them (`src/cli/page-assets.ts`) to inject per-page `<link rel="stylesheet">` + `<link rel="modulepreload">` tags, so each exported page loads exactly its own blocks' code with no extra round trip or unstyled flash.
+
 ## Dev server & the `.mech/` store
 
 The plugin's `configureServer` mounts the `/@mechanica` middleware (`src/vite/dev/`) over the project's `.mech/` directory:
