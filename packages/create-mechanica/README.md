@@ -1,11 +1,11 @@
-# create-mechanica-app
+# create-mechanica
 
 Scaffold a new [Mechanica](https://www.npmjs.com/package/mechanica) site — a Vue 3 website with a visual block editor.
 
 ```bash
-npm create mechanica-app@latest my-site
+npm create mechanica@latest my-site
 # or
-bun create mechanica-app my-site
+bun create mechanica my-site
 
 cd my-site
 npm install

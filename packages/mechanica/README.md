@@ -9,8 +9,8 @@ Built for **Vite 8 / Vue 3.5 / Bun**.
 Works with plain Node ≥ 20.19 (npm/pnpm/yarn) or [Bun](https://bun.sh) — Bun installs run the TypeScript source directly, Node uses the compiled build. The fastest start is the scaffolder:
 
 ```bash
-npm create mechanica-app@latest my-site
-# or: bun create mechanica-app my-site
+npm create mechanica@latest my-site
+# or: bun create mechanica my-site
 ```
 
 Or add it to an existing Vite + Vue project:

@@ -1,5 +1,5 @@
-// The `create-mechanica-app` scaffolder. Plain Node-compatible JS on purpose:
-// `npm create mechanica-app` runs this under Node (not Bun), so unlike the rest
+// The `create-mechanica` scaffolder. Plain Node-compatible JS on purpose:
+// `npm create mechanica` runs this under Node (not Bun), so unlike the rest
 // of the monorepo it cannot ship Bun-only TS source. Zero dependencies.
 import fs from 'node:fs'
 import path from 'node:path'
@@ -61,7 +61,7 @@ export async function main() {
   let targetDir = process.argv[2]
   if (!targetDir) {
     if (!process.stdin.isTTY) {
-      throw new Error('Usage: create-mechanica-app <project-directory>')
+      throw new Error('Usage: create-mechanica <project-directory>')
     }
     const readline = await import('node:readline/promises')
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
