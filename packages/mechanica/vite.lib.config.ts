@@ -42,7 +42,7 @@ export default defineConfig({
       cssFileName: 'editor',
     },
     rollupOptions: {
-      // Externalize every bare specifier (vue, vuewrite, @mechanica/shared, …)
+      // Externalize every bare specifier (vue, vuewrite, mechanica-shared, …)
       // and the plugin's virtual modules; bundle only our own relative modules.
       external: (id) => !id.startsWith('.') && !isAbsolute(id),
       output: {

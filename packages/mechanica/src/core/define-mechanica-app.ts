@@ -1,5 +1,5 @@
 import { createApp, createSSRApp, type App, type Component } from 'vue'
-import type { State } from '@mechanica/shared'
+import type { State } from 'mechanica-shared'
 import { createMechanica } from './create-mechanica'
 import type { BlockLoaders } from './load-blocks'
 import type { BlocksMap, MechanicaMode, QueryResolver } from './state'

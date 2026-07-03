@@ -152,7 +152,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, provide, ref, watch, onScopeDispose, type ShallowRef } from 'vue'
-import type { DataEntry, State } from '@mechanica/shared'
+import type { DataEntry, State } from 'mechanica-shared'
 import { createEditorStore, editorStoreKey } from './lib/store'
 import { createDragController, dragKey } from './lib/drag-controller'
 import { createHistory } from './lib/history'

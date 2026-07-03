@@ -57,7 +57,7 @@
 <script setup lang="ts">
 import { computed, inject, onBeforeUnmount, ref } from 'vue'
 import { useSearch } from 'vuesix'
-import type { Block } from '@mechanica/shared'
+import type { Block } from 'mechanica-shared'
 import type { BlocksMap } from '../../core/state'
 import { editorStoreKey } from '../lib/store'
 import { dragKey } from '../lib/drag-controller'

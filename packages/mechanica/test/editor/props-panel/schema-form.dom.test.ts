@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createApp, h, reactive } from 'vue'
-import { registerFieldSchemas } from '@mechanica/shared'
+import { registerFieldSchemas } from 'mechanica-shared'
 import SchemaForm from '@/editor/props-panel/SchemaForm.vue'
 import { registerBuiltinFieldEditors } from '@/editor/fields/builtin'
 import { clearFieldEditors } from '@/editor/fields/registry'

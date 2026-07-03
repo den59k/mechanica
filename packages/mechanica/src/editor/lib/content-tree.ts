@@ -1,4 +1,4 @@
-import type { ContentBlock } from '@mechanica/shared'
+import type { ContentBlock } from 'mechanica-shared'
 
 /** Generate a unique content-block instance id. */
 export function uid(): string {

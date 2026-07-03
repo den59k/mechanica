@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createApp, defineComponent, h } from 'vue'
-import { registerFieldSchemas } from '@mechanica/shared'
+import { registerFieldSchemas } from 'mechanica-shared'
 import { createMechanica } from '@/core/create-mechanica'
 import { defineData } from '@/core/define-data'
 import { getDataEntries, clearDataEntries } from '@/core/data-registry'

@@ -1,6 +1,6 @@
 import { createApp, defineComponent, h, type App, type Component } from 'vue'
 import { unfoldSchema } from 'compact-json-schema'
-import { buildPreviewData, type ContentBlock } from '@mechanica/shared'
+import { buildPreviewData, type ContentBlock } from 'mechanica-shared'
 import { createMechanica } from './create-mechanica'
 import { renderBlocks } from './render-blocks'
 import type { BlocksMap } from './state'

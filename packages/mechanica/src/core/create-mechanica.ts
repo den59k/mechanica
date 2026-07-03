@@ -1,5 +1,5 @@
 import { shallowReactive, shallowRef, type App, type Plugin } from 'vue'
-import type { ContentBlock, PageMeta, State } from '@mechanica/shared'
+import type { ContentBlock, PageMeta, State } from 'mechanica-shared'
 import {
   mechanicaKey,
   type BlocksMap,

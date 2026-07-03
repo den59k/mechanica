@@ -6,7 +6,7 @@ import {
   type DataEntry,
   type DataScope,
   type State,
-} from '@mechanica/shared'
+} from 'mechanica-shared'
 import {
   findBlock,
   removeBlock,

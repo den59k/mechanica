@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { registerFieldSchemas } from '@mechanica/shared'
-import type { ContentBlock } from '@mechanica/shared'
+import { registerFieldSchemas } from 'mechanica-shared'
+import type { ContentBlock } from 'mechanica-shared'
 import {
   findBlock,
   findParentSlot,

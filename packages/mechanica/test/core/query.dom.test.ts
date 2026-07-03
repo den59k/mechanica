@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createApp, defineComponent, h } from 'vue'
-import type { State } from '@mechanica/shared'
+import type { State } from 'mechanica-shared'
 import { createMechanica } from '@/core/create-mechanica'
 import { usePages } from '@/core/use-pages'
 import { useFetch } from '@/core/use-fetch'

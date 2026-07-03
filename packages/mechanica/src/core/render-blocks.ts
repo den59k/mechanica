@@ -1,5 +1,5 @@
 import { h, type VNode } from 'vue'
-import type { ContentBlock } from '@mechanica/shared'
+import type { ContentBlock } from 'mechanica-shared'
 import type { BlocksMap } from './state'
 
 /**

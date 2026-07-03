@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
-import type { PageMeta, State } from '@mechanica/shared'
+import type { PageMeta, State } from 'mechanica-shared'
 import { createMechanica } from '@/core/create-mechanica'
 import { Link } from '@/core/link'
 

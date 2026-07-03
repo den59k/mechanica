@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtemp, mkdir, writeFile, readFile, rm, access } from 'node:fs/promises'
 import os from 'node:os'
 import { join } from 'node:path'
-import { registerFieldSchemas, areFieldSchemasRegistered } from '@mechanica/shared'
-import { serializePage } from '@mechanica/shared/page-format'
+import { registerFieldSchemas, areFieldSchemasRegistered } from 'mechanica-shared'
+import { serializePage } from 'mechanica-shared/page-format'
 import { exportProject, type SsrBundle } from '@/cli/export'
 
 if (!areFieldSchemasRegistered()) registerFieldSchemas()

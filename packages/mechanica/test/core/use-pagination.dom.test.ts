@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createApp, defineComponent, h } from 'vue'
-import type { State } from '@mechanica/shared'
+import type { State } from 'mechanica-shared'
 import { createMechanica } from '@/core/create-mechanica'
 import { usePagination, type PaginationResult } from '@/core/use-pagination'
 

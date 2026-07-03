@@ -1,5 +1,5 @@
 import { blocksToMarkdown, markdownToBlocks, type Block } from 'vuewrite/markdown'
-import type { RichTextCodec } from '@mechanica/shared/page-format'
+import type { RichTextCodec } from 'mechanica-shared/page-format'
 
 /** Just the bits of a compiled block component the codec needs. */
 interface BlockLike {

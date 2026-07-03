@@ -1,6 +1,6 @@
 {
   "name": "mechanica",
-  "version": "2.0.0-alpha.0",
+  "version": "2.0.0-alpha.1",
   "description": "Build Vue 3 websites with a visual block editor",
   "license": "MIT",
   "repository": {
@@ -59,7 +59,7 @@
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
-    "@mechanica/shared": "workspace:*",
+    "mechanica-shared": "workspace:*",
     "@vue/compiler-sfc": "^3.5.38",
     "compact-json-schema": "^0.1.5",
     "estree-walker": "^3.0.3",

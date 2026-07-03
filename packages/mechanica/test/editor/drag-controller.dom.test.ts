@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import type { ContentBlock } from '@mechanica/shared'
+import type { ContentBlock } from 'mechanica-shared'
 import { createEditorStore, type EditorStore } from '@/editor/lib/store'
 import { createDragController, type DragController } from '@/editor/lib/drag-controller'
 

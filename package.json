@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "bun run --filter @mechanica/shared build && bun run --filter mechanica build",
+    "build": "bun run --filter mechanica-shared build && bun run --filter mechanica build",
     "test": "bun run --filter '*' test",
     "typecheck": "bun run --filter '*' typecheck"
   },

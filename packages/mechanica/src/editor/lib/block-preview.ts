@@ -1,5 +1,5 @@
 import { createApp, defineComponent, onErrorCaptured, ref, shallowRef } from 'vue'
-import type { ContentBlock } from '@mechanica/shared'
+import type { ContentBlock } from 'mechanica-shared'
 import { mechanicaKey, type BlocksMap, type MechanicaContext } from '../../core/state'
 import { createRouter } from '../../core/router'
 import { buildPreviewContent } from '../../core/preview'

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { Component } from 'vue'
-import type { ContentBlock } from '@mechanica/shared'
+import type { ContentBlock } from 'mechanica-shared'
 import { loadBlocks, usedBlockIds, type BlockLoaders } from '@/core/load-blocks'
 
 const Hero = { name: 'Hero' } as Component

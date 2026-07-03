@@ -1,4 +1,4 @@
-import { resolveQueryKey, type QueryContext, type QuerySource } from '@mechanica/shared'
+import { resolveQueryKey, type QueryContext, type QuerySource } from 'mechanica-shared'
 import { listPages } from './pages-store'
 
 /**

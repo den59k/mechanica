@@ -1,5 +1,5 @@
 import { unfoldSchema } from 'compact-json-schema'
-import { getDefaultValue, type Block, type ContentBlock } from '@mechanica/shared'
+import { getDefaultValue, type Block, type ContentBlock } from 'mechanica-shared'
 import { humanize } from '../props-panel/humanize'
 import { uid } from './content-tree'
 

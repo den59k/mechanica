@@ -130,7 +130,7 @@
 
 <script setup lang="ts">
 import { computed, inject, nextTick } from 'vue'
-import type { ContentBlock } from '@mechanica/shared'
+import type { ContentBlock } from 'mechanica-shared'
 import { editorStoreKey } from '../lib/store'
 import { dragKey } from '../lib/drag-controller'
 import { contextMenuKey, type ContextMenuItem } from '../lib/context-menu'

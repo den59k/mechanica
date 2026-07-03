@@ -56,7 +56,7 @@ entry is the contract a future hosted backend will call.
   `defineBlock` metadata** (schemas/`previewData` never ship to production —
   only `defineProps` survives); defaults are baked into the state at export
   (`generatePage`) and in dev (`buildPageState`), never applied at render time.
-- **Queries & pagination** — one query engine (`@mechanica/shared`
+- **Queries & pagination** — one query engine (`mechanica-shared`
   `query-engine.ts` over a `QuerySource`) behind `usePages` (folder filter,
   data embedding, sort, limit), `usePagination` (reactive pager), and
   `useFetch` (server-side, baked at export). Dev resolves live via
@@ -81,7 +81,7 @@ entry is the contract a future hosted backend will call.
 ## Next
 
 1. **Publish v2 to npm** — `mechanica@2.0.0-alpha` (`next` dist-tag; `latest`
-   stays v1 until stable), `@mechanica/shared`, then `create-mechanica-app`.
+   stays v1 until stable), `mechanica-shared`, then `create-mechanica-app`.
    `prepublishOnly` builds dist automatically; publish with `bun publish`
    (it rewrites `workspace:*`). Bump the template's pinned `mechanica`
    version on every release.
@@ -93,7 +93,7 @@ entry is the contract a future hosted backend will call.
 ## Invariants to keep
 
 - `defineBlock` stays the only macro; creating a block must stay trivial.
-- `@mechanica/shared` stays DOM-free (a render service must import it).
+- `mechanica-shared` stays DOM-free (a render service must import it).
 - Editor panels overlay the page — dev always shows the page as it is.
 - `.page.md` stays the single source of truth, friendly to AI/human edits;
   the editor must never clobber external edits (version check).

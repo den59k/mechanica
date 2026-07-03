@@ -1,5 +1,5 @@
 import { unfoldSchema } from 'compact-json-schema'
-import type { DataEntry } from '@mechanica/shared'
+import type { DataEntry } from 'mechanica-shared'
 
 export interface DataEntryInput {
   id: string

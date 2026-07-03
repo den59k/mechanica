@@ -1,7 +1,7 @@
 import { join, relative } from 'node:path'
 import type { Plugin } from 'vite'
 import { parseVueRequest } from '@vitejs/plugin-vue'
-import { passDataToHTML, serializeState } from '@mechanica/shared'
+import { passDataToHTML, serializeState } from 'mechanica-shared'
 import { compileBlock } from '../compiler/compile-block'
 import { collectBlocks, collectBlocksLazy } from './collect-blocks'
 import { collectWidgets } from './collect-widgets'

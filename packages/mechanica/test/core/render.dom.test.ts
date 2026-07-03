@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createApp, defineComponent, h, type Component } from 'vue'
-import type { State } from '@mechanica/shared'
+import type { State } from 'mechanica-shared'
 import { createMechanica } from '@/core/create-mechanica'
 import { Content } from '@/core/content'
 import type { BlocksMap } from '@/core/state'

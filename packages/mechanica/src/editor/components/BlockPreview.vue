@@ -15,7 +15,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import type { Block } from '@mechanica/shared'
+import type { Block } from 'mechanica-shared'
 import type { BlocksMap } from '../../core/state'
 import { mountBlockPreview, type BlockPreviewHandle } from '../lib/block-preview'
 import VIcon from './VIcon.vue'

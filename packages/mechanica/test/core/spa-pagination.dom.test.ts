@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { createApp, defineComponent, h, inject, nextTick } from 'vue'
-import type { State } from '@mechanica/shared'
+import type { State } from 'mechanica-shared'
 import { createMechanica } from '@/core/create-mechanica'
 import { Content } from '@/core/content'
 import { mechanicaKey, type MechanicaContext } from '@/core/state'

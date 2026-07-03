@@ -1,5 +1,5 @@
 import { inject } from 'vue'
-import type { PageMeta } from '@mechanica/shared'
+import type { PageMeta } from 'mechanica-shared'
 import { mechanicaKey } from './state'
 
 /** Read the current page's metadata (title, path, custom meta). */

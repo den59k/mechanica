@@ -1,5 +1,5 @@
 import { inject, shallowReactive, type ShallowRef } from 'vue'
-import type { ContentBlock, State } from '@mechanica/shared'
+import type { ContentBlock, State } from 'mechanica-shared'
 import { mechanicaKey, type MechanicaMode } from './state'
 
 /** Minimal client router surface used by `<Link>`, `useRouter` and `useRoute`. */

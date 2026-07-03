@@ -1,5 +1,5 @@
 import type { Component, InjectionKey, ShallowRef } from 'vue'
-import type { ContentBlock, PageMeta } from '@mechanica/shared'
+import type { ContentBlock, PageMeta } from 'mechanica-shared'
 import type { MechanicaRouter } from './router'
 
 /** Block components keyed by their `blockId`. */

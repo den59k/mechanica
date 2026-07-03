@@ -73,7 +73,7 @@
 
 <script setup lang="ts">
 import { computed, inject, ref } from 'vue'
-import type { DataScope } from '@mechanica/shared'
+import type { DataScope } from 'mechanica-shared'
 import { editorStoreKey } from '../lib/store'
 import SchemaForm from '../props-panel/SchemaForm.vue'
 

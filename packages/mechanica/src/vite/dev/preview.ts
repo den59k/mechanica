@@ -1,5 +1,5 @@
 import type { Connect } from 'vite'
-import { serializeState } from '@mechanica/shared'
+import { serializeState } from 'mechanica-shared'
 import type { BlockPreviewRequest } from '../../core/preview'
 
 const escapeHtml = (value: string): string =>

@@ -14,7 +14,7 @@ This is the v2 rewrite — built on **Vite 8 / Bun / Vue 3.5**, English througho
 Bun workspaces under `packages/*`:
 
 - **`mechanica`** — the published plugin: the `defineBlock` runtime, the Vite plugin (block compiler + dev server + build), the in-browser editor, and the `mechanica` CLI (`build` / `export` / `push` / `shot` / `thumbs`).
-- **`shared`** — `@mechanica/shared`: DOM-free types, schema helpers, the `.page.md` codec, and the page-generation core.
+- **`shared`** — `mechanica-shared`: DOM-free types, schema helpers, the `.page.md` codec, and the page-generation core.
 - **`dev-app`** — playground site used to exercise the plugin end to end.
 
 ## Commands

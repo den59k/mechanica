@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import { walkTree, type ContentBlock } from '@mechanica/shared'
+import { walkTree, type ContentBlock } from 'mechanica-shared'
 import type { BlocksMap } from './state'
 
 /** A dynamic import of one block SFC, from `virtual:mechanica/blocks` (build). */

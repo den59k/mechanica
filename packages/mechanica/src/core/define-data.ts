@@ -1,6 +1,6 @@
 import { inject, isReactive, shallowReactive } from 'vue'
 import { unfoldSchema, type SchemaItem, type SchemaType } from 'compact-json-schema'
-import { passDefaultValue } from '@mechanica/shared'
+import { passDefaultValue } from 'mechanica-shared'
 import { mechanicaKey } from './state'
 import { registerDataEntry } from './data-registry'
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { shallowRef } from 'vue'
-import type { ContentBlock } from '@mechanica/shared'
+import type { ContentBlock } from 'mechanica-shared'
 import { createRouter } from '@/core/router'
 
 const makeRouter = (baseUrl?: string) =>

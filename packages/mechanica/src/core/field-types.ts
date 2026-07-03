@@ -1,7 +1,7 @@
 /**
  * Type half of the built-in field registry: teaches compact-json-schema (and
  * therefore `defineBlock`) what each custom format resolves to in TypeScript.
- * The runtime half lives in `@mechanica/shared` (`builtinFields`).
+ * The runtime half lives in `mechanica-shared` (`builtinFields`).
  */
 declare module 'compact-json-schema' {
   interface SchemaTypesMap {

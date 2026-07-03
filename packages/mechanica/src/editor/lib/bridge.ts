@@ -1,4 +1,4 @@
-import type { ContentBlock, PageMeta } from '@mechanica/shared'
+import type { ContentBlock, PageMeta } from 'mechanica-shared'
 
 /** Global handle the runtime exposes for the in-page editor to drive. */
 const RUNTIME_KEY = '__MECHANICA_RUNTIME__'

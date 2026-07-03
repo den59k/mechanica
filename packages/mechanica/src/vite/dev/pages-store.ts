@@ -7,8 +7,8 @@ import {
   walkTree,
   type Block,
   type ContentBlock,
-} from '@mechanica/shared'
-import { parsePage, serializePage, type PageDoc, type RichTextCodec } from '@mechanica/shared/page-format'
+} from 'mechanica-shared'
+import { parsePage, serializePage, type PageDoc, type RichTextCodec } from 'mechanica-shared/page-format'
 import { writeFileAtomic, markMutated } from './fs-utils'
 
 /** Shape of a page file under `<mech>/pages` (the parsed `.page.md` document). */

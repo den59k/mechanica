@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { toBlockMeta, blockAvailableIn, createContentBlock, compareBlocks } from '@/editor/lib/block-meta'
-import type { Block } from '@mechanica/shared'
+import type { Block } from 'mechanica-shared'
 
 const block = (folders?: string[]): Block => ({ id: 'b', name: 'B', folders })
 

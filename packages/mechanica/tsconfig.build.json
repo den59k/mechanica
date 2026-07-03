@@ -2,7 +2,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": false,
-    // Resolve @mechanica/shared through its package exports (dist/types) —
+    // Resolve mechanica-shared through its package exports (dist/types) —
     // the dev paths-to-source mapping would pull shared's .ts files into this
     // program, outside rootDir. Requires shared to be built first.
     "paths": {

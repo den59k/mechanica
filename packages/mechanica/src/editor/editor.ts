@@ -1,7 +1,7 @@
 import { createApp, shallowRef } from 'vue'
 import { blocksList } from 'virtual:mechanica/blocks'
 import { widgetsList } from 'virtual:mechanica/widgets'
-import { registerFieldSchemas, type State } from '@mechanica/shared'
+import { registerFieldSchemas, type State } from 'mechanica-shared'
 import { getDataEntries } from '../core/data-registry'
 import { registerBuiltinFieldEditors } from './fields/builtin'
 import { registerRichTextWidgets } from './fields/richtext/widgets'

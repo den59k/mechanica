@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { registerFieldSchemas } from '@mechanica/shared'
+import { registerFieldSchemas } from 'mechanica-shared'
 import { createEditorStore } from '@/editor/lib/store'
 import { createHistory } from '@/editor/lib/history'
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createApp, nextTick, shallowRef } from 'vue'
-import { registerFieldSchemas } from '@mechanica/shared'
+import { registerFieldSchemas } from 'mechanica-shared'
 import EditorApp from '@/editor/EditorApp.vue'
 import { registerBuiltinFieldEditors } from '@/editor/fields/builtin'
 import { clearFieldEditors } from '@/editor/fields/registry'

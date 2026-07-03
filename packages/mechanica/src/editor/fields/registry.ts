@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import { registerFieldSchemas, type FieldType as FieldSchema } from '@mechanica/shared'
+import { registerFieldSchemas, type FieldType as FieldSchema } from 'mechanica-shared'
 
 const editors = new Map<string, Component>()
 

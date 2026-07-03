@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
-import { registerFieldSchemas } from '@mechanica/shared'
+import { registerFieldSchemas } from 'mechanica-shared'
 import { createEditorStore, editorStoreKey, type EditorStore } from '@/editor/lib/store'
 import { createDragController, dragKey } from '@/editor/lib/drag-controller'
 import { createContextMenu, contextMenuKey, type ContextMenuController } from '@/editor/lib/context-menu'

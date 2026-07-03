@@ -1,5 +1,5 @@
 import { computed, defineComponent, h, inject, type PropType } from 'vue'
-import type { PageLink } from '@mechanica/shared'
+import type { PageLink } from 'mechanica-shared'
 import { mechanicaKey } from './state'
 
 /** A string path, or a `smartLink`-shaped target. */

@@ -1,4 +1,4 @@
-import type { PageMeta } from '@mechanica/shared'
+import type { PageMeta } from 'mechanica-shared'
 import { readPage, pageVersion, fillContentDefaults } from './pages-store'
 import { readSiteData, readFolderData, folderOf } from './data-store'
 

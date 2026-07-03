@@ -56,7 +56,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { getDefaultValue } from '@mechanica/shared'
+import { getDefaultValue } from 'mechanica-shared'
 import SchemaForm from './SchemaForm.vue'
 import VCollapse from './VCollapse.vue'
 import FieldControl from '../fields/FieldControl.vue'
