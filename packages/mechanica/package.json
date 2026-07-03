@@ -65,7 +65,7 @@
     "estree-walker": "^3.0.3",
     "magic-string": "^0.30.21",
     "vuesix": "^1.0.48",
-    "vuewrite": "^1.4.0"
+    "vuewrite": "^1.4.1"
   },
   "peerDependencies": {
     "@vitejs/plugin-vue": "^6.0.0",

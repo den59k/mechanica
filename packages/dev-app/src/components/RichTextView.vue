@@ -149,16 +149,18 @@ defineProps<{ value: Block[] }>()
   margin: 16px 0;
   overflow-x: auto;
 }
+/* vuewrite 1.4.1 themes tables through custom properties on .vw-table;
+   column alignment comes as inline styles, so don't force text-align here. */
+.richtext__table :deep(.vw-table) {
+  --vw-table-border: var(--border);
+  --vw-table-header-bg: var(--surface);
+}
 .richtext__table :deep(.vw-table-cell) {
-  border-color: var(--border);
   padding: 8px 14px;
   font-size: 15px;
 }
 .richtext__table :deep(th.vw-table-cell) {
-  background: var(--surface);
   color: var(--ink);
-  font-weight: 600;
-  text-align: left;
 }
 .richtext__cta {
   margin: 18px 0;

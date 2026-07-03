@@ -89,13 +89,19 @@
         :decorator="decorator"
         :html-parser="htmlParser"
         @keydown="onKeyDown"
+        @contextmenu="onContextMenu"
       >
         <!-- Every widget with an editing component (built-in or site-defined)
-             renders through its own per-type slot, behind an error boundary. -->
-        <template v-for="w in editorWidgets" :key="w.type" #[w.type]="{ block }">
-          <WidgetBoundary :label="w.title">
-            <component :is="w.editor" :block="block" @change="onWidgetChange" />
-          </WidgetBoundary>
+             renders through its own per-type slot, behind an error boundary.
+             The wrapper must spread the slot's `props` — that's what carries
+             `data-vw-block-id`, without which vuewrite's selection (and our
+             context menu) can't resolve the block. -->
+        <template v-for="w in editorWidgets" :key="w.type" #[w.type]="{ block, props: blockProps }">
+          <div v-bind="blockProps" :contenteditable="false">
+            <WidgetBoundary :label="w.title">
+              <component :is="w.editor" :block="block" @change="onWidgetChange" />
+            </WidgetBoundary>
+          </div>
         </template>
         <template #placeholder>
           <div class="mech-rte__placeholder" :contenteditable="false">{{ placeholder }}</div>
@@ -116,7 +122,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, provide, ref, shallowRef, watch } from 'vue'
+import { computed, inject, nextTick, provide, ref, shallowRef, watch } from 'vue'
 import { TextEditor, uid } from 'vuewrite'
 import type { Block, TextEditorRef } from 'vuewrite'
 import { blocksToMarkdown, markdownToBlocks } from 'vuewrite/markdown'
@@ -126,6 +132,7 @@ import VPopover from '../../components/VPopover.vue'
 import WidgetBoundary from './WidgetBoundary.vue'
 import { allRichTextWidgets, type RichTextWidget } from './widgets'
 import { richTextEditorRefKey } from './keys'
+import { contextMenuKey, type ContextMenuItem } from '../../lib/context-menu'
 import { renderer, decorator, htmlParser, blockTypes } from './config'
 
 const props = withDefaults(
@@ -258,6 +265,102 @@ function insertWidget(widget: RichTextWidget): void {
 /** A widget mutated its own block (e.g. an image upload) — record it for undo. */
 function onWidgetChange(): void {
   editorRef.value?.pushHistory('setText')
+}
+
+// ── Block context menu ─────────────────────────────────────────────────────────
+// Right-click on any block offers structural actions the keyboard can't always
+// reach — notably around `editable: false` widgets, which can otherwise be
+// impossible to delete or to add a paragraph next to. Table cells don't get
+// here: the table widget claims their right-clicks for its own menu.
+
+const contextMenu = inject(contextMenuKey, null)
+
+function onContextMenu(event: MouseEvent): void {
+  if (!contextMenu) return
+  const target = event.target as HTMLElement | null
+  // Widget-owned form controls (the code widget's textarea, …) keep the native
+  // menu — pasting there matters more than block actions.
+  if (target?.closest('textarea, input, select')) return
+  // Nested editors (table cells) carry their own block ids inside a top-level
+  // block — walk to the outermost one, which is a direct child of the surface.
+  let el = target?.closest('[data-vw-block-id]') ?? null
+  while (el) {
+    const outer = el.parentElement?.closest('[data-vw-block-id]')
+    if (!outer) break
+    el = outer
+  }
+  const id = el?.getAttribute('data-vw-block-id')
+  const index = id ? model.value.findIndex((b) => b.id === id) : -1
+  if (index < 0) return
+  contextMenu.openAt(event, blockMenuItems(index))
+}
+
+function blockMenuItems(index: number): ContextMenuItem[] {
+  const last = model.value.length - 1
+  return [
+    { label: 'Add paragraph above', onClick: () => insertParagraphAt(index) },
+    { label: 'Add paragraph below', onClick: () => insertParagraphAt(index + 1) },
+    { label: 'Move up', separatorBefore: true, disabled: index === 0, onClick: () => moveBlock(index, -1) },
+    { label: 'Move down', disabled: index === last, onClick: () => moveBlock(index, 1) },
+    { label: 'Duplicate', onClick: () => duplicateBlock(index) },
+    { label: 'Delete block', separatorBefore: true, danger: true, onClick: () => deleteBlock(index) },
+  ]
+}
+
+/**
+ * Replace the document with `blocks` and land the caret on `focusId`. Assigning
+ * a fresh array (never splicing in place) is what makes the change reach
+ * vuewrite: its modelValue watch is shallow, and until the first edit its store
+ * holds a *copy* of our blocks — an in-place splice would mutate only our side.
+ */
+function replaceBlocks(blocks: Block[], focusId: string): void {
+  model.value = blocks
+  nextTick(() => {
+    const editor = editorRef.value
+    if (!editor) return
+    editor.selection.anchor = { blockId: focusId, offset: 0 }
+    editor.selection.focus = { blockId: focusId, offset: 0 }
+    editor.pushHistory('setText')
+  })
+}
+
+function insertParagraphAt(index: number): void {
+  const block: Block = { id: uid(), text: '' }
+  const next = [...model.value]
+  next.splice(index, 0, block)
+  replaceBlocks(next, block.id)
+}
+
+function moveBlock(index: number, delta: number): void {
+  const target = index + delta
+  if (target < 0 || target >= model.value.length) return
+  const next = [...model.value]
+  const [block] = next.splice(index, 1)
+  next.splice(target, 0, block)
+  replaceBlocks(next, block.id)
+}
+
+function duplicateBlock(index: number): void {
+  const source = model.value[index]
+  if (!source) return
+  // Deep-clone widget payloads (table rows, image data, …) so the copies never
+  // share mutable state; the clone gets its own identity.
+  const clone = JSON.parse(JSON.stringify(source)) as Block
+  clone.id = uid()
+  const next = [...model.value]
+  next.splice(index + 1, 0, clone)
+  replaceBlocks(next, clone.id)
+}
+
+function deleteBlock(index: number): void {
+  const editor = editorRef.value
+  const block = model.value[index]
+  if (!editor || !block) return
+  // vuewrite's own removal keeps the document non-empty, fixes the caret and
+  // pushes history — works for `editable: false` blocks too.
+  editor.selection.anchor = { blockId: block.id, offset: 0 }
+  editor.selection.focus = { blockId: block.id, offset: 0 }
+  editor.removeCurrentBlock()
 }
 
 // ── WYSIWYG ⇄ Markdown switch ─────────────────────────────────────────────────────

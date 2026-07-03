@@ -9,6 +9,8 @@ export interface ContextMenuItem {
   disabled?: boolean
   /** Draw a divider above this item. */
   separatorBefore?: boolean
+  /** Show a check mark (for one-of-N state like column alignment). */
+  checked?: boolean
   onClick?: () => void
 }
 

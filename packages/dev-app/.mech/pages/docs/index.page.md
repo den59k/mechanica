@@ -5,6 +5,7 @@ data:
   head:
     title: Introduction — Mechanica Docs
     description: What Mechanica is and how its pieces fit together.
+  postMeta: { date: "", description: "" }
 order: 0
 ---
 
@@ -21,7 +22,16 @@ title: How the pieces fit
 
 <callout tone="tip">**Authored by hand** — these pages are written directly in the `.page.md` format, so prose lives in clean `@content` regions with no JSON escaping to fight</callout>
 
-`test`
+wewqeqwe
+
+qweeq
+
+qweeqw
+
+|  | qweeqw | qweewq |  |  |
+| --- | --- | --- | --- | --- |
+|  | qwe | qweewq |  |  |
+|  |  |  |  |  |
 
 
 :::

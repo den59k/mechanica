@@ -19,7 +19,8 @@
             @mouseenter="onEnter(i)"
             @click="run(item)"
           >
-            {{ item.label }}
+            <span class="mech-ctx__label">{{ item.label }}</span>
+            <span v-if="item.checked" class="mech-ctx__check">✓</span>
           </button>
         </template>
       </div>
@@ -170,6 +171,13 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey, true))
       background: transparent;
     }
   }
+}
+.mech-ctx__label {
+  flex: 1;
+}
+.mech-ctx__check {
+  margin-left: 12px;
+  color: var(--mech-muted);
 }
 .mech-ctx__sep {
   height: 1px;

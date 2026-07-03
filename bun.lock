@@ -5,7 +5,7 @@
     "": {
       "name": "mechanica-monorepo",
       "dependencies": {
-        "vuewrite": "^1.4.0",
+        "vuewrite": "^1.4.1",
       },
       "devDependencies": {
         "sass": "^1.101.0",
@@ -29,7 +29,7 @@
       "dependencies": {
         "mechanica": "workspace:*",
         "vue": "^3.5.38",
-        "vuewrite": "^1.4.0",
+        "vuewrite": "^1.4.1",
       },
       "devDependencies": {
         "@vitejs/plugin-vue": "^6.0.7",
@@ -49,7 +49,7 @@
         "magic-string": "^0.30.21",
         "mechanica-shared": "workspace:*",
         "vuesix": "^1.0.48",
-        "vuewrite": "^1.4.0",
+        "vuewrite": "^1.4.1",
       },
       "devDependencies": {
         "@types/node": "^22.10.0",
@@ -422,7 +422,7 @@
 
     "vuesix": ["vuesix@1.0.48", "", {}, "sha512-bzWz3QkUI6CEJS11qUlsu2uVez3GkQWLQqOHCkAIcoJ6nT9cjKwpS/YProV31RZAjxyYIKzsems+fBT6FIU2EA=="],
 
-    "vuewrite": ["vuewrite@1.4.0", "", { "dependencies": { "vue": "^3" } }, "sha512-fMKvdm3vNuKT7PatBNRz57LHa5N+xC3ZtLTFFKL74ZdY+6pFnXuGb368VA47UcMK/9m/K/RRcUGIPDfkrl8nQw=="],
+    "vuewrite": ["vuewrite@1.4.1", "", { "dependencies": { "vue": "^3" } }, "sha512-x2VbM6Wr7d3IxphJ2W2n3sQScjbkyfbVr86OEm19wCpUFgSq8C30ULMmdh1rM2dd+kmuQcoiMxgPL175/7DBpg=="],
 
     "w3c-xmlserializer": ["w3c-xmlserializer@5.0.0", "", { "dependencies": { "xml-name-validator": "^5.0.0" } }, "sha512-o8qghlI8NZHU1lLPrpi2+Uq7abh4GGPpYANlalzWxyWteJOCsr/P+oPBA49TOLu5FTZO4d3F9MnWJfiMo4BkmA=="],
 
