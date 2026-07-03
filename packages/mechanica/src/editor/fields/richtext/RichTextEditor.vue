@@ -1,83 +1,99 @@
 <template>
   <div class="mech-rte" :class="toolbar ? 'mech-rte--full' : 'mech-rte--minimal'">
-    <!-- View toggle, above the box so it sits outside the field's focus ring. -->
-    <div class="mech-rte__switchbar">
-      <div class="mech-rte__switch">
-        <button type="button" :class="{ 'is-active': mode === 'rich' }" @click="mode = 'rich'">Rich</button>
-        <button type="button" :class="{ 'is-active': mode === 'markdown' }" @click="setMarkdownMode">Markdown</button>
-      </div>
+    <!-- Minimal inline field: the view toggle floats above the box, pulled up
+         onto the field's label row via a negative margin (see the styles). -->
+    <div v-if="!toolbar" class="mech-rte__switchbar">
+      <VSegmented
+        size="sm"
+        :model-value="mode"
+        :options="modeOptions"
+        aria-label="Editor view"
+        @update:model-value="setMode"
+      />
     </div>
 
     <div class="mech-rte__box">
-      <!-- Formatting toolbar lives inside the box, only in the full rich view. -->
-      <div v-if="toolbar && mode === 'rich'" class="mech-rte__bar">
-        <VSelect
-          v-if="blockType !== 'callout'"
-          compact
-          class="mech-rte__type"
-          :model-value="blockType"
-          :options="blockTypes"
-          placeholder="Mixed"
-          title="Block type"
-          @update:model-value="setBlockType($event as string)"
-        />
-        <VSelect
-          v-else
-          compact
-          class="mech-rte__type"
-          :model-value="calloutTone"
-          :options="calloutTones"
-          title="Callout tone"
-          @update:model-value="setCalloutTone($event as string)"
-        />
+      <!-- Header bar (full editor): formatting controls (rich view only) plus the
+           view toggle, which stays available in the Markdown view too. -->
+      <div v-if="toolbar" class="mech-rte__bar">
+        <template v-if="mode === 'rich'">
+          <VSelect
+            v-if="blockType !== 'callout'"
+            compact
+            class="mech-rte__type"
+            :model-value="blockType"
+            :options="blockTypes"
+            placeholder="Mixed"
+            title="Block type"
+            @update:model-value="setBlockType($event as string)"
+          />
+          <VSelect
+            v-else
+            compact
+            class="mech-rte__type"
+            :model-value="calloutTone"
+            :options="calloutTones"
+            title="Callout tone"
+            @update:model-value="setCalloutTone($event as string)"
+          />
 
-        <span class="mech-rte__divider" />
+          <span class="mech-rte__divider" />
 
-        <button
-          v-for="b in styleButtons"
-          :key="b.style"
-          type="button"
-          class="mech-icon-button"
-          :class="{ 'is-active': b.active }"
-          :title="b.title"
-          @mousedown.prevent
-          @click="toggleStyle(b.style)"
-        >
-          <VIcon :name="b.icon" />
-        </button>
-
-        <span class="mech-rte__divider" />
-
-        <button
-          ref="insertBtn"
-          type="button"
-          class="mech-icon-button"
-          title="Insert"
-          @mousedown.prevent
-          @click="insertOpen = !insertOpen"
-        >
-          <VIcon name="plus" />
-        </button>
-        <VPopover
-          :open="insertOpen"
-          :anchor="insertBtn"
-          panel-class="mech-rte__insert"
-          @update:open="insertOpen = $event"
-        >
           <button
-            v-for="w in widgets"
-            :key="w.type"
+            v-for="b in styleButtons"
+            :key="b.style"
             type="button"
-            class="mech-rte__insert-item"
+            class="mech-icon-button"
+            :class="{ 'is-active': b.active }"
+            :title="b.title"
             @mousedown.prevent
-            @click="insertWidget(w)"
+            @click="toggleStyle(b.style)"
           >
-            <!-- Site widgets may carry a raw <svg> string instead of a VIcon name. -->
-            <span v-if="isRawSvg(w.icon)" class="mech-rte__insert-icon" v-html="w.icon" />
-            <VIcon v-else :name="w.icon" class="mech-rte__insert-icon" />
-            <span>{{ w.title }}</span>
+            <VIcon :name="b.icon" />
           </button>
-        </VPopover>
+
+          <span class="mech-rte__divider" />
+
+          <button
+            ref="insertBtn"
+            type="button"
+            class="mech-icon-button"
+            title="Insert"
+            @mousedown.prevent
+            @click="insertOpen = !insertOpen"
+          >
+            <VIcon name="plus" />
+          </button>
+          <VPopover
+            :open="insertOpen"
+            :anchor="insertBtn"
+            panel-class="mech-rte__insert"
+            @update:open="insertOpen = $event"
+          >
+            <button
+              v-for="w in widgets"
+              :key="w.type"
+              type="button"
+              class="mech-rte__insert-item"
+              @mousedown.prevent
+              @click="insertWidget(w)"
+            >
+              <!-- Site widgets may carry a raw <svg> string instead of a VIcon name. -->
+              <span v-if="isRawSvg(w.icon)" class="mech-rte__insert-icon" v-html="w.icon" />
+              <VIcon v-else :name="w.icon" class="mech-rte__insert-icon" />
+              <span>{{ w.title }}</span>
+            </button>
+          </VPopover>
+        </template>
+
+        <VSegmented
+          size="sm"
+          class="mech-rte__toggle"
+          :model-value="mode"
+          :options="modeOptions"
+          aria-label="Editor view"
+          @update:model-value="setMode"
+        />
       </div>
 
       <TextEditor
@@ -128,6 +144,7 @@ import type { Block, TextEditorRef } from 'vuewrite'
 import { blocksToMarkdown, markdownToBlocks } from 'vuewrite/markdown'
 import VIcon from '../../components/VIcon.vue'
 import VSelect from '../../components/VSelect.vue'
+import VSegmented from '../../components/VSegmented.vue'
 import VPopover from '../../components/VPopover.vue'
 import WidgetBoundary from './WidgetBoundary.vue'
 import { allRichTextWidgets, type RichTextWidget } from './widgets'
@@ -148,6 +165,17 @@ const emit = defineEmits<{ 'update:modelValue': [Block[]] }>()
 
 const editorRef = shallowRef<TextEditorRef>()
 const mode = ref<'rich' | 'markdown'>('rich')
+
+const modeOptions = [
+  { value: 'rich', label: 'Rich' },
+  { value: 'markdown', label: 'Markdown' },
+]
+
+/** Switching to Markdown re-serializes the document first; back to Rich is a plain toggle. */
+function setMode(value: string): void {
+  if (value === 'markdown') setMarkdownMode()
+  else mode.value = 'rich'
+}
 
 // Deeper integration for widgets that need it (the table pushes cell edits
 // onto this editor's history and removes its own block on delete).
@@ -275,6 +303,33 @@ function onWidgetChange(): void {
 
 const contextMenu = inject(contextMenuKey, null)
 
+// The block currently wearing the highlight class, so we can clear it when the
+// menu closes (or a different block is targeted).
+let highlighted: HTMLElement | null = null
+
+function highlightTarget(el: HTMLElement): void {
+  if (highlighted === el) return
+  highlighted?.classList.remove('mech-rte__menu-target')
+  el.classList.add('mech-rte__menu-target')
+  highlighted = el
+}
+
+function clearHighlight(): void {
+  highlighted?.classList.remove('mech-rte__menu-target')
+  highlighted = null
+}
+
+// The menu can close many ways (pick an item, scrim click, Escape) — one watch
+// on its open state covers them all.
+if (contextMenu) {
+  watch(
+    () => contextMenu.open,
+    (open) => {
+      if (!open) clearHighlight()
+    },
+  )
+}
+
 function onContextMenu(event: MouseEvent): void {
   if (!contextMenu) return
   const target = event.target as HTMLElement | null
@@ -292,6 +347,10 @@ function onContextMenu(event: MouseEvent): void {
   const id = el?.getAttribute('data-vw-block-id')
   const index = id ? model.value.findIndex((b) => b.id === id) : -1
   if (index < 0) return
+  // Highlight the block the menu acts on, so it's unmistakable which one is
+  // targeted. Toggled straight on the DOM node (cleared when the menu closes) —
+  // no need to disturb the editor's caret/selection for a purely visual cue.
+  highlightTarget(el as HTMLElement)
   contextMenu.openAt(event, blockMenuItems(index))
 }
 
@@ -449,10 +508,12 @@ function onKeyDown(event: KeyboardEvent): void {
   gap: 6px;
 }
 
-// The view toggle sits above the box, right-aligned, outside the focus ring.
+// The view toggle sits above the box, right-aligned, outside the focus ring —
+// pulled up by a negative margin so it rides on the field's label row.
 .mech-rte__switchbar {
   display: flex;
   justify-content: flex-end;
+  margin-top: -25px;
 }
 
 // The bordered/filled editing box.
@@ -502,6 +563,11 @@ function onKeyDown(event: KeyboardEvent): void {
   padding: 5px 6px;
   border-bottom: 1px solid var(--mech-border);
 }
+// View toggle pinned to the right end of the header bar, past the formatting
+// controls (and on its own when the Markdown view hides them).
+.mech-rte__toggle {
+  margin-left: auto;
+}
 
 .mech-rte__divider {
   width: 1px;
@@ -547,39 +613,12 @@ function onKeyDown(event: KeyboardEvent): void {
   }
 }
 
-// Segmented Rich / Markdown switch.
-.mech-rte__switch {
-  display: inline-flex;
-  gap: 2px;
-  padding: 2px;
-  background: var(--mech-field-bg);
+// Block singled out by the right-click context menu — a purely visual cue,
+// added straight to the DOM node and cleared when the menu closes.
+.mech-rte__surface :deep(.mech-rte__menu-target) {
   border-radius: var(--mech-radius-sm);
-
-  button {
-    border: none;
-    background: none;
-    padding: 3px 10px;
-    border-radius: calc(var(--mech-radius-sm) - 2px);
-    font: inherit;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--mech-muted);
-    cursor: pointer;
-
-    &:hover {
-      color: var(--mech-fg);
-    }
-    &.is-active {
-      background: var(--mech-bg);
-      color: var(--mech-fg);
-      box-shadow: 0 1px 2px rgba(20, 23, 28, 0.14);
-    }
-  }
-}
-// Smaller switch in the minimal field so it reads as a quiet affordance.
-.mech-rte--minimal .mech-rte__switch button {
-  padding: 2px 8px;
-  font-size: 11px;
+  background: var(--mech-accent-soft);
+  box-shadow: 0 0 0 3px var(--mech-accent-soft);
 }
 
 .mech-rte__surface {

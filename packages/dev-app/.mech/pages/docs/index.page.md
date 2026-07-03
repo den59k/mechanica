@@ -20,6 +20,8 @@ title: How the pieces fit
 - **Pages** — ordered trees of blocks, stored as human-readable `.page.md` files.
 - **Data** — shared values (site, folder, page) templated into blocks and the head.
 
+---
+
 <callout tone="tip">**Authored by hand** — these pages are written directly in the `.page.md` format, so prose lives in clean `@content` regions with no JSON escaping to fight</callout>
 
 wewqeqwe
@@ -32,8 +34,6 @@ qweeqw
 | --- | --- | --- | --- | --- |
 |  | qwe | qweewq |  |  |
 |  |  |  |  |  |
-
-
 :::
 
 ::: doc-section #get-started

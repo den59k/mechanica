@@ -31,7 +31,7 @@ const rowFor = (el: HTMLElement, name: string) =>
     (r) => r.querySelector('.mech-data__entry-name')?.textContent?.trim() === name,
   )!
 const segFor = (el: HTMLElement, label: string) =>
-  [...el.querySelectorAll<HTMLButtonElement>('.mech-data__seg')].find((s) => s.textContent?.trim() === label)!
+  [...el.querySelectorAll<HTMLButtonElement>('.mech-segmented__seg')].find((s) => s.textContent?.trim() === label)!
 
 describe('DataSettings', () => {
   it('lists every entry in the rail and switches the active form', async () => {
@@ -68,7 +68,7 @@ describe('DataSettings', () => {
   it('hides the folder scope option when the page is not in a folder', () => {
     const store = createEditorStore({ content: [], data: {} }, [], entries)
     const { el } = mount(store)
-    const labels = [...el.querySelectorAll('.mech-data__seg')].map((s) => s.textContent?.trim())
+    const labels = [...el.querySelectorAll('.mech-segmented__seg')].map((s) => s.textContent?.trim())
     expect(labels).toEqual(['Site', 'This page'])
   })
 })

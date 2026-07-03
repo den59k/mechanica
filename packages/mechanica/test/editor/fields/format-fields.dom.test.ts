@@ -64,7 +64,7 @@ describe('formatted field editors', () => {
     const { el } = mountField({ type: 'array', format: 'richText' }, [{ text: 'hello' }])
     expect(el.querySelector('.mech-rte--minimal')).not.toBeNull()
     // The Rich/Markdown toggle is available inline…
-    expect(el.querySelector('.mech-rte__switch')).not.toBeNull()
+    expect(el.querySelector('.mech-rte__switchbar .mech-segmented')).not.toBeNull()
     // …but the block-type dropdown (full toolbar) stays in the dialog.
     expect(el.querySelector('.mech-rte__type')).toBeNull()
   })

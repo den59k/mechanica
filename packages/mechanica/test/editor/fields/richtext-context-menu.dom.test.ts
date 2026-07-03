@@ -72,6 +72,21 @@ describe('RichTextEditor block context menu', () => {
     app.unmount()
   })
 
+  it('highlights the targeted block and clears it when the menu closes', async () => {
+    const { el, app, menu } = await mountEditor([
+      { id: '1', text: 'First' },
+      { id: '2', text: 'Second' },
+    ])
+    rightClick(blockEl(el, '2'))
+    await nextTick() // let the open flush settle, as a real gap between clicks would
+    expect(blockEl(el, '2').classList.contains('mech-rte__menu-target')).toBe(true)
+    expect(blockEl(el, '1').classList.contains('mech-rte__menu-target')).toBe(false)
+    menu.close()
+    await nextTick()
+    expect(blockEl(el, '2').classList.contains('mech-rte__menu-target')).toBe(false)
+    app.unmount()
+  })
+
   it('deletes an editable:false widget block', async () => {
     const { el, app, menu } = await mountEditor([
       { id: '1', text: 'Keep me' },

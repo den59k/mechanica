@@ -128,7 +128,7 @@ note: bun create mechanica@latest
 
 ::: fields-demo #bed0813f-f3a8-44a0-806f-dcb59896c7e0
 title: Checkboxes & dropdowns
-tone: neutral
+tone: brand
 size: lg
 bordered: true
 rounded: true

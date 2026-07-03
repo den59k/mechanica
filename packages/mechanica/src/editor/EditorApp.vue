@@ -287,10 +287,14 @@ const toolbarTop = computed(() => {
 })
 // Anchor the toolbar at the block's right edge, but keep it clear of the panel
 // that overlays the page on the right — the settings panel (--mech-settings-width,
-// 380px) is open whenever a block is selected.
+// 380px) is open whenever a block is selected. clientWidth, not innerWidth: the
+// fixed panel sits left of the scrollbar, which innerWidth includes — that was
+// pushing the toolbar under the panel. The 12px keeps a visible gap besides.
+const TOOLBAR_PANEL_GAP = 380 + 12
 const toolbarLeft = computed(() => {
   if (!selected.value) return 0
-  return Math.min(selected.value.left + selected.value.width, window.innerWidth - 380)
+  const limit = document.documentElement.clientWidth - TOOLBAR_PANEL_GAP
+  return Math.min(selected.value.left + selected.value.width, limit)
 })
 
 // On any edit: push the effective data as a live preview to the runtime, and

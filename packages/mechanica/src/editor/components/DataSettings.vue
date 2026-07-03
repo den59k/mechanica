@@ -21,33 +21,12 @@
     <section v-if="active" class="mech-data__pane">
       <header class="mech-data__head">
         <h3 class="mech-data__title">{{ active.title ?? active.id }}</h3>
-        <div class="mech-data__switch" role="tablist" aria-label="Data scope">
-          <button
-            type="button"
-            class="mech-data__seg"
-            :class="{ 'is-active': currentScope === 'site' }"
-            @click="store.setScope(active.id, 'site')"
-          >
-            Site
-          </button>
-          <button
-            v-if="store.canFolder"
-            type="button"
-            class="mech-data__seg"
-            :class="{ 'is-active': currentScope === 'folder' }"
-            @click="store.setScope(active.id, 'folder')"
-          >
-            Folder
-          </button>
-          <button
-            type="button"
-            class="mech-data__seg"
-            :class="{ 'is-active': currentScope === 'page' }"
-            @click="store.setScope(active.id, 'page')"
-          >
-            This page
-          </button>
-        </div>
+        <VSegmented
+          :model-value="currentScope"
+          :options="scopeOptions"
+          aria-label="Data scope"
+          @update:model-value="store.setScope(active.id, $event as DataScope)"
+        />
       </header>
 
       <p class="mech-data__note" :class="{ 'is-warn': currentScope === 'site' }">
@@ -76,6 +55,7 @@ import { computed, inject, ref } from 'vue'
 import type { DataScope } from 'mechanica-shared'
 import { editorStoreKey } from '../lib/store'
 import SchemaForm from '../props-panel/SchemaForm.vue'
+import VSegmented, { type SegmentedOption } from './VSegmented.vue'
 
 const store = inject(editorStoreKey)!
 
@@ -84,6 +64,13 @@ const active = computed(
   () => store.dataEntries.find((entry) => entry.id === activeId.value) ?? store.dataEntries[0] ?? null,
 )
 const currentScope = computed<DataScope>(() => (active.value ? store.scopeOf(active.value.id) : 'page'))
+
+// Folder scope only appears when the page actually lives in a folder.
+const scopeOptions = computed<SegmentedOption[]>(() => [
+  { value: 'site', label: 'Site' },
+  ...(store.canFolder ? [{ value: 'folder', label: 'Folder' }] : []),
+  { value: 'page', label: 'This page' },
+])
 
 const scopeLabel = (scope: DataScope) => (scope === 'site' ? 'Site' : scope === 'folder' ? 'Folder' : 'Page')
 </script>
@@ -169,37 +156,6 @@ const scopeLabel = (scope: DataScope) => (scope === 'site' ? 'Site' : scope === 
   margin: 0;
   font-size: 15px;
   font-weight: 600;
-}
-.mech-data__switch {
-  display: inline-flex;
-  gap: 2px;
-  padding: 3px;
-  background: var(--mech-field-bg);
-  border-radius: var(--mech-radius);
-}
-.mech-data__seg {
-  padding: 5px 12px;
-  border: none;
-  background: none;
-  border-radius: var(--mech-radius-sm);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--mech-muted);
-  cursor: pointer;
-  transition:
-    background 0.12s,
-    color 0.12s,
-    box-shadow 0.12s;
-
-  &:hover {
-    color: var(--mech-fg);
-  }
-  &.is-active {
-    background: var(--mech-bg);
-    color: var(--mech-fg);
-    box-shadow: var(--mech-shadow-pop);
-  }
 }
 .mech-data__note {
   margin: 0;
