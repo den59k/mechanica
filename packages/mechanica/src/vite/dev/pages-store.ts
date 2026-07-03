@@ -4,7 +4,9 @@ import { dirname, join, parse, relative } from 'node:path'
 import {
   migrateContent,
   parsePage,
+  passDefaultValue,
   serializePage,
+  walkTree,
   type Block,
   type ContentBlock,
   type PageDoc,
@@ -37,6 +39,20 @@ let blocksMeta: Map<string, Block> | undefined
 /** Configure block metadata used to migrate page data on read. Dev server only. */
 export function setPageBlocks(blocks: Block[] | undefined): void {
   blocksMeta = blocks ? new Map(blocks.map((block) => [block.id, block])) : undefined
+}
+
+/**
+ * Fill schema defaults into placed block data, in place — the same pass
+ * `generatePage` runs at export, so a hand-authored `.page.md` that omits a
+ * defaulted prop renders identically in dev and in the exported site.
+ * A no-op until {@link setPageBlocks} has run.
+ */
+export function fillContentDefaults(content: ContentBlock[]): void {
+  if (!blocksMeta) return
+  walkTree(content, (block) => {
+    const meta = blocksMeta!.get(block.blockId)
+    if (meta?.props) block.data = passDefaultValue(block.data ?? {}, meta.props)
+  })
 }
 
 /** A page entry as returned by {@link listPages}. */

@@ -1,5 +1,5 @@
 import type { PageMeta } from '@mechanica/shared'
-import { readPage, pageVersion } from './pages-store'
+import { readPage, pageVersion, fillContentDefaults } from './pages-store'
 import { readSiteData, readFolderData, folderOf } from './data-store'
 
 /**
@@ -36,6 +36,11 @@ export function buildPageState(mechDir: string, urlPath: string) {
   const pagePath = variant?.basePath ?? urlPath
 
   const page = readPage(mechDir, pagePath)
+  const content = page.content ?? []
+  // Bake block-prop defaults into the state, like `generatePage` does at
+  // export — a hand-authored page omitting a defaulted prop renders the same
+  // in dev and production (blocks never apply defaults at render time).
+  fillContentDefaults(content)
   const folder = folderOf(mechDir, pagePath)
   const siteData = readSiteData(mechDir)
   const folderData = readFolderData(mechDir, folder)
@@ -43,7 +48,7 @@ export function buildPageState(mechDir: string, urlPath: string) {
   const pageMeta: PageMeta = { path: pagePath, meta: page.meta ?? {} }
   if (variant) pageMeta.pagination = { page: variant.page }
   return {
-    content: page.content ?? [],
+    content,
     data: { ...siteData, ...folderData, ...pageData },
     siteData,
     folderData,

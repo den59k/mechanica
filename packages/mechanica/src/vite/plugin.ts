@@ -140,7 +140,10 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
 
       let result
       try {
-        result = compileBlock(code, filename)
+        // The production client bundle ships no block metadata: schemas and
+        // previewData only feed the editor, the preview route and the SSR-side
+        // default-filling — none of which load the client build.
+        result = compileBlock(code, filename, { stripMetadata: isClientBuild })
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         this.error(`[mechanica] Failed to compile block: ${message}`)

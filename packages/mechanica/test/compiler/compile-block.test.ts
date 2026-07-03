@@ -120,6 +120,38 @@ describe('compileBlock', () => {
     expect(out.code).not.toContain('defineBlock')
   })
 
+  describe('stripMetadata (production client build)', () => {
+    const source = sfc(
+      `const props = defineBlock({ name: 'Hero', category: 'Content', props: { title: 'string' }, previewData: { title: 'Hi' } })`,
+      '<div>{{ props.title }}</div>',
+    )
+
+    it('emits only defineProps — no schema, previewData or blockId', () => {
+      const out = compileBlock(source, 'Hero.vue', { stripMetadata: true })!
+      expect(out.code).toContain('defineProps(["title"])')
+      expect(out.code).not.toContain('defineOptions')
+      expect(out.code).not.toContain('blockSchema')
+      expect(out.code).not.toContain('previewData')
+      expect(out.code).not.toContain('defineBlock')
+    })
+
+    it('still resolves the block id and schema for the caller (manifest, HMR)', () => {
+      const out = compileBlock(source, 'Hero.vue', { stripMetadata: true })!
+      expect(out.blockId).toBe('hero')
+      expect(out.schema).toContain('previewData')
+      expect(out.schema).toBe(compileBlock(source, 'Hero.vue')!.schema)
+    })
+
+    it('produces output that compiles through @vue/compiler-sfc', () => {
+      const out = compileBlock(source, 'Hero.vue', { stripMetadata: true })!
+      const { descriptor, errors } = parseSfc(out.code, { filename: 'Hero.vue' })
+      expect(errors).toHaveLength(0)
+      const script = compileScript(descriptor, { id: 'hero' })
+      expect(script.content).toContain('title')
+      expect(script.content).not.toContain('blockSchema')
+    })
+  })
+
   it('exposes the blockSchema literal so callers can diff schemas across edits', () => {
     const one = compileBlock(sfc(`const p = defineBlock({ props: { title: 'string' } })`), 'A.vue')!
     const same = compileBlock(sfc(`const p = defineBlock({ props: { title: 'string' } })`), 'A.vue')!

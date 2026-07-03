@@ -46,7 +46,10 @@ entry is the contract a future hosted backend will call.
   the entry awaits only the page's blocks before hydrating, exported pages get
   per-page stylesheet/`modulepreload` links (Vite manifest +
   `mechanica-blocks.json`), and SPA navigation loads missing chunks before the
-  content swap. Dev and SSR stay eager.
+  content swap. Dev and SSR stay eager. The client build also **strips
+  `defineBlock` metadata** (schemas/`previewData` never ship to production —
+  only `defineProps` survives); defaults are baked into the state at export
+  (`generatePage`) and in dev (`buildPageState`), never applied at render time.
 - **Queries & pagination** — one query engine (`@mechanica/shared`
   `query-engine.ts` over a `QuerySource`) behind `usePages` (folder filter,
   data embedding, sort, limit), `usePagination` (reactive pager), and

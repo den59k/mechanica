@@ -8,6 +8,17 @@ import MagicString from 'magic-string'
  */
 const MACRO = 'defineBlock'
 
+export interface CompileBlockOptions {
+  /**
+   * Omit the `defineOptions({ blockId, blockSchema })` metadata from the
+   * output, leaving only `defineProps`. Used for the production client build:
+   * nothing there reads the schema at runtime — block chunks are keyed by the
+   * compiler-known id, defaults are baked into the page state at generation
+   * time, and the editor/preview never load this bundle.
+   */
+  stripMetadata?: boolean
+}
+
 export interface CompileBlockResult {
   /** The transformed SFC source. */
   code: string
@@ -35,7 +46,11 @@ export interface CompileBlockResult {
  * @param code     Raw `.vue` SFC source.
  * @param filename Absolute or relative path; used to derive the block id.
  */
-export function compileBlock(code: string, filename: string): CompileBlockResult | null {
+export function compileBlock(
+  code: string,
+  filename: string,
+  options: CompileBlockOptions = {},
+): CompileBlockResult | null {
   // Cheap bail-out before any parsing.
   if (!code.includes(MACRO)) return null
 
@@ -101,7 +116,7 @@ export function compileBlock(code: string, filename: string): CompileBlockResult
   const scriptStart = scriptSetup.loc.start.offset
   const s = new MagicString(code)
   s.update(scriptStart + call.start, scriptStart + call.end, `defineProps(${JSON.stringify(propKeys)})`)
-  s.appendLeft(scriptStart + content.length, defineOptions)
+  if (!options.stripMetadata) s.appendLeft(scriptStart + content.length, defineOptions)
 
   return {
     code: s.toString(),

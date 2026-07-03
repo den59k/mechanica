@@ -22,6 +22,23 @@ describe('mechanica plugin', () => {
     expect(out.code).not.toContain('defineBlock(')
   })
 
+  it('strips block metadata in the client build, keeps it for dev and SSR', () => {
+    const client = mechanica()
+    callHook(client.configResolved, { root: '/r', command: 'build', build: {} })
+    const out = callHook(client.transform, block, '/abs/Headline.vue')
+    expect(out.code).toContain('defineProps(["title"])')
+    expect(out.code).not.toContain('defineOptions')
+    expect(out.code).not.toContain('blockSchema')
+
+    const ssr = mechanica()
+    callHook(ssr.configResolved, { root: '/r', command: 'build', build: { ssr: true } })
+    expect(callHook(ssr.transform, block, '/abs/Headline.vue').code).toContain('blockSchema')
+
+    const dev = mechanica()
+    callHook(dev.configResolved, { root: '/r', command: 'serve' })
+    expect(callHook(dev.transform, block, '/abs/Headline.vue').code).toContain('blockSchema')
+  })
+
   it('ignores plugin-vue sub-requests', () => {
     const out = callHook(
       mechanica().transform,
