@@ -1,14 +1,24 @@
 <template>
-  <VDialog title="Pages" size="wide">
-    <div class="mech-pages-dialog">
-      <div class="mech-pages-dialog__toolbar">
-        <div class="mech-pages-dialog__search-wrap">
-          <VIcon name="search" class="mech-pages-dialog__search-icon" />
+  <div class="mech-pages" data-mech-ui>
+    <div class="mech-pages__card" role="dialog" aria-modal="true">
+      <header class="mech-pages__header">
+        <h2 class="mech-pages__title">Pages</h2>
+        <span class="mech-pages__count">{{ pages.length }}</span>
+        <button type="button" class="mech-pages__close" aria-label="Close" @click="dialog.back()">
+          <VIcon name="close" />
+        </button>
+      </header>
+
+      <div class="mech-pages__toolbar">
+        <div class="mech-pages__search-wrap">
+          <VIcon name="search" class="mech-pages__search-icon" />
           <input
+            ref="searchInput"
             v-model="query"
-            class="mech-input mech-pages-dialog__search"
+            class="mech-input mech-pages__search"
             type="search"
-            placeholder="Search pages by name or path…"
+            placeholder="Search pages…"
+            @keydown="onSearchKey"
           />
         </div>
         <button type="button" class="mech-button is-primary" @click="startCreate">
@@ -16,131 +26,190 @@
         </button>
       </div>
 
-      <form v-if="form" class="mech-pages-dialog__form" @submit.prevent="submitForm">
-        <div class="mech-pages-dialog__form-title">{{ formTitle }}</div>
-        <div class="mech-pages-dialog__form-grid">
-          <label class="mech-pages-dialog__field">
-            <span>Name</span>
-            <input ref="nameInput" v-model="form.name" class="mech-input" placeholder="Page name" />
-          </label>
-          <label class="mech-pages-dialog__field">
-            <span>Path</span>
-            <input v-model="form.path" class="mech-input" placeholder="/path" />
-          </label>
-        </div>
-        <p v-if="error" class="mech-pages-dialog__error">{{ error }}</p>
-        <div class="mech-pages-dialog__form-actions">
-          <button type="button" class="mech-button" @click="form = null">Cancel</button>
-          <button type="submit" class="mech-button is-primary">{{ formSubmit }}</button>
-        </div>
-      </form>
-
-      <div class="mech-pages-dialog__list">
-        <template v-for="group in groups" :key="group.folder ?? '#root'">
+      <div class="mech-pages__content">
+        <nav v-if="folders.length" class="mech-pages__rail">
           <button
-            v-if="group.folder"
             type="button"
-            class="mech-pages-dialog__folder"
-            :class="{ 'is-collapsed': !isFolderOpen(group.folder) }"
-            @click="toggleFolder(group.folder)"
+            class="mech-pages__rail-item"
+            :class="{ 'is-active': !activeFolder && !searching }"
+            @click="selectFolder(null)"
           >
-            <VIcon name="chevron-down" class="mech-pages-dialog__folder-chevron" />
-            <VIcon name="folder" class="mech-pages-dialog__folder-icon" />
-            <span class="mech-pages-dialog__folder-name">{{ group.folder }}</span>
-            <span class="mech-pages-dialog__folder-count">{{ group.pages.length }}</span>
+            <VIcon name="book" />
+            <span class="mech-pages__rail-name">All pages</span>
+            <span class="mech-pages__rail-count">{{ pages.length }}</span>
           </button>
+          <button
+            v-for="folder in folders"
+            :key="folder.name"
+            type="button"
+            class="mech-pages__rail-item"
+            :class="{ 'is-active': activeFolder === folder.name && !searching }"
+            @click="selectFolder(folder.name)"
+          >
+            <VIcon name="folder" />
+            <span class="mech-pages__rail-name">{{ folder.name }}</span>
+            <span class="mech-pages__rail-count">{{ folder.count }}</span>
+          </button>
+        </nav>
 
-          <template v-if="isFolderOpen(group.folder)">
+        <div ref="listEl" class="mech-pages__list">
+          <div class="mech-pages__thead">
+            <span>Name</span>
+            <span>Path</span>
+            <span aria-hidden="true" />
+          </div>
+
+          <template v-for="group in groups" :key="group.folder ?? '#root'">
+            <button
+              v-if="showGroupHeaders && group.folder"
+              type="button"
+              class="mech-pages__group"
+              title="Show only this folder"
+              @click="selectFolder(group.folder)"
+            >
+              <VIcon name="folder" />
+              {{ group.folder }}
+            </button>
+
             <div
               v-for="page in group.pages"
               :key="page.path"
-              class="mech-pages-dialog__row"
-              :class="{ 'is-current': page.path === current, 'is-nested': !!group.folder }"
+              class="mech-pages__row"
+              :class="{ 'is-active': page.path === activePath, 'is-current': page.path === current }"
+              @click="open(page)"
+              @mouseenter="activePath = page.path"
+              @contextmenu="onRowMenu($event, page)"
             >
-              <button type="button" class="mech-pages-dialog__open" @click="open(page)">
-                <span class="mech-pages-dialog__thumb">
-                  <img
-                    v-if="!thumbFailed.has(page.path)"
-                    :src="thumbSrc(page)"
-                    loading="lazy"
-                    alt=""
-                    @error="thumbFailed.add(page.path)"
-                  />
-                  <span v-else>{{ (page.name || page.path).charAt(0).toUpperCase() }}</span>
-                </span>
-                <span class="mech-pages-dialog__name">{{ page.name }}</span>
-                <span class="mech-pages-dialog__path">{{ page.path }}</span>
-                <span v-if="page.path === current" class="mech-pages-dialog__badge">Current</span>
-              </button>
-              <div class="mech-pages-dialog__actions">
-                <button type="button" title="Edit" @click="startEdit(page)"><VIcon name="pencil" /></button>
+              <span class="mech-pages__cell-name">
+                <span class="mech-pages__name">{{ page.name || page.path }}</span>
+                <span v-if="page.path === current" class="mech-pages__badge">Current</span>
+              </span>
+              <span class="mech-pages__cell-path">{{ page.path }}</span>
+              <span class="mech-pages__actions" @click.stop>
+                <button type="button" title="Rename" @click="startEdit(page)"><VIcon name="pencil" /></button>
                 <button type="button" title="Duplicate" @click="startDuplicate(page)"><VIcon name="copy" /></button>
                 <button type="button" title="Delete" class="is-danger" @click="confirmRemove(page)">
                   <VIcon name="trash" />
                 </button>
-              </div>
+              </span>
             </div>
           </template>
-        </template>
 
-        <p v-if="!filtered.length" class="mech-pages-dialog__empty">
-          {{ query ? `No pages match “${query}”.` : 'No pages yet.' }}
-        </p>
+          <p v-if="!rows.length" class="mech-pages__empty">
+            {{ query ? `No pages match “${query}”.` : 'No pages yet.' }}
+          </p>
+        </div>
       </div>
     </div>
-  </VDialog>
+
+    <!-- Live preview of the highlighted (hovered / keyboard-active) page,
+         floating beside the card. Hidden on narrow viewports. -->
+    <aside class="mech-pages__preview">
+      <div class="mech-pages__preview-frame">
+        <img
+          v-if="previewPage && !thumbFailed.has(previewPage.path)"
+          :key="previewPage.path"
+          :src="thumbSrc(previewPage)"
+          :data-path="previewPage.path"
+          alt=""
+          @error="onThumbError"
+        />
+        <div v-else class="mech-pages__preview-empty">
+          <span class="mech-pages__preview-monogram">{{ monogram }}</span>
+          <template v-if="previewPage">
+            <p>No preview yet</p>
+            <code>mechanica thumbs</code>
+          </template>
+        </div>
+      </div>
+      <div v-if="previewPage" class="mech-pages__preview-caption">
+        <span class="mech-pages__preview-name">{{ previewPage.name || previewPage.path }}</span>
+        <span class="mech-pages__preview-path">{{ previewPage.path }}</span>
+      </div>
+    </aside>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, inject, nextTick, onMounted, reactive, ref, useTemplateRef } from 'vue'
-import VDialog from '../ui/VDialog.vue'
+import { computed, inject, nextTick, onMounted, reactive, ref, useTemplateRef, watch } from 'vue'
 import VIcon from '../components/VIcon.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
+import PageFormDialog from './PageFormDialog.vue'
 import { useDialog } from '../ui/dialog'
+import { contextMenuKey } from '../lib/context-menu'
 import { filterPages, groupPagesByFolder, pageThumbUrl, type PageItem } from '../lib/page-list'
 import { navigationKey, fallbackNavigation } from '../lib/navigation'
 import { recordRecent } from '../lib/recents'
 
-interface FormState {
-  mode: 'create' | 'duplicate' | 'edit'
-  source?: string
-  sourceName?: string
-  name: string
-  path: string
-}
-
 const dialog = useDialog()
-const pages = ref<PageItem[]>([])
-const query = ref('')
-const form = ref<FormState | null>(null)
-const error = ref('')
-const collapsedFolders = reactive(new Set<string>())
-const nameInput = useTemplateRef<HTMLInputElement>('nameInput')
-
+const contextMenu = inject(contextMenuKey, null)
 const navigation = inject(navigationKey, null) ?? fallbackNavigation()
 const current = computed(() => navigation.path.value)
 
-const filtered = computed(() => filterPages(pages.value, query.value))
-const groups = computed(() => groupPagesByFolder(filtered.value))
+const pages = ref<PageItem[]>([])
+const query = ref('')
+const activeFolder = ref<string | null>(null)
+/** The highlighted row — set by hover or arrow keys; drives the side preview. */
+const activePath = ref<string | null>(null)
 
-const formTitle = computed(() =>
-  form.value?.mode === 'duplicate'
-    ? `Duplicate “${form.value.sourceName}”`
-    : form.value?.mode === 'edit'
-      ? 'Edit page'
-      : 'New page',
-)
-const formSubmit = computed(() =>
-  form.value?.mode === 'duplicate' ? 'Duplicate' : form.value?.mode === 'edit' ? 'Save' : 'Create',
+const searchInput = useTemplateRef<HTMLInputElement>('searchInput')
+const listEl = useTemplateRef<HTMLDivElement>('listEl')
+
+const searching = computed(() => !!query.value.trim())
+
+const folders = computed(() => {
+  const counts = new Map<string, number>()
+  for (const page of pages.value) {
+    if (page.folderPath) counts.set(page.folderPath, (counts.get(page.folderPath) ?? 0) + 1)
+  }
+  return [...counts.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, count]) => ({ name, count }))
+})
+
+// Search is global — it ignores the folder filter so a match can never hide.
+const visible = computed(() => {
+  if (searching.value) return filterPages(pages.value, query.value)
+  if (activeFolder.value) return pages.value.filter((page) => page.folderPath === activeFolder.value)
+  return pages.value
+})
+const groups = computed(() => groupPagesByFolder(visible.value))
+/** Flat list in render order — keyboard navigation walks this. */
+const rows = computed(() => groups.value.flatMap((group) => group.pages))
+// Inside a single folder the rail already names it; headers would be noise.
+const showGroupHeaders = computed(() => searching.value || !activeFolder.value)
+
+const previewPage = computed(() => rows.value.find((page) => page.path === activePath.value) ?? null)
+const monogram = computed(() =>
+  previewPage.value ? (previewPage.value.name || previewPage.value.path).charAt(0).toUpperCase() : '·',
 )
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  searchInput.value?.focus()
+  activePath.value = pages.value.some((page) => page.path === current.value)
+    ? current.value
+    : (rows.value[0]?.path ?? null)
+})
+
+// Keep the highlight on an existing row when the result set changes.
+watch(rows, (list) => {
+  if (!list.some((page) => page.path === activePath.value)) activePath.value = list[0]?.path ?? null
+})
+watch(activePath, async () => {
+  await nextTick()
+  listEl.value?.querySelector('.is-active')?.scrollIntoView?.({ block: 'nearest' })
+})
 
 // Thumbnails are regenerated in place by `mechanica thumbs`; the stamp busts
 // the browser cache (and retries failures) each time the list reloads.
 const thumbStamp = ref(0)
 const thumbFailed = reactive(new Set<string>())
 const thumbSrc = (page: PageItem) => `${pageThumbUrl(page.path)}?v=${thumbStamp.value}`
+const onThumbError = (event: Event) => {
+  const path = (event.target as HTMLElement).dataset.path
+  if (path) thumbFailed.add(path)
+}
 
 async function load() {
   try {
@@ -152,10 +221,28 @@ async function load() {
   }
 }
 
-// Folders stay expanded while searching so matches are never hidden.
-const isFolderOpen = (folder: string | null) => !folder || !!query.value || !collapsedFolders.has(folder)
-const toggleFolder = (folder: string) =>
-  collapsedFolders.has(folder) ? collapsedFolders.delete(folder) : collapsedFolders.add(folder)
+function selectFolder(folder: string | null) {
+  activeFolder.value = folder
+  query.value = ''
+  searchInput.value?.focus()
+}
+
+function onSearchKey(event: KeyboardEvent) {
+  const list = rows.value
+  if (!list.length) return
+  const index = list.findIndex((page) => page.path === activePath.value)
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    activePath.value = list[Math.min(index + 1, list.length - 1)]!.path
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    activePath.value = list[Math.max(index - 1, 0)]!.path
+  } else if (event.key === 'Enter') {
+    event.preventDefault()
+    const page = list[index] ?? list[0]
+    if (page) open(page)
+  }
+}
 
 function openPath(path: string) {
   recordRecent('pages', path)
@@ -166,61 +253,69 @@ function openPath(path: string) {
 }
 const open = (page: PageItem) => openPath(page.path)
 
-async function focusName() {
-  await nextTick()
-  nameInput.value?.focus()
+function onRowMenu(event: MouseEvent, page: PageItem) {
+  if (!contextMenu) return
+  activePath.value = page.path
+  contextMenu.openAt(event, [
+    { label: 'Open', onClick: () => open(page) },
+    { label: 'Rename', onClick: () => startEdit(page) },
+    { label: 'Duplicate', onClick: () => startDuplicate(page) },
+    { label: 'Delete', danger: true, separatorBefore: true, onClick: () => confirmRemove(page) },
+  ])
 }
+
+// ── Create / rename / duplicate (via PageFormDialog) ─────────────────────────
+
 function startCreate() {
-  error.value = ''
-  form.value = { mode: 'create', name: '', path: '/' }
-  void focusName()
-}
-function startDuplicate(page: PageItem) {
-  error.value = ''
-  form.value = { mode: 'duplicate', source: page.path, sourceName: page.name, name: `${page.name} copy`, path: '' }
-  void focusName()
+  dialog.open(PageFormDialog, {
+    mode: 'create',
+    folder: activeFolder.value,
+    onSubmit: (input: { name: string; path: string }) => submitPage('create', null, input),
+  })
 }
 function startEdit(page: PageItem) {
-  error.value = ''
-  form.value = { mode: 'edit', source: page.path, name: page.name, path: page.path }
-  void focusName()
+  dialog.open(PageFormDialog, {
+    mode: 'edit',
+    initialName: page.name,
+    initialPath: page.path,
+    onSubmit: (input: { name: string; path: string }) => submitPage('edit', page, input),
+  })
+}
+function startDuplicate(page: PageItem) {
+  dialog.open(PageFormDialog, {
+    mode: 'duplicate',
+    sourceName: page.name || page.path,
+    initialName: `${page.name || 'Page'} copy`,
+    folder: page.folderPath ?? null,
+    onSubmit: (input: { name: string; path: string }) => submitPage('duplicate', page, input),
+  })
 }
 
-async function submitForm() {
-  if (!form.value) return
-  error.value = ''
-  const { mode, source } = form.value
-  const name = form.value.name.trim()
-  const path = form.value.path.trim()
-  if (!name || !path) return
-
+async function submitPage(
+  mode: 'create' | 'edit' | 'duplicate',
+  source: PageItem | null,
+  input: { name: string; path: string },
+): Promise<string | null> {
   const url =
     mode === 'duplicate'
-      ? `/@mechanica/pages/duplicate?path=${encodeURIComponent(source!)}`
+      ? `/@mechanica/pages/duplicate?path=${encodeURIComponent(source!.path)}`
       : mode === 'edit'
-        ? `/@mechanica/pages?path=${encodeURIComponent(source!)}`
+        ? `/@mechanica/pages?path=${encodeURIComponent(source!.path)}`
         : '/@mechanica/pages'
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name, path }),
+    body: JSON.stringify(input),
   })
   const data = await response.json().catch(() => ({}))
+  if (!response.ok) return data?.error?.path ?? 'Could not save the page'
 
-  if (!response.ok) {
-    error.value = data?.error?.path ?? 'Could not save the page'
-    return
-  }
-
-  const nextPath = data.path ?? path
+  const nextPath = data.path ?? input.path
   // Editing the page we're on (incl. a path change) switches to it; editing
   // another page just refreshes the list. New/duplicate open the new page.
-  if (mode === 'edit' && source !== current.value) {
-    form.value = null
-    await load()
-  } else {
-    openPath(nextPath)
-  }
+  if (mode === 'edit' && source!.path !== current.value) await load()
+  else openPath(nextPath)
+  return null
 }
 
 function confirmRemove(page: PageItem) {
@@ -243,21 +338,82 @@ async function remove(page: PageItem) {
 </script>
 
 <style lang="scss" scoped>
-.mech-pages-dialog {
+.mech-pages {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 1200px;
+  height: min(620px, 82vh);
+}
+
+// ── Card (the dialog itself) ─────────────────────────────────────────────────
+.mech-pages__card {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  min-height: 42vh;
+  flex: 0 1 840px;
+  min-width: 0;
+  background: var(--mech-bg);
+  border-radius: 18px;
+  box-shadow: var(--mech-shadow-dialog);
+  overflow: hidden;
 }
-.mech-pages-dialog__toolbar {
+.mech-pages__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 14px 12px 24px;
+  flex: none;
+}
+.mech-pages__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.mech-pages__count {
+  padding: 2px 8px;
+  border-radius: var(--mech-radius-pill);
+  background: var(--mech-active);
+  color: var(--mech-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.mech-pages__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: none;
+  color: var(--mech-muted);
+  border-radius: var(--mech-radius-pill);
+  cursor: pointer;
+
+  .vicon {
+    width: 18px;
+    height: 18px;
+  }
+  &:hover {
+    background: var(--mech-hover);
+    color: var(--mech-fg);
+  }
+}
+
+.mech-pages__toolbar {
   display: flex;
   gap: 8px;
+  padding: 0 24px 14px;
+  flex: none;
 }
-.mech-pages-dialog__search-wrap {
+.mech-pages__search-wrap {
   position: relative;
   flex: 1;
 }
-.mech-pages-dialog__search-icon {
+.mech-pages__search-icon {
   position: absolute;
   left: 12px;
   top: 50%;
@@ -267,189 +423,187 @@ async function remove(page: PageItem) {
   color: var(--mech-muted);
   pointer-events: none;
 }
-.mech-pages-dialog__search {
+.mech-pages__search {
   width: 100%;
   padding-left: 36px;
 }
 
-// ── Create / edit / duplicate form ──────────────────────────────────────────
-.mech-pages-dialog__form {
+// ── Content: folder rail + table ─────────────────────────────────────────────
+.mech-pages__content {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px;
-  background: var(--mech-app-bg);
-  border: 1px solid var(--mech-border);
-  border-radius: var(--mech-radius);
+  gap: 14px;
+  flex: 1;
+  min-height: 0;
+  padding: 0 24px 20px;
 }
-.mech-pages-dialog__form-title {
-  font-weight: 600;
-  font-size: 13.5px;
-}
-.mech-pages-dialog__form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.mech-pages-dialog__field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-
-  span {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--mech-muted);
-  }
-}
-.mech-pages-dialog__form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-.mech-pages-dialog__error {
-  margin: 0;
-  color: var(--mech-error);
-  font-size: 12px;
-}
-
-// ── Page list ────────────────────────────────────────────────────────────────
-.mech-pages-dialog__list {
+.mech-pages__rail {
+  flex: none;
+  width: 172px;
   display: flex;
   flex-direction: column;
   gap: 2px;
   overflow-y: auto;
+  padding-right: 2px;
 }
-.mech-pages-dialog__folder {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  margin-top: 8px;
-  padding: 6px 8px;
-  border: none;
-  background: none;
-  border-radius: var(--mech-radius-sm);
-  cursor: pointer;
-  font: inherit;
-  color: var(--mech-fg-alt);
-
-  &:hover {
-    background: var(--mech-hover);
-  }
-}
-.mech-pages-dialog__folder-chevron {
-  flex: none;
-  width: 14px;
-  height: 14px;
-  color: var(--mech-muted);
-  transition: transform 0.14s ease;
-}
-.mech-pages-dialog__folder.is-collapsed .mech-pages-dialog__folder-chevron {
-  transform: rotate(-90deg);
-}
-.mech-pages-dialog__folder-icon {
-  flex: none;
-  width: 15px;
-  height: 15px;
-  color: var(--mech-muted);
-}
-.mech-pages-dialog__folder-name {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--mech-muted);
-}
-.mech-pages-dialog__folder-count {
-  font-size: 11px;
-  color: var(--mech-placeholder);
-}
-.mech-pages-dialog__row {
+.mech-pages__rail-item {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 7px 10px;
+  border: none;
+  background: none;
   border-radius: var(--mech-radius-sm);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--mech-fg-alt);
+  cursor: pointer;
 
-  &.is-nested {
-    margin-left: 18px;
+  .vicon {
+    flex: none;
+    width: 15px;
+    height: 15px;
+    color: var(--mech-muted);
   }
   &:hover {
     background: var(--mech-hover);
   }
-  &.is-current {
+  &.is-active {
     background: var(--mech-accent-soft);
-  }
-}
-.mech-pages-dialog__open {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  padding: 6px 10px;
-  border: none;
-  background: none;
-  text-align: left;
-  cursor: pointer;
-  color: var(--mech-fg);
-  font: inherit;
-}
-// A `mechanica thumbs` snapshot of the page top; falls back to a monogram tile.
-.mech-pages-dialog__thumb {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 42px;
-  border: 1px solid var(--mech-border);
-  border-radius: var(--mech-radius-sm);
-  background: var(--mech-active);
-  overflow: hidden;
-  color: var(--mech-muted);
-  font-size: 14px;
-  font-weight: 600;
+    color: var(--mech-accent);
+    font-weight: 500;
 
-  img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: top;
+    .vicon {
+      color: var(--mech-accent);
+    }
   }
 }
-.mech-pages-dialog__name {
-  font-weight: 500;
-  font-size: 13.5px;
-  white-space: nowrap;
-}
-.mech-pages-dialog__path {
+.mech-pages__rail-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
-  color: var(--mech-muted);
 }
-.mech-pages-dialog__badge {
+.mech-pages__rail-count {
   flex: none;
-  font-size: 10.5px;
+  font-size: 11px;
+  color: var(--mech-placeholder);
+
+  .mech-pages__rail-item.is-active & {
+    color: var(--mech-accent);
+    opacity: 0.7;
+  }
+}
+
+// ── Table ────────────────────────────────────────────────────────────────────
+.mech-pages__list {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+%pages-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) 96px;
+  align-items: center;
+  column-gap: 12px;
+}
+.mech-pages__thead {
+  @extend %pages-grid;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 4px 10px 8px;
+  background: var(--mech-bg);
+  box-shadow: 0 1px 0 var(--mech-border);
+
+  span {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--mech-muted);
+  }
+}
+.mech-pages__group {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 5px 10px 3px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: left;
+  color: var(--mech-muted);
+  border-radius: var(--mech-radius-sm);
+  cursor: pointer;
+
+  .vicon {
+    width: 13px;
+    height: 13px;
+  }
+  &:hover {
+    color: var(--mech-fg);
+  }
+}
+.mech-pages__row {
+  @extend %pages-grid;
+  padding: 0 10px;
+  height: 38px;
+  border-radius: var(--mech-radius-sm);
+  cursor: pointer;
+
+  &.is-active {
+    background: var(--mech-accent-soft);
+  }
+}
+.mech-pages__cell-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.mech-pages__name {
+  font-size: 13.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mech-pages__badge {
+  flex: none;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--mech-accent);
+  background: var(--mech-bg);
+  border: 1px solid currentColor;
+  border-radius: var(--mech-radius-pill);
+  padding: 1px 7px;
 }
-.mech-pages-dialog__actions {
+.mech-pages__cell-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--mech-muted);
+}
+.mech-pages__actions {
   display: flex;
+  justify-content: flex-end;
   gap: 1px;
-  flex: none;
-  padding-right: 6px;
   opacity: 0;
 
-  .mech-pages-dialog__row:hover &,
-  .mech-pages-dialog__row.is-current & {
+  .mech-pages__row.is-active &,
+  .mech-pages__row:hover & {
     opacity: 1;
   }
 
@@ -457,8 +611,8 @@ async function remove(page: PageItem) {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     border: none;
     background: none;
     color: var(--mech-muted);
@@ -479,10 +633,96 @@ async function remove(page: PageItem) {
     }
   }
 }
-.mech-pages-dialog__empty {
-  padding: 18px 4px;
+.mech-pages__empty {
+  padding: 24px 10px;
   margin: 0;
   color: var(--mech-muted);
   font-size: 13px;
+}
+
+// ── Side preview ─────────────────────────────────────────────────────────────
+// The panel hugs the thumbnail's natural height: a short page makes a short
+// card, a long page fills the dialog height and gets cropped at the bottom.
+.mech-pages__preview {
+  flex: none;
+  align-self: flex-start;
+  max-height: 100%;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  background: var(--mech-bg);
+  border-radius: 18px;
+  box-shadow: var(--mech-shadow-dialog);
+  overflow: hidden;
+}
+.mech-pages__preview-frame {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: hidden; // crops the image bottom once the panel hits max-height
+  background: var(--mech-app-bg);
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+}
+.mech-pages__preview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 48px 16px;
+  color: var(--mech-muted);
+
+  p {
+    margin: 8px 0 0;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  code {
+    font-size: 11.5px;
+    color: var(--mech-placeholder);
+  }
+}
+.mech-pages__preview-monogram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--mech-radius-pill);
+  background: var(--mech-active);
+  font-size: 22px;
+  font-weight: 600;
+}
+.mech-pages__preview-caption {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--mech-border);
+}
+.mech-pages__preview-name {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mech-pages__preview-path {
+  font-size: 11.5px;
+  color: var(--mech-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1160px) {
+  .mech-pages__preview {
+    display: none;
+  }
 }
 </style>

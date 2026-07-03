@@ -132,22 +132,23 @@ Output is agent-friendly:
 
 ## 4. Page thumbnails (`mechanica thumbs`)
 
-The editor's page browser shows a small thumbnail next to each page, so at
-100 pages you scan by shape, not just by name. Thumbnails are generated **on
-demand by a command**, not automatically:
+The editor's page browser shows the highlighted page in a live side preview,
+so at 100 pages you scan by shape, not just by name. Thumbnails are generated
+**on demand by a command**, not automatically:
 
 ```bash
 mechanica thumbs            # thumbnail every page
 mechanica thumbs /docs      # only pages under /docs
 ```
 
-- Each page renders at 1200×900 (editor overlay stripped) and is captured
-  natively downscaled to 320px wide into `.mech/thumbs/<slug>.png`
+- Each page renders at 1200px wide (editor overlay stripped) and its top —
+  up to 2000px, clipped to the page's real height — is captured natively
+  downscaled to 480px wide into `.mech/thumbs/<slug>.png`
   (gitignored; `/` → `index.png`, `/docs/api` → `docs-api.png`).
 - The dev server serves the directory at `/@mechanica/thumbs/…` and the
-  PagesDialog lazy-loads them per row, falling back to a monogram tile for
-  pages without a thumbnail. Regenerating and reopening the dialog refreshes
-  them — no editor restart needed.
+  PagesDialog shows the hovered page's thumbnail in its preview panel,
+  falling back to a monogram tile for pages without one. Regenerating and
+  reopening the dialog refreshes them — no editor restart needed.
 - One warm browser tab renders all pages sequentially (about a second per
   page against a running dev server). A page that fails to render is reported
   and skipped; thumbnails of deleted pages are cleaned up on full runs.

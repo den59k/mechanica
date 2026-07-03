@@ -14,6 +14,7 @@
         v-for="(entry, i) in store.stack"
         :key="entry.id"
         class="mech-dialog-backdrop"
+        :class="{ 'is-stacked': i > 0 }"
         :inert="i !== store.stack.length - 1"
         @mousedown="onDown"
         @mouseup="onUp($event, i)"
@@ -86,6 +87,13 @@ onScopeDispose(() => document.removeEventListener('keydown', onKey, true))
   padding: 10vh 16px 16px;
   box-sizing: border-box;
   pointer-events: auto;
+
+  // A dialog stacked over another gets its own light veil, so it visually
+  // detaches from the (equally white) dialog beneath it. The full-strength
+  // dim over the page itself is the single element above.
+  &.is-stacked {
+    background: rgba(15, 18, 22, 0.28);
+  }
 }
 
 // Each dialog panel fades + scales on enter/leave (the dim is handled above).

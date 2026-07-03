@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filterPages, groupPagesByFolder, pageThumbUrl } from '@/editor/lib/page-list'
+import { filterPages, groupPagesByFolder, pageThumbUrl, pathFromName } from '@/editor/lib/page-list'
 
 const pages = [
   { path: '/', name: 'Home', folderPath: null },
@@ -13,6 +13,19 @@ describe('pageThumbUrl', () => {
   it('mirrors the CLI slug: root → index, slashes → dashes', () => {
     expect(pageThumbUrl('/')).toBe('/@mechanica/thumbs/index.png')
     expect(pageThumbUrl('/docs/api')).toBe('/@mechanica/thumbs/docs-api.png')
+  })
+})
+
+describe('pathFromName', () => {
+  it('slugs the name, folding case, spaces, and punctuation', () => {
+    expect(pathFromName('Getting Started')).toBe('/getting-started')
+    expect(pathFromName('  Hello,  World! ')).toBe('/hello-world')
+    expect(pathFromName('Café Menu')).toBe('/cafe-menu')
+  })
+  it('prefixes the folder and survives empty input', () => {
+    expect(pathFromName('API Reference', 'docs')).toBe('/docs/api-reference')
+    expect(pathFromName('', 'docs')).toBe('/docs')
+    expect(pathFromName('')).toBe('/')
   })
 })
 

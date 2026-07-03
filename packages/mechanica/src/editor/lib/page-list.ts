@@ -31,6 +31,24 @@ export function pageThumbUrl(path: string): string {
   return `/@mechanica/thumbs/${slug}.png`
 }
 
+/**
+ * Derive a URL path from a page name: a lowercase ASCII slug, prefixed with
+ * the folder when given (`("Getting Started", "docs")` → `/docs/getting-started`).
+ * The page form uses it to keep the path following the name until the user
+ * edits the path by hand.
+ */
+export function pathFromName(name: string, folder?: string | null): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  const parts = [folder?.replace(/^\/+|\/+$/g, ''), slug].filter(Boolean)
+  return '/' + parts.join('/')
+}
+
 /** Filter pages by a free-text query matched against both name and path. */
 export function filterPages<T extends PageItem>(pages: T[], query: string): T[] {
   const q = query.trim().toLowerCase()

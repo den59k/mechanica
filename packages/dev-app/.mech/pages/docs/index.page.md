@@ -9,12 +9,13 @@ order: 0
 ---
 
 ::: docs-layout #docs
+folder: docs
 ::: doc-section #how-the-pieces-fit
 title: How the pieces fit
 @content
 `A site is made of three things:`
 
-- **Blocks** — Vue components that declare their editable fields with `defineBlock`.
+- **Blocks** — Vue components that **declare** their editable fields with `defineBlock`.
 - **Pages** — ordered trees of blocks, stored as human-readable `.page.md` files.
 - **Data** — shared values (site, folder, page) templated into blocks and the head.
 
@@ -22,7 +23,7 @@ title: How the pieces fit
 
 `test`
 
-<img src=""/>
+
 :::
 
 ::: doc-section #get-started

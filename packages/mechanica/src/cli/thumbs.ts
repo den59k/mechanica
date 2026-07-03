@@ -22,10 +22,14 @@ export interface ThumbsOptions {
   browser?: string
 }
 
-/** Thumbnails capture the top of the page at desktop width, scaled down natively. */
+// Thumbnails capture the top of the page at desktop width, scaled down
+// natively. The clip follows the page's real height (so short pages don't get
+// a blank tail) up to a cap, and lands at 480px wide so the page browser's
+// side preview (~320px, dialog-height) renders it crisp.
 const CAPTURE_WIDTH = 1200
-const CAPTURE_HEIGHT = 900
-const THUMB_WIDTH = 320
+const VIEWPORT_HEIGHT = 900
+const MAX_CAPTURE_HEIGHT = 2000
+const THUMB_WIDTH = 480
 
 /** Keep only pages under `prefix` (a normalized page path), or all when omitted. */
 export function filterByPrefix<T extends { path: string }>(pages: T[], prefix?: string): T[] {
@@ -47,7 +51,7 @@ export function orphanThumbs(files: string[], slugs: Set<string>): string[] {
 
 /**
  * `mechanica thumbs [/path-prefix]` — walk the project's pages and write a
- * small screenshot of each (top 1200×900, scaled to 320px wide) into
+ * screenshot of each (top of the page at 1200px wide, scaled to 480px) into
  * `.mech/thumbs/`, where the dev server serves them to the editor's page
  * browser. One warm browser tab renders all pages sequentially; a page that
  * fails is reported and skipped, and thumbnails of deleted pages are removed.
@@ -76,7 +80,7 @@ export async function runThumbs(prefix: string | undefined, options: ThumbsOptio
     const { sessionId } = await cdp.send('Target.attachToTarget', { targetId, flatten: true })
     await cdp.send('Page.enable', {}, sessionId)
     await cdp.send('Runtime.enable', {}, sessionId)
-    await setViewport(cdp, sessionId, CAPTURE_WIDTH, CAPTURE_HEIGHT)
+    await setViewport(cdp, sessionId, CAPTURE_WIDTH, VIEWPORT_HEIGHT)
     await cdp.send(
       'Emulation.setEmulatedMedia',
       { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] },
@@ -96,11 +100,15 @@ export async function runThumbs(prefix: string | undefined, options: ThumbsOptio
         await settlePageMedia(cdp, sessionId)
         await freezeAnimations(cdp, sessionId)
 
+        const metrics = await cdp.send('Page.getLayoutMetrics', {}, sessionId)
+        const contentSize = metrics.cssContentSize ?? metrics.contentSize
+        const height = Math.min(Math.ceil(contentSize.height), MAX_CAPTURE_HEIGHT)
         const shot = await cdp.send(
           'Page.captureScreenshot',
           {
             format: 'png',
-            clip: { x: 0, y: 0, width: CAPTURE_WIDTH, height: CAPTURE_HEIGHT, scale: THUMB_WIDTH / CAPTURE_WIDTH },
+            captureBeyondViewport: true,
+            clip: { x: 0, y: 0, width: CAPTURE_WIDTH, height, scale: THUMB_WIDTH / CAPTURE_WIDTH },
           },
           sessionId,
         )
