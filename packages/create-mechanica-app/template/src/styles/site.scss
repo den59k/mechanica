@@ -1,0 +1,63 @@
+// Global design tokens and a small reset. Blocks compose with these tokens;
+// block-specific styling stays scoped inside each block.
+
+:root {
+  // Brand
+  --brand: #5b54f0;
+  --brand-strong: #4a42e4;
+  --brand-soft: #efeefe;
+
+  // Ink / surfaces
+  --ink: #14151a;
+  --ink-2: #3a3d47;
+  --muted: #6a6f7b;
+  --bg: #ffffff;
+  --surface: #f6f7fb;
+  --ink-section: #0f1016;
+
+  --border: #e8e9f0;
+
+  // Shape / layout
+  --radius: 16px;
+  --radius-sm: 10px;
+  --container: 1140px;
+
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+img,
+svg {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.container {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0 24px;
+}

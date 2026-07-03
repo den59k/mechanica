@@ -66,10 +66,26 @@ entry is the contract a future hosted backend will call.
   into **real exported pages** (`/blog/2`…, sitemap'd, collision-checked);
   dev serves variant URLs virtually. Demo: dev-app `/blog`.
 - **CLI** — `build`, `export`, `push` (legacy v1 contract), `shot`, `thumbs`.
+- **Scaffolder** — `create-mechanica-app` (`npm create mechanica-app my-site`):
+  a dependency-free Node-compatible CLI plus an embedded starter template
+  (Hero + RichText blocks, head templating, starter `.page.md`), verified end
+  to end (dev server, editor endpoints, static export).
+- **No Bun requirement for consumers** — `bun run build` compiles both
+  packages to `dist/` (browser entries chunk-shared so runtime and editor see
+  one `src/core` instance; plugin + CLI bundled for raw Node; `.d.ts` from
+  `tsc`). Package `exports`: `import` → dist, `bun` → source, `types` →
+  `dist/types`. Verified end to end under Node 24 + npm (dev server, editor,
+  typecheck, export, `mechanica shot`). The monorepo itself still develops on
+  Bun with zero builds (dev-app aliases entries back to source).
 
 ## Next
 
-1. **SaaS / hosted backend** (deferred by design) — extract a transport
+1. **Publish v2 to npm** — `mechanica@2.0.0-alpha` (`next` dist-tag; `latest`
+   stays v1 until stable), `@mechanica/shared`, then `create-mechanica-app`.
+   `prepublishOnly` builds dist automatically; publish with `bun publish`
+   (it rewrites `workspace:*`). Bump the template's pinned `mechanica`
+   version on every release.
+2. **SaaS / hosted backend** (deferred by design) — extract a transport
    interface over `/@mechanica` + the bridge (postMessage/iframe-ready,
    version-negotiated), define the backend `render(state)` contract against
    the existing SSR entry, redesign `push` (auth, versioning, rollback).

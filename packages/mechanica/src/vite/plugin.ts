@@ -331,9 +331,18 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
           },
         }),
       )
-      // Start loading block schemas now so saves convert richText correctly even
-      // before the first page render awaits the codec.
-      void ensurePageCodec(server)
+      // Start loading block schemas early so saves convert richText correctly
+      // even before the first page render awaits the codec — but only once the
+      // server is listening: `configureServer` runs before plugin `buildStart`
+      // hooks, and an ssrLoadModule this early compiles .vue blocks before
+      // plugin-vue has resolved its compiler. That failed transform is cached
+      // as `ssrError` on the module node, so every later attempt rethrows it
+      // until the block file is touched (bites every cold start).
+      if (server.httpServer && !server.httpServer.listening) {
+        server.httpServer.once('listening', () => void ensurePageCodec(server))
+      } else {
+        void ensurePageCodec(server)
+      }
 
       // Adding or removing a block file re-collects the blocks module and
       // reloads, so new blocks appear in the palette without a server restart.

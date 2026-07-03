@@ -1,0 +1,9 @@
+node_modules/
+dist/
+export/
+
+# Generated screenshots & thumbnails (mechanica shot / thumbs)
+.mech/shots/
+.mech/thumbs/
+
+*.local

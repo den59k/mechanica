@@ -6,8 +6,17 @@ Built for **Vite 8 / Vue 3.5 / Bun**.
 
 ## Install
 
+Works with plain Node ≥ 20.19 (npm/pnpm/yarn) or [Bun](https://bun.sh) — Bun installs run the TypeScript source directly, Node uses the compiled build. The fastest start is the scaffolder:
+
 ```bash
-bun add mechanica
+npm create mechanica-app@latest my-site
+# or: bun create mechanica-app my-site
+```
+
+Or add it to an existing Vite + Vue project:
+
+```bash
+npm install mechanica
 ```
 
 ## Quick start
@@ -66,7 +75,7 @@ const props = defineBlock({
 </script>
 ```
 
-Run `bunx --bun vite` and open the page — the editor overlay lets you add Hero blocks and edit their props live.
+Run `vite` and open the page — the editor overlay lets you add Hero blocks and edit their props live.
 
 ## Authoring API
 
@@ -106,7 +115,9 @@ registerFields([
 ```bash
 mechanica build     # client + SSR bundles → dist/
 mechanica export    # statically render every .mech page → export/
+mechanica shot <blockId | /page/path>   # headless screenshot of a block or page
+mechanica thumbs [--blocks]             # regenerate page / block thumbnails
 mechanica push --key <apiKey> --host <url>   # upload dist/ to a backend
 ```
 
-Local page content lives in `.mech/pages/**.json` and is edited via the visual editor.
+Page content lives in `.mech/pages/**.page.md` — a human-readable, Markdown-centric format equally editable by the visual editor, by hand, and by AI tools (rich text persists as plain Markdown).

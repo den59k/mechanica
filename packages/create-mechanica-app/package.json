@@ -1,0 +1,24 @@
+{
+  "name": "create-mechanica-app",
+  "version": "0.1.0",
+  "description": "Scaffold a new Mechanica site — a Vue 3 website with a visual block editor",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "create-mechanica-app": "bin.js"
+  },
+  "files": [
+    "bin.js",
+    "index.js",
+    "template"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "vitest": "^4.1.9"
+  }
+}

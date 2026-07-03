@@ -2,7 +2,16 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "types": []
+    "types": [],
+    // Typecheck against workspace source, not dist/types — keeps `tsc` green
+    // without requiring a dist build (mirrors the vite.config aliases).
+    "paths": {
+      "mechanica": ["../mechanica/src/index.ts"],
+      "mechanica/plugin": ["../mechanica/src/vite/index.ts"],
+      "mechanica/widgets": ["../mechanica/src/editor/widget-api.ts"],
+      "@mechanica/shared": ["../shared/src/index.ts"],
+      "@mechanica/shared/page-format": ["../shared/src/page-format.ts"]
+    }
   },
   "include": ["src"]
 }

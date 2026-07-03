@@ -3,27 +3,44 @@
   "version": "2.0.0-alpha.0",
   "description": "DOM-free types, schema helpers and page-generation core shared across Mechanica",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.letary.ru/den59k/mechanica.git"
+  },
   "type": "module",
+  "publishConfig": {
+    "access": "public",
+    "tag": "next"
+  },
+  "files": [
+    "src",
+    "dist"
+  ],
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
+      "types": "./dist/types/index.d.ts",
+      "bun": "./src/index.ts",
+      "import": "./dist/index.js"
     },
     "./page-format": {
-      "types": "./src/page-format.ts",
-      "import": "./src/page-format.ts"
+      "types": "./dist/types/page-format.d.ts",
+      "bun": "./src/page-format.ts",
+      "import": "./dist/page-format.js"
     }
   },
   "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
   },
   "dependencies": {
     "compact-json-schema": "^0.1.5",
     "yaml": "^2.6.1"
   },
   "devDependencies": {
+    "vite": "^8.0.16",
     "vitest": "^4.1.9"
   }
 }
