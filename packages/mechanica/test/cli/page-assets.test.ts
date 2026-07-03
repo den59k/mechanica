@@ -20,7 +20,10 @@ const manifest: ViteManifest = {
   },
 }
 
-const blockFiles = { hero: 'src/blocks/Hero.vue', card: 'src/blocks/Card.vue' }
+const blockFiles = {
+  hero: { src: 'src/blocks/Hero.vue', chunk: 'assets/Hero-a1.js' },
+  card: { src: 'src/blocks/Card.vue', chunk: 'assets/Card-b2.js' },
+}
 
 describe('resolveChunkAssets', () => {
   it('collects the chunk, its css and transitive imports', () => {
@@ -49,6 +52,32 @@ describe('blockAssetLinks', () => {
       '<link rel="modulepreload" href="/assets/Hero-a1.js">',
       '<link rel="modulepreload" href="/assets/shared-x9.js">',
       '<link rel="modulepreload" href="/assets/Card-b2.js">',
+    ])
+  })
+
+  it('resolves blocks sharing one bundled chunk (no per-block manifest keys)', () => {
+    // `blockChunks: 'bundled'`: the merged chunk has no facade module, so the
+    // manifest keys it by file name — the chunk file is the only join point.
+    const bundled: ViteManifest = {
+      '_blocks-h4sh.js': {
+        file: 'assets/blocks-h4sh.js',
+        css: ['assets/blocks-h4sh.css'],
+        imports: ['index.html'],
+      },
+      'index.html': { file: 'assets/index-e5.js' },
+    }
+    const links = blockAssetLinks({
+      blockIds: ['hero', 'card'],
+      manifest: bundled,
+      blockFiles: {
+        hero: { src: 'src/blocks/Hero.vue', chunk: 'assets/blocks-h4sh.js' },
+        card: { src: 'src/blocks/Card.vue', chunk: 'assets/blocks-h4sh.js' },
+      },
+      alreadyLinked: (file) => file.includes('index-e5'),
+    })
+    expect(links).toEqual([
+      '<link rel="stylesheet" href="/assets/blocks-h4sh.css">',
+      '<link rel="modulepreload" href="/assets/blocks-h4sh.js">',
     ])
   })
 

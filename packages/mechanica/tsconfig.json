@@ -6,6 +6,7 @@
     "baseUrl": ".",
     "paths": {
       "@mechanica/shared": ["../shared/src/index.ts"],
+      "@mechanica/shared/page-format": ["../shared/src/page-format.ts"],
       "@/*": ["src/*"]
     }
   },

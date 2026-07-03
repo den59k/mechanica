@@ -42,11 +42,17 @@ entry is the contract a future hosted backend will call.
   uploads copied to `/media/`, dead-link + orphan-asset warnings, `404.html`,
   `sitemap.xml` (`--site-url`), loud failure on a missing `#app`.
 - **Per-page code splitting** — the client build turns
-  `virtual:mechanica/blocks` into `blockLoaders` (one chunk + CSS per block);
+  `virtual:mechanica/blocks` into `blockLoaders` (dynamic imports);
   the entry awaits only the page's blocks before hydrating, exported pages get
   per-page stylesheet/`modulepreload` links (Vite manifest +
   `mechanica-blocks.json`), and SPA navigation loads missing chunks before the
-  content swap. Dev and SSR stay eager. The client build also **strips
+  content swap. Dev and SSR stay eager. **Chunking is manual** (`blockChunks`
+  plugin option): all blocks bundle into one `blocks` chunk by default
+  (separate from the entry, so block edits never bust the Vue/runtime cache),
+  `'per-block'` splits one chunk per block, and `chunk: '<name>'` in
+  `defineBlock` groups heavy blocks into their own `blocks-<name>` chunk —
+  block-only dependencies fold into their group's chunk, entry-shared code
+  stays in the entry. The client build also **strips
   `defineBlock` metadata** (schemas/`previewData` never ship to production —
   only `defineProps` survives); defaults are baked into the state at export
   (`generatePage`) and in dev (`buildPageState`), never applied at render time.

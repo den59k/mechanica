@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import { join } from 'node:path'
 import { createServer, type Server } from 'node:http'
-import { parsePage, serializePage } from '@mechanica/shared'
+import { parsePage, serializePage } from '@mechanica/shared/page-format'
 import { createDevMiddleware } from '@/vite/dev/middleware'
 
 let mechDir: string

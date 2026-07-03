@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { registerFieldSchemas } from '@/fields'
-import { generatePage, generateProject, passDataToHTML, getValueByPath, serializeState } from '@/generate-page'
+import { generatePage, generateProject, passDataToHTML, serializeState } from '@/generate-page'
+import { getValueByPath } from '@/schema'
 import type { Block } from '@/types'
 
 describe('serializeState', () => {

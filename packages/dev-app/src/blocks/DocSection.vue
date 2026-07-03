@@ -22,6 +22,8 @@ const props = defineBlock({
   name: 'Doc section',
   category: 'Docs',
   description: 'An anchored H2 with a rich-text body (prose + inline widgets)',
+  // Shares the vuewrite viewer with RichText — same `richtext` chunk group.
+  chunk: 'richtext',
   props: {
     title: { type: 'string', default: 'Section' },
     content: 'richText',

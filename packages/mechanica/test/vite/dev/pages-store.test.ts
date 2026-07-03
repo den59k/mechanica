@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import { dirname, join } from 'node:path'
-import { serializePage } from '@mechanica/shared'
+import { serializePage } from '@mechanica/shared/page-format'
 import {
   getPagePath,
   readPage,

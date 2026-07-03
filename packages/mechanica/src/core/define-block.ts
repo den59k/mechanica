@@ -18,6 +18,14 @@ declare global {
     hidden?: boolean
     /** Available only in dev; stripped from production output. */
     devOnly?: boolean
+    /**
+     * Output chunk group for the production client build. Blocks sharing a
+     * name are emitted as one `blocks-<name>` chunk; unmarked blocks follow
+     * the plugin's `blockChunks` setting (one shared `blocks` chunk by
+     * default). Mark heavy, rarely-used blocks (charts, maps) so only the
+     * pages using them pay for their code. Must be a string literal.
+     */
+    chunk?: string
     /** Editable props (compact-json-schema). */
     props?: T
     /** Slot names; auto-detected from `<slot>` when omitted. */

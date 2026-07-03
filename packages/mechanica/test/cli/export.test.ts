@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtemp, mkdir, writeFile, readFile, rm, access } from 'node:fs/promises'
 import os from 'node:os'
 import { join } from 'node:path'
-import { serializePage, registerFieldSchemas, areFieldSchemasRegistered } from '@mechanica/shared'
+import { registerFieldSchemas, areFieldSchemasRegistered } from '@mechanica/shared'
+import { serializePage } from '@mechanica/shared/page-format'
 import { exportProject, type SsrBundle } from '@/cli/export'
 
 if (!areFieldSchemasRegistered()) registerFieldSchemas()
@@ -196,7 +197,10 @@ describe('mechanica export (golden)', () => {
     )
     await writeFile(
       join(dir, 'dist/mechanica-blocks.json'),
-      JSON.stringify({ hero: 'src/blocks/Hero.vue', cta: 'src/blocks/Cta.vue' }),
+      JSON.stringify({
+        hero: { src: 'src/blocks/Hero.vue', chunk: 'assets/Hero-a1.js' },
+        cta: { src: 'src/blocks/Cta.vue', chunk: 'assets/Cta-b2.js' },
+      }),
     )
     await writeFile(
       join(dir, '.mech/pages/contact.page.md'),

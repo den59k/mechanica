@@ -125,3 +125,13 @@ export function walkSchema(obj: any, schema: Block['props'] | any, callback: Wal
     }
   }
 }
+
+/** Resolve a dotted path within a data object (`'postMeta.date'`). */
+export function getValueByPath(data: any, path: string): unknown {
+  let value = data
+  for (const key of path.split('.')) {
+    if (value == null) return value
+    value = value[key]
+  }
+  return value
+}

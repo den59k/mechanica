@@ -1,15 +1,5 @@
 import type { Block } from './types'
-import { passDefaultValue, walkTree, walkSchema } from './schema'
-
-/** Resolve a dotted path within a data object. */
-export function getValueByPath(data: any, path: string): unknown {
-  let value = data
-  for (const key of path.split('.')) {
-    if (value == null) return value
-    value = value[key]
-  }
-  return value
-}
+import { passDefaultValue, walkTree, walkSchema, getValueByPath } from './schema'
 
 const HTML_ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }
 

@@ -3,15 +3,12 @@ import { createHash } from 'node:crypto'
 import { dirname, join, parse, relative } from 'node:path'
 import {
   migrateContent,
-  parsePage,
   passDefaultValue,
-  serializePage,
   walkTree,
   type Block,
   type ContentBlock,
-  type PageDoc,
-  type RichTextCodec,
 } from '@mechanica/shared'
+import { parsePage, serializePage, type PageDoc, type RichTextCodec } from '@mechanica/shared/page-format'
 import { writeFileAtomic, markMutated } from './fs-utils'
 
 /** Shape of a page file under `<mech>/pages` (the parsed `.page.md` document). */

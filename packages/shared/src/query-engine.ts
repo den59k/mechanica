@@ -1,4 +1,4 @@
-import { getValueByPath } from './generate-page'
+import { getValueByPath } from './schema'
 
 /**
  * The query engine: resolves the runtime's query keys (`usePages`,

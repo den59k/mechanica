@@ -43,6 +43,19 @@ export interface MechanicaPluginOptions {
   widgetsDir?: string
   /** Directory holding local editor state, relative to the Vite root. */
   mechDir?: string
+  /**
+   * How the production client build chunks block code.
+   *
+   * - `'bundled'` (default) — all blocks share one `blocks` chunk: one
+   *   request, one compression stream, cached across every page.
+   * - `'per-block'` — one chunk per block (the pre-existing behavior); pages
+   *   fetch exactly the blocks they use.
+   *
+   * Either way, a block's `chunk: '<name>'` field carves it (and blocks
+   * sharing the name) into its own `blocks-<name>` chunk — use it for heavy,
+   * rarely-used blocks. Dev and the SSR build are unaffected (always eager).
+   */
+  blockChunks?: 'bundled' | 'per-block'
 }
 
 /**
@@ -72,6 +85,61 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
   // hot update can tell schema edits (need a re-collect + reload so the editor
   // sees fresh metadata) from template/style edits (normal HMR).
   const blockSchemas = new Map<string, string>()
+  // Block file (normalized path) → authored `chunk` group name (null when
+  // unmarked). Populated by `transform`, which runs for every block before
+  // rolldown assigns chunks, so the codeSplitting `name` callback below can
+  // tell block modules apart and group them.
+  const blockChunkNames = new Map<string, string | null>()
+  const bundleBlocks = (options.blockChunks ?? 'bundled') === 'bundled'
+
+  /** The output chunk group for a block, from its authored `chunk` name. */
+  const groupName = (chunk: string | null): string | null =>
+    chunk ? `blocks-${chunk}` : bundleBlocks ? 'blocks' : null
+
+  interface ChunkingModuleInfo {
+    importers: readonly string[]
+    dynamicImporters: readonly string[]
+  }
+  interface ChunkingCtx {
+    getModuleInfo(moduleId: string): ChunkingModuleInfo | null
+  }
+
+  /**
+   * The group a non-block module belongs to: the blocks' group when every
+   * import path into it comes from blocks of one single group, null otherwise
+   * (shared with the entry or across groups — default chunking handles it).
+   * This folds block-only helpers, components and libraries into the blocks
+   * chunk while anything the entry also uses (Vue, the runtime) stays put.
+   *
+   * `'skip'` means "no constraint from this branch" — a cycle edge back into
+   * the current walk. It must stay distinct from null (= keep out of the
+   * group), or a diamond import would wrongly evict shared block deps.
+   */
+  const sharedGroupOf = (id: string, ctx: ChunkingCtx, path: Set<string>): string | null | 'skip' => {
+    const info = ctx.getModuleInfo(id)
+    if (!info) return null
+    // A dynamic-import target is its own chunk entry; leave it alone.
+    if (info.dynamicImporters.length > 0) return null
+    if (info.importers.length === 0) return null // an entry module
+    path.add(id)
+    try {
+      let group: string | null | 'skip' = 'skip'
+      for (const importer of info.importers) {
+        let g: string | null | 'skip'
+        const own = blockChunkNames.get(slash(importer.split('?')[0]!))
+        if (own !== undefined) g = groupName(own)
+        else if (path.has(importer)) g = 'skip'
+        else g = sharedGroupOf(importer, ctx, path)
+        if (g === 'skip') continue
+        if (g == null) return null
+        if (group === 'skip') group = g
+        else if (group !== g) return null
+      }
+      return group
+    } finally {
+      path.delete(id)
+    }
+  }
   const isBlockFile = (file: string): boolean =>
     file.endsWith('.vue') && slash(file).startsWith(slash(blocksDir) + '/')
   const isWidgetFile = (file: string): boolean =>
@@ -122,6 +190,40 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
     name: 'mechanica',
     enforce: 'pre',
 
+    config(_config, env) {
+      // Group block modules into named output chunks — client build only
+      // (dev serves modules individually; the SSR bundle is one file anyway).
+      // `name` doubles as the matcher: returning null leaves the module to
+      // rolldown's default chunking, so in `per-block` mode unmarked blocks
+      // still split one chunk per block via their dynamic imports.
+      if (env.command !== 'build' || env.isSsrBuild) return
+      return {
+        build: {
+          rollupOptions: {
+            output: {
+              codeSplitting: {
+                // Membership is decided per module below. The default (true)
+                // would pull each block's whole dependency graph — Vue
+                // included — into the blocks chunk, inverting the cache
+                // story (the stable vendor code must stay in the entry).
+                includeDependenciesRecursively: false,
+                groups: [
+                  {
+                    name: (id: string, ctx: ChunkingCtx) => {
+                      const own = blockChunkNames.get(slash(id.split('?')[0]!))
+                      if (own !== undefined) return groupName(own)
+                      const g = sharedGroupOf(id, ctx, new Set())
+                      return g === 'skip' ? null : g
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      }
+    },
+
     configResolved(config) {
       blocksDir = join(config.root, options.blocksDir ?? 'src/blocks')
       widgetsDir = join(config.root, options.widgetsDir ?? 'src/widgets')
@@ -150,6 +252,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       }
       if (!result) return
       blockSchemas.set(slash(filename), result.schema)
+      blockChunkNames.set(slash(filename), result.chunk)
       return { code: result.code, map: result.map }
     },
 
@@ -184,10 +287,23 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       }
     },
 
-    generateBundle() {
+    generateBundle(_options, bundle) {
       if (!isClientBuild || !lazyBlockFiles) return
+      // Which emitted chunk holds each block module. Blocks can share a chunk
+      // (`blockChunks: 'bundled'` / the `chunk` field), so the chunk file —
+      // not a per-block manifest key — is what `mechanica export` joins on.
+      const chunkOfModule = new Map<string, string>()
+      for (const output of Object.values(bundle)) {
+        if (output.type !== 'chunk') continue
+        for (const moduleId of output.moduleIds) {
+          chunkOfModule.set(slash(moduleId.split('?')[0]!), output.fileName)
+        }
+      }
       const map = Object.fromEntries(
-        [...lazyBlockFiles].map(([blockId, file]) => [blockId, slash(relative(root, file))]),
+        [...lazyBlockFiles].map(([blockId, file]) => [
+          blockId,
+          { src: slash(relative(root, file)), chunk: chunkOfModule.get(slash(file)) ?? null },
+        ]),
       )
       this.emitFile({
         type: 'asset',

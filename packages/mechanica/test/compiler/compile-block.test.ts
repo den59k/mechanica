@@ -152,6 +152,16 @@ describe('compileBlock', () => {
     })
   })
 
+  it('extracts the authored chunk group name', () => {
+    const marked = compileBlock(
+      sfc(`const p = defineBlock({ chunk: 'charts', props: {} })`),
+      'BigChart.vue',
+    )!
+    expect(marked.chunk).toBe('charts')
+    const unmarked = compileBlock(sfc(`const p = defineBlock({ props: {} })`), 'Hero.vue')!
+    expect(unmarked.chunk).toBeNull()
+  })
+
   it('exposes the blockSchema literal so callers can diff schemas across edits', () => {
     const one = compileBlock(sfc(`const p = defineBlock({ props: { title: 'string' } })`), 'A.vue')!
     const same = compileBlock(sfc(`const p = defineBlock({ props: { title: 'string' } })`), 'A.vue')!

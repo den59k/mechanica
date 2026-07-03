@@ -24,6 +24,7 @@ export {
   mergePreviewData,
   walkTree,
   walkSchema,
+  getValueByPath,
 } from './schema'
 
 export {
@@ -31,7 +32,6 @@ export {
   generateProject,
   passDataToHTML,
   serializeState,
-  getValueByPath,
   type GeneratePageOptions,
   type GenerateProjectOptions,
   type PageState,
@@ -47,6 +47,11 @@ export {
 
 export { migrateContent, findUnknownBlocks } from './migrate'
 
+// The `.page.md` codec is deliberately NOT re-exported here: it pulls in the
+// YAML parser, and this barrel is imported by the client runtime — nothing in
+// a production page needs to parse pages. Server-side callers (dev store,
+// CLI, rich-text codec) import from '@mechanica/shared/page-format'.
+
 export {
   parseQueryKey,
   isPaginatedQuery,
@@ -59,11 +64,3 @@ export {
   type PaginatedPagesResult,
 } from './query-engine'
 
-export {
-  parsePage,
-  serializePage,
-  PageParseError,
-  type PageDoc,
-  type PageCodecOptions,
-  type RichTextCodec,
-} from './page-format'

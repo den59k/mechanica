@@ -1,13 +1,18 @@
 /**
  * Resolve which built files a page needs for its blocks, from the client
  * build's Vite manifest (`dist/.vite/manifest.json`) plus the plugin-emitted
- * block map (`dist/mechanica-blocks.json`, block id → source file).
+ * block map (`dist/mechanica-blocks.json`, block id → source file + the
+ * output chunk that contains it).
  *
  * Blocks are code-split out of the client entry, so without help the browser
  * would discover a page's block chunks only after the entry runs (a round
  * trip) and their CSS only at hydrate time (a flash of unstyled blocks). The
  * export injects `<link rel="stylesheet">` + `<link rel="modulepreload">` per
  * page instead, computed here.
+ *
+ * Blocks are located in the manifest by their chunk **file** (not a source
+ * key): with `blockChunks: 'bundled'` many blocks share one chunk, which has
+ * no per-block manifest entries — the chunk file is the stable join point.
  */
 
 /**
@@ -59,12 +64,20 @@ export function resolveChunkAssets(
   return into
 }
 
+/** One entry of the plugin-emitted block map (`mechanica-blocks.json`). */
+export interface BlockChunkRef {
+  /** Root-relative source file (for humans and debugging). */
+  src: string
+  /** The built chunk containing the block, as the manifest's `file` field. */
+  chunk: string
+}
+
 export interface BlockAssetLinkOptions {
   /** Block ids used by the page's content tree. */
   blockIds: Iterable<string>
   manifest: ViteManifest
-  /** Block id → root-relative source file (manifest key), from the plugin. */
-  blockFiles: Record<string, string>
+  /** Block id → source + containing chunk, from the plugin. */
+  blockFiles: Record<string, BlockChunkRef>
   /**
    * Skip files the HTML already references — the entry's own chunks and CSS
    * are linked by the built index template, so re-preloading them is noise.
@@ -78,10 +91,18 @@ export interface BlockAssetLinkOptions {
  * then `modulepreload` for the block chunks and their shared imports.
  */
 export function blockAssetLinks(options: BlockAssetLinkOptions): string[] {
+  // Manifest entries are keyed by source module (or `_<file>` for shared
+  // chunks); join by the emitted chunk file instead, which we know exactly.
+  const keyByFile = new Map<string, string>()
+  for (const [key, entry] of Object.entries(options.manifest)) {
+    keyByFile.set(entry.file, key)
+  }
+
   const assets: PageAssets = { js: [], css: [] }
   const seen = new Set<string>()
   for (const blockId of options.blockIds) {
-    const key = options.blockFiles[blockId]
+    const ref = options.blockFiles[blockId]
+    const key = ref && keyByFile.get(ref.chunk)
     if (key) resolveChunkAssets(options.manifest, key, assets, seen)
   }
 

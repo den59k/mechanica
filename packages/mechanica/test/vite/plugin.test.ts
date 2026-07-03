@@ -47,7 +47,106 @@ describe('mechanica plugin', () => {
     )
     expect(out).toBeUndefined()
   })
+})
 
+describe('block chunk grouping (client build)', () => {
+  const chartBlock = `<template><div/></template>
+<script setup lang="ts">
+const props = defineBlock({ chunk: 'charts', props: { title: 'string' } })
+</script>
+`
+
+  /** The codeSplitting group `name` callback from the plugin's config hook. */
+  function setup(options?: Parameters<typeof mechanica>[0]) {
+    const plugin = mechanica(options)
+    const cfg = callHook(plugin.config, {}, { command: 'build', isSsrBuild: false })
+    callHook(plugin.configResolved, { root: '/r', command: 'build', build: {} })
+    callHook(plugin.transform, block, '/abs/Headline.vue')
+    callHook(plugin.transform, chartBlock, '/abs/BigChart.vue')
+    return cfg.build.rollupOptions.output.codeSplitting.groups[0].name as (
+      id: string,
+      ctx: { getModuleInfo(id: string): unknown },
+    ) => string | null
+  }
+
+  /** A ChunkingContext over a static importer graph. */
+  const graph = (edges: Record<string, string[]>) => ({
+    getModuleInfo: (id: string) =>
+      id in edges ? { importers: edges[id], dynamicImporters: [] } : null,
+  })
+
+  it('adds the group only to the client build', () => {
+    expect(callHook(mechanica().config, {}, { command: 'serve', isSsrBuild: false })).toBeUndefined()
+    expect(callHook(mechanica().config, {}, { command: 'build', isSsrBuild: true })).toBeUndefined()
+    expect(
+      callHook(mechanica().config, {}, { command: 'build', isSsrBuild: false })?.build?.rollupOptions
+        ?.output?.codeSplitting?.groups,
+    ).toHaveLength(1)
+  })
+
+  it('bundles blocks into one chunk; an authored chunk name wins', () => {
+    const name = setup()
+    const ctx = graph({})
+    expect(name('/abs/Headline.vue', ctx)).toBe('blocks')
+    expect(name('/abs/BigChart.vue', ctx)).toBe('blocks-charts')
+  })
+
+  it('in per-block mode only authored chunk names group', () => {
+    const name = setup({ blockChunks: 'per-block' })
+    const ctx = graph({})
+    expect(name('/abs/Headline.vue', ctx)).toBeNull()
+    expect(name('/abs/BigChart.vue', ctx)).toBe('blocks-charts')
+  })
+
+  it('folds a dependency in when every import path comes from one group', () => {
+    const name = setup()
+    const ctx = graph({ '/abs/helper.ts': ['/abs/Headline.vue'] })
+    expect(name('/abs/helper.ts', ctx)).toBe('blocks')
+  })
+
+  it('keeps a dependency shared with the entry out of the group', () => {
+    const name = setup()
+    const ctx = graph({
+      '/abs/vue.js': ['/abs/entry.ts', '/abs/Headline.vue'],
+      '/abs/entry.ts': [],
+    })
+    expect(name('/abs/vue.js', ctx)).toBeNull()
+  })
+
+  it('keeps a dependency shared across two groups out', () => {
+    const name = setup()
+    const ctx = graph({ '/abs/shared.ts': ['/abs/Headline.vue', '/abs/BigChart.vue'] })
+    expect(name('/abs/shared.ts', ctx)).toBeNull()
+  })
+
+  it('folds a diamond dependency reached twice through the same blocks', () => {
+    // Regression: lib.js is imported by two files that both trace back to the
+    // same intermediate module. The second branch re-walks the ancestor (it is
+    // not a cycle) — treating it as one used to evict the module wrongly.
+    const name = setup()
+    const ctx = graph({
+      '/abs/lib.js': ['/abs/a.js', '/abs/b.js'],
+      '/abs/a.js': ['/abs/mid.ts'],
+      '/abs/b.js': ['/abs/mid.ts'],
+      '/abs/mid.ts': ['/abs/Headline.vue'],
+    })
+    expect(name('/abs/lib.js', ctx)).toBe('blocks')
+  })
+
+  it('leaves dynamic-import targets and true cycles to default chunking', () => {
+    const name = setup()
+    const dynamic = {
+      getModuleInfo: (id: string) =>
+        id === '/abs/lazy.ts' ? { importers: ['/abs/Headline.vue'], dynamicImporters: ['/abs/x.ts'] } : null,
+    }
+    expect(name('/abs/lazy.ts', dynamic)).toBeNull()
+    // A two-module cycle with no outside importer constrains nothing.
+    const cyclic = graph({ '/abs/a.ts': ['/abs/b.ts'], '/abs/b.ts': ['/abs/a.ts'] })
+    expect(name('/abs/a.ts', cyclic)).toBeNull()
+  })
+})
+
+describe('mechanica plugin (virtual modules)', () => {
   it('ignores .vue files without defineBlock', () => {
     const out = callHook(mechanica().transform, '<template><div/></template>', '/abs/Plain.vue')
     expect(out).toBeUndefined()

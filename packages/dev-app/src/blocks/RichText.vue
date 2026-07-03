@@ -15,6 +15,9 @@ const props = defineBlock({
   name: 'Rich text',
   category: 'Docs',
   description: 'A standalone rich-text region with inline widgets',
+  // The vuewrite viewer is heavy relative to other blocks — pages without
+  // rich text shouldn't download it (`blockChunks` in the plugin docs).
+  chunk: 'richtext',
   props: { content: 'richText' },
   previewData: {
     content: [

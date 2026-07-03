@@ -28,6 +28,11 @@ export interface CompileBlockResult {
   blockId: string
   /** The generated `blockSchema` literal — compared across recompiles to drive HMR. */
   schema: string
+  /**
+   * The authored `chunk` group name, if any — a build-only hint the plugin
+   * turns into a named output chunk in the client build.
+   */
+  chunk: string | null
 }
 
 /**
@@ -123,6 +128,7 @@ export function compileBlock(
     map: s.generateMap({ source: filename, hires: true }),
     blockId,
     schema: blockSchema,
+    chunk: hasDescriptor ? getStringProp(arg, 'chunk') : null,
   }
 }
 
