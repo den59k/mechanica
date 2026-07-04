@@ -713,6 +713,19 @@ $sel: #3b82f6;
   font-weight: 600;
   color: var(--mech-muted);
 }
+// Drag-to-scrub handle (label/icon): horizontal-resize cursor, no text select.
+.mech-composer__num2-scrub {
+  cursor: ew-resize;
+  user-select: none;
+  touch-action: none;
+
+  &:hover {
+    color: var(--mech-fg);
+  }
+}
+.mech-composer__num2.is-scrubbing {
+  box-shadow: inset 0 0 0 1px var(--mech-accent);
+}
 .mech-composer__num2-field {
   flex: 1;
   min-width: 0;
