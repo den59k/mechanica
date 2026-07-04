@@ -1,14 +1,36 @@
 import { registerAlias, type SchemaItem } from 'compact-json-schema'
 
+/**
+ * Per-field cropping config for the `image` field, declared as an annotation on
+ * a block/data schema — e.g. `{ type: 'image', crop: { width: 1200, height: 630 } }`.
+ * `true` enables a free crop frame; `{ width, height }` locks the frame's aspect
+ * to `width/height` and downscales the derivative to that box; `{ aspect }` locks
+ * the ratio without a size cap. The editor's crop dialog reads this off the
+ * unfolded schema; the runtime ignores it. See `ImageValue` for what a crop
+ * produces on the value (`crop` rect + `croppedSrc`).
+ */
+export type ImageCropConfig =
+  | boolean
+  | {
+      /** Target output width in px (locks the crop aspect to width/height). */
+      width?: number
+      /** Target output height in px. */
+      height?: number
+      /** Lock the crop ratio without a size cap; ignored when width & height are set. */
+      aspect?: number
+    }
+
 // Mechanica uses compact-json-schema's `format` keyword for its field aliases
 // (`image`, `smartLink`, …). The library keeps `SchemaAnnotations` minimal
 // (`default` only), so declare `format` here — that's what lets the schemas
 // below (and any block/data schema) carry `format` without an `as SchemaItem`
-// cast. The output types for the alias shorthands live in mechanica's
-// `core/field-types.ts` (SchemaTypesMap).
+// cast. `crop` rides the same channel: an extra keyword on an `image` field that
+// survives unfolding onto the field editor's `schema` prop. The output types for
+// the alias shorthands live in mechanica's `core/field-types.ts` (SchemaTypesMap).
 declare module 'compact-json-schema' {
   interface SchemaAnnotations {
     format?: string
+    crop?: ImageCropConfig
   }
 }
 
@@ -31,12 +53,32 @@ export const builtinFields: FieldType[] = [
   {
     name: 'image',
     // `alt` is authored in the editor (image SEO + accessibility); `width` /
-    // `height` are the intrinsic pixel size captured when the image is chosen,
-    // so blocks can render dimension attributes and avoid layout shift.
+    // `height` are the intrinsic pixel size of the *original*, captured when the
+    // image is chosen, so blocks can render dimension attributes and avoid
+    // layout shift. `focalX`/`focalY` are a 0..1 focal point (drives
+    // `object-position` / `background-position`); `crop` is a normalized crop
+    // rectangle over the original whose baked-down result is `croppedSrc`
+    // (`croppedWidth`/`croppedHeight` its intrinsic size). Non-destructive: the
+    // original `src` + `crop` stay on the value, so a crop is always re-editable.
     schema: {
       type: 'object',
       format: 'image',
-      properties: { src: 'string', previewSrc: 'string?', alt: 'string?', width: 'number?', height: 'number?' },
+      properties: {
+        src: 'string',
+        previewSrc: 'string?',
+        alt: 'string?',
+        width: 'number?',
+        height: 'number?',
+        focalX: 'number?',
+        focalY: 'number?',
+        crop: {
+          type: 'object?',
+          properties: { x: 'number', y: 'number', width: 'number', height: 'number' },
+        },
+        croppedSrc: 'string?',
+        croppedWidth: 'number?',
+        croppedHeight: 'number?',
+      },
     },
     // Start empty so the editor shows its upload/pick affordance rather than a
     // placeholder image (and pages render nothing until an image is chosen).

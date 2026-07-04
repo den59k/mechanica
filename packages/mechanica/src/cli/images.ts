@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { readImageManifest, updateImageManifest, type ImageManifest } from '../vite/dev/assets-store'
+import { isDerivedAsset, readImageManifest, updateImageManifest, type ImageManifest } from '../vite/dev/assets-store'
 import { analyzeImageBuffer, hasSharp, isRasterImage, LQIP_MIN_DIMENSION } from '../vite/dev/image-preview'
 
 export interface ImagesOptions {
@@ -37,7 +37,8 @@ export async function runImages(options: ImagesOptions = {}): Promise<void> {
   const assetsDir = join(mechDir, 'assets')
   const files = ((await readdir(assetsDir, { recursive: true }).catch(() => [])) as string[])
     .map((file) => file.replace(/\\/g, '/'))
-    .filter((file) => isRasterImage(file))
+    // Skip cropped derivatives — they reuse the original's LQIP, no entry needed.
+    .filter((file) => isRasterImage(file) && !isDerivedAsset(file))
   if (!files.length) {
     console.info('No images under .mech/assets — nothing to do')
     return

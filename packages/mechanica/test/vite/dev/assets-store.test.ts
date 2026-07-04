@@ -5,6 +5,8 @@ import { join } from 'node:path'
 import {
   getUniqueName,
   saveUpload,
+  saveDerivedAsset,
+  isDerivedAsset,
   listImages,
   assetFileOf,
   readImageManifest,
@@ -48,6 +50,42 @@ describe('saveUpload / listImages', () => {
 
   it('lists nothing when no assets exist', () => {
     expect(listImages(mechDir)).toEqual([])
+  })
+
+  it('hides cropped derivatives from the library listing', async () => {
+    await saveUpload(mechDir, 'hero.png', Buffer.from('data'))
+    await saveDerivedAsset(mechDir, 'hero.crop-abc123.webp', Buffer.from('crop'))
+    const names = listImages(mechDir).map((image) => image.name)
+    expect(names).toEqual(['hero.png'])
+  })
+})
+
+describe('saveDerivedAsset / isDerivedAsset', () => {
+  it('writes the derivative verbatim and returns its src', async () => {
+    const result = await saveDerivedAsset(mechDir, 'hero.crop-abc123.webp', Buffer.from('crop'))
+    expect(result).toEqual({
+      src: '/@mechanica/assets/hero.crop-abc123.webp',
+      name: 'hero.crop-abc123.webp',
+    })
+    expect(fs.readFileSync(join(mechDir, 'assets', 'hero.crop-abc123.webp'), 'utf-8')).toBe('crop')
+  })
+
+  it('overwrites the same name (idempotent re-crop, no _1 spam)', async () => {
+    await saveDerivedAsset(mechDir, 'hero.crop-abc123.webp', Buffer.from('one'))
+    await saveDerivedAsset(mechDir, 'hero.crop-abc123.webp', Buffer.from('two'))
+    expect(fs.readdirSync(join(mechDir, 'assets'))).toEqual(['hero.crop-abc123.webp'])
+    expect(fs.readFileSync(join(mechDir, 'assets', 'hero.crop-abc123.webp'), 'utf-8')).toBe('two')
+  })
+
+  it('never touches the image manifest (derivatives reuse the original LQIP)', async () => {
+    await saveDerivedAsset(mechDir, 'hero.crop-abc123.webp', Buffer.from('crop'))
+    expect(readImageManifest(mechDir)).toEqual({})
+  })
+
+  it('recognizes derivative filenames', () => {
+    expect(isDerivedAsset('hero.crop-abc123.webp')).toBe(true)
+    expect(isDerivedAsset('hero.png')).toBe(false)
+    expect(isDerivedAsset('hero.crop.webp')).toBe(false)
   })
 
   it('enriches raster uploads with dimensions + LQIP when sharp is available', async () => {

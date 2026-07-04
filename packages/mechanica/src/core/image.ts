@@ -6,9 +6,30 @@ export interface ImageValue {
   /** A tiny LQIP data URI captured at upload, or a server-provided preview. */
   previewSrc?: string
   alt?: string
-  /** Intrinsic pixel size captured when the image was chosen. */
+  /** Intrinsic pixel size of the original, captured when the image was chosen. */
   width?: number
   height?: number
+  /** Focal point (0..1), relative to the rendered image (the crop when present). */
+  focalX?: number
+  focalY?: number
+  /** Normalized crop rectangle over the original (see the crop dialog). */
+  crop?: { x: number; y: number; width: number; height: number }
+  /** The baked cropped + downscaled derivative, rendered in place of `src`. */
+  croppedSrc?: string
+  croppedWidth?: number
+  croppedHeight?: number
+}
+
+/**
+ * The focal point as a CSS position string (`"32% 68%"`), or `undefined` when no
+ * focal point is set (leave the browser's default). Use it for `object-position`
+ * or, when a block paints an image field as a CSS `background-image`, for
+ * `background-position` — the feature the focal point exists to serve.
+ */
+export function imagePosition(image?: ImageValue | null): string | undefined {
+  if (!image || (image.focalX == null && image.focalY == null)) return undefined
+  const pct = (n: number | undefined) => `${Math.round((n ?? 0.5) * 1000) / 10}%`
+  return `${pct(image.focalX)} ${pct(image.focalY)}`
 }
 
 /**
@@ -39,29 +60,40 @@ export const Image = defineComponent({
       if (el.value?.complete) loaded.value = true
     })
 
+    // The focal point aligns both the blur-up backdrop and (below) the img's
+    // own `object-position`, so a block that sizes the image with `object-fit`
+    // keeps the subject in frame.
+    const position = computed(() => imagePosition(props.image))
+
     const lqipStyle = computed(() => {
-      const preview = props.image?.previewSrc
+      const image = props.image
+      const preview = image?.previewSrc
       // Only a real preview counts — `previewSrc === src` is the uploader's
       // no-preview fallback. Cleared once loaded, so transparent images don't
       // keep a blurred backdrop behind them.
-      if (loaded.value || !preview || preview === props.image?.src) return undefined
-      return {
-        backgroundImage: `url("${preview}")`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
+      const style: Record<string, string> = {}
+      if (position.value) style.objectPosition = position.value
+      if (!loaded.value && preview && preview !== image?.src) {
+        style.backgroundImage = `url("${preview}")`
+        style.backgroundSize = 'cover'
+        style.backgroundPosition = position.value ?? 'center'
+        style.backgroundRepeat = 'no-repeat'
       }
+      return Object.keys(style).length ? style : undefined
     })
 
     return () => {
       const image = props.image
-      if (!image?.src) return null
+      if (!image?.src && !image?.croppedSrc) return null
+      // A crop bakes a downscaled derivative — render it (and its own intrinsic
+      // size) in place of the original; fall back to the original otherwise.
+      const cropped = !!image.croppedSrc
       return h('img', {
         ref: el,
-        src: image.src,
+        src: cropped ? image.croppedSrc : image.src,
         alt: image.alt ?? '',
-        width: image.width,
-        height: image.height,
+        width: (cropped ? image.croppedWidth : image.width) ?? undefined,
+        height: (cropped ? image.croppedHeight : image.height) ?? undefined,
         loading: props.eager ? 'eager' : 'lazy',
         fetchpriority: props.eager ? 'high' : undefined,
         decoding: 'async',

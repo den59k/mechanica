@@ -175,11 +175,13 @@ function collectFiles(content: any[], blocksMap: Map<string, Block>, onFile: (pa
       if (schema.format === 'image' || schema.format === 'file') {
         if (value.src) value.src = onFile(value.src)
         if (value.previewSrc) value.previewSrc = onFile(value.previewSrc)
+        if (value.croppedSrc) value.croppedSrc = onFile(value.croppedSrc)
       }
       if (schema.format === 'richText' && schema.type === 'array') {
         for (const row of value) {
           if (row.image?.src) row.image.src = onFile(row.image.src)
           if (row.image?.previewSrc) row.image.previewSrc = onFile(row.image.previewSrc)
+          if (row.image?.croppedSrc) row.image.croppedSrc = onFile(row.image.croppedSrc)
         }
       }
     })

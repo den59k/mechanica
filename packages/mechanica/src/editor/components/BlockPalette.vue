@@ -215,6 +215,7 @@ onBeforeUnmount(clearHover)
   font-size: 16px;
   font-weight: 600;
   overflow: hidden;
+  pointer-events: none;
 
   .vicon {
     width: 20px;
@@ -238,6 +239,7 @@ onBeforeUnmount(clearHover)
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  pointer-events: none;
 }
 .mech-palette__scoped {
   margin: 0;

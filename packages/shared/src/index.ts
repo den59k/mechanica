@@ -19,6 +19,7 @@ export {
 
 export {
   type FieldType,
+  type ImageCropConfig,
   type RegisterAlias,
   builtinFields,
   registerFieldSchemas,

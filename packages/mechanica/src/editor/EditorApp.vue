@@ -183,6 +183,8 @@ const props = defineProps<{
   /** Persist a picked file and return its public src (plus dimensions + LQIP
    *  previewSrc when the backend can produce them); enables image uploads. */
   uploadFile?: (file: File) => Promise<{ src: string; previewSrc?: string; width?: number; height?: number }>
+  /** Persist a cropped derivative under a caller-chosen name; enables the crop dialog. */
+  uploadDerived?: (blob: Blob, name: string) => Promise<{ src: string }>
   /** List images already uploaded to the project, for the reuse-an-image picker. */
   listImages?: () => Promise<{ id: string; name: string; src: string }[]>
   onChange?: (snapshot: EditorSnapshot) => void
@@ -198,8 +200,10 @@ const store = createEditorStore(props.state, props.components, props.dataEntries
 provide(editorStoreKey, store)
 
 // Image fields look these up: the uploader powers new uploads, the library lets
-// the picker reuse files already in the project. Null disables each feature.
+// the picker reuse files already in the project, and the derived uploader stores
+// cropped derivatives. Null disables each feature.
 provide('mechFileUploader', props.uploadFile ?? null)
+provide('mechDerivedUploader', props.uploadDerived ?? null)
 provide('mechImageLibrary', props.listImages ?? null)
 
 const drag = createDragController(store)

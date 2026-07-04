@@ -189,6 +189,47 @@ describe('mechanica export (golden)', () => {
     expect(warnings.some((w) => w.includes('orphan.png'))).toBe(true)
   })
 
+  it('copies a referenced crop derivative and never warns about stale ones', async () => {
+    await mkdir(join(dir, '.mech/assets'), { recursive: true })
+    await writeFile(join(dir, '.mech/assets/hero.png'), 'HERO')
+    await writeFile(join(dir, '.mech/assets/hero.crop-live.webp'), 'CROP')
+    // A leftover derivative from an earlier crop — regenerable cache, not source.
+    await writeFile(join(dir, '.mech/assets/hero.crop-stale.webp'), 'OLD')
+    await writeFile(
+      join(dir, '.mech/pages/gallery.page.md'),
+      serializePage({
+        content: [
+          {
+            id: 'g',
+            blockId: 'pic',
+            data: {
+              image: {
+                src: '/@mechanica/assets/hero.png',
+                crop: { x: 0, y: 0.25, width: 1, height: 0.5 },
+                croppedSrc: '/@mechanica/assets/hero.crop-live.webp',
+                croppedWidth: 500,
+                croppedHeight: 250,
+              },
+            },
+          },
+        ],
+        data: {},
+      }),
+    )
+
+    const warnings: string[] = []
+    await exportProject(dir, ssr, { onWarn: (message) => warnings.push(message) })
+
+    // The referenced derivative is copied and its URL rewritten to /media.
+    expect(await readFile(join(dir, 'export/media/hero.crop-live.webp'), 'utf-8')).toBe('CROP')
+    const gallery = await readFile(join(dir, 'export/gallery/index.html'), 'utf-8')
+    expect(gallery).toContain('/media/hero.crop-live.webp')
+
+    // The stale derivative isn't copied, but — unlike a real orphan — isn't warned.
+    await expect(access(join(dir, 'export/media/hero.crop-stale.webp'))).rejects.toThrow()
+    expect(warnings.some((w) => w.includes('crop-stale'))).toBe(false)
+  })
+
   it('emits 404.html when a /404 page exists, and sitemap.xml with a site url', async () => {
     await writeFile(
       join(dir, '.mech/pages/404.page.md'),

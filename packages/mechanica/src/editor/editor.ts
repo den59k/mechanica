@@ -158,6 +158,18 @@ const uploadFile = async (file: File): Promise<UploadResult> => {
   return { src, previewSrc, width, height }
 }
 
+/** Upload a cropped derivative under a deterministic name (kept out of the library). */
+const uploadDerived = async (blob: Blob, name: string): Promise<{ src: string }> => {
+  const response = await fetch('/@mechanica/upload', {
+    method: 'POST',
+    headers: { 'x-file-name': encodeURIComponent(name), 'x-derived-asset': '1' },
+    body: blob,
+  })
+  if (!response.ok) throw new Error(`Upload failed (${response.status})`)
+  const { src } = (await response.json()) as { src: string }
+  return { src }
+}
+
 /** List images already uploaded under the project's `.mech/assets`. */
 const listImages = async (): Promise<{ id: string; name: string; src: string }[]> => {
   const response = await fetch('/@mechanica/images')
@@ -174,6 +186,7 @@ createApp(EditorApp, {
   components: blocksList as never,
   dataEntries,
   uploadFile,
+  uploadDerived,
   listImages,
   onChange: (snapshot: EditorSnapshot) => saveQueue.push(snapshot),
   save: saveController,

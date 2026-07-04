@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
-import { Image, type ImageValue } from '@/core/image'
+import { Image, imagePosition, type ImageValue } from '@/core/image'
 
 const LQIP = 'data:image/webp;base64,stub'
 
@@ -62,5 +62,47 @@ describe('<Image>', () => {
     app.mount(el)
     expect(el.querySelector('img')!.className).toBe('banner__image')
     app.unmount()
+  })
+
+  it('renders the cropped derivative and its dimensions in place of the original', () => {
+    const { img, app } = mount({
+      image: {
+        src: '/media/hero.jpg',
+        width: 2000,
+        height: 1000,
+        croppedSrc: '/media/hero.crop-abc.webp',
+        croppedWidth: 1200,
+        croppedHeight: 600,
+      },
+    })
+    expect(img!.getAttribute('src')).toBe('/media/hero.crop-abc.webp')
+    expect(img!.getAttribute('width')).toBe('1200')
+    expect(img!.getAttribute('height')).toBe('600')
+    app.unmount()
+  })
+
+  it('applies the focal point as object-position', () => {
+    const { img, app } = mount({ image: { src: '/media/a.jpg', focalX: 0.25, focalY: 0.75 } })
+    expect(img!.style.objectPosition).toBe('25% 75%')
+    app.unmount()
+  })
+
+  it('aligns the LQIP backdrop to the focal point', () => {
+    const { img, app } = mount({ image: { src: '/media/a.jpg', previewSrc: LQIP, focalX: 0.2, focalY: 0.8 } })
+    expect(img!.style.backgroundPosition).toBe('20% 80%')
+    app.unmount()
+  })
+})
+
+describe('imagePosition', () => {
+  it('formats the focal point as a CSS position', () => {
+    expect(imagePosition({ src: '/a.jpg', focalX: 0.25, focalY: 0.6 })).toBe('25% 60%')
+  })
+  it('defaults a missing axis to center', () => {
+    expect(imagePosition({ src: '/a.jpg', focalX: 0.3 })).toBe('30% 50%')
+  })
+  it('is undefined without a focal point (leave the CSS default)', () => {
+    expect(imagePosition({ src: '/a.jpg' })).toBeUndefined()
+    expect(imagePosition(null)).toBeUndefined()
   })
 })

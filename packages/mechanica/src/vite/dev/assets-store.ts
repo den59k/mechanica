@@ -26,6 +26,20 @@ export const UPLOADS_PREFIX = '/@mechanica/assets/'
 /** Public URL the dev server serves an asset under. */
 const assetUrl = (fileName: string) => `${UPLOADS_PREFIX}${fileName}`
 
+/**
+ * Cropped-derivative filenames (`<name>.crop-<hash>.webp`) — the non-destructive
+ * crop's baked output. They live under `.mech/assets` alongside originals (so the
+ * export copies + URL-rewrites them like any other upload) but are hidden from
+ * the image library picker and excluded from the "orphaned upload" warning: they
+ * are a regenerable cache keyed off the original + crop params, not source files.
+ */
+const DERIVED_RE = /\.crop-[a-z0-9]+\.webp$/i
+
+/** Whether a filename is a cropped derivative (see {@link DERIVED_RE}). */
+export function isDerivedAsset(fileName: string): boolean {
+  return DERIVED_RE.test(fileName)
+}
+
 /** The asset filename an uploaded-asset src refers to, or null for other URLs. */
 export function assetFileOf(src: unknown): string | null {
   if (typeof src !== 'string' || !src.startsWith(UPLOADS_PREFIX)) return null
@@ -171,13 +185,33 @@ export async function saveUpload(
   return { src: assetUrl(unique), name: fileName, ...info }
 }
 
-/** List uploaded images. */
+/**
+ * Persist a cropped derivative under `.mech/assets` with a caller-chosen,
+ * deterministic name (`<name>.crop-<hash>.webp`). Unlike {@link saveUpload} this
+ * writes the name verbatim (re-cropping to the same rect overwrites, no `_1`
+ * spam) and skips the image manifest — the derivative reuses the original's LQIP
+ * blur-up, so it needs no preview of its own.
+ */
+export async function saveDerivedAsset(
+  mechDir: string,
+  fileName: string,
+  data: Buffer,
+): Promise<{ src: string; name: string }> {
+  const dir = assetsDir(mechDir)
+  await fs.promises.mkdir(dir, { recursive: true })
+  await fs.promises.writeFile(join(dir, fileName), data)
+  return { src: assetUrl(fileName), name: fileName }
+}
+
+/** List uploaded images — cropped derivatives are hidden (see {@link isDerivedAsset}). */
 export function listImages(mechDir: string): { id: string; name: string; src: string }[] {
   const dir = assetsDir(mechDir)
   if (!fs.existsSync(dir)) return []
-  return fs.readdirSync(dir).map((name) => ({
-    id: name.slice(0, name.lastIndexOf('.')) || name,
-    name,
-    src: assetUrl(name),
-  }))
+  return fs.readdirSync(dir)
+    .filter((name) => !isDerivedAsset(name))
+    .map((name) => ({
+      id: name.slice(0, name.lastIndexOf('.')) || name,
+      name,
+      src: assetUrl(name),
+    }))
 }

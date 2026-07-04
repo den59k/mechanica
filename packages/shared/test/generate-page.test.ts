@@ -161,7 +161,25 @@ describe('generatePage', () => {
 describe('generateProject', () => {
   it('yields one result per page and rewrites asset files', async () => {
     const pages = [
-      { path: '/', content: [{ id: '1', blockId: 'pic', data: { img: { src: '/uploads/a.png' } } }], data: {} },
+      {
+        path: '/',
+        content: [
+          {
+            id: '1',
+            blockId: 'pic',
+            // A cropped image: src (original), previewSrc (LQIP) and croppedSrc
+            // (the baked derivative) all get rewritten to the export URL space.
+            data: {
+              img: {
+                src: '/uploads/a.png',
+                previewSrc: '/uploads/a.png',
+                croppedSrc: '/uploads/a.crop-abc.webp',
+              },
+            },
+          },
+        ],
+        data: {},
+      },
       { path: '/about', content: [], data: {} },
     ]
     const seen: string[] = []
@@ -181,6 +199,8 @@ describe('generateProject', () => {
     }
     expect(results).toEqual(['/', '/about'])
     expect(seen).toContain('/uploads/a.png')
+    expect(seen).toContain('/uploads/a.crop-abc.webp')
     expect(pages[0]!.content[0]!.data.img.src).toBe('/static/a.png')
+    expect(pages[0]!.content[0]!.data.img.croppedSrc).toBe('/static/a.crop-abc.webp')
   })
 })

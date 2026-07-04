@@ -14,7 +14,7 @@ import {
   pageVersion,
   PageExistsError,
 } from './pages-store'
-import { saveUpload, listImages } from './assets-store'
+import { saveUpload, saveDerivedAsset, listImages } from './assets-store'
 import { resolveDevQuery } from './query-dev'
 import { mergeSiteData, mergeFolderData, folderOf } from './data-store'
 import { buildPageState } from './page-state'
@@ -110,6 +110,9 @@ export function createDevMiddleware(
         } catch {
           /* malformed encoding — keep the raw header value */
         }
+        // `x-derived-asset` marks a cropped derivative: written verbatim under
+        // the deterministic name the client computed, kept out of the library.
+        if (req.headers['x-derived-asset']) return json(await saveDerivedAsset(mechDir, name, body))
         return json(await saveUpload(mechDir, name, body))
       }
 

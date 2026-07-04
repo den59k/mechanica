@@ -26,6 +26,7 @@ import { parsePage, type RichTextCodec } from 'mechanica-shared/page-format'
 import { toBlockMeta, composedBlockMeta, type BlockComponent } from '../editor/lib/block-meta'
 import {
   assetFileOf,
+  isDerivedAsset,
   readImageManifest,
   updateImageManifest,
   UPLOADS_PREFIX,
@@ -513,11 +514,13 @@ async function copyUploads(
     })
   }
 
-  // Orphans: uploads no page references. Report only — deleting is the user's call.
+  // Orphans: uploads no page references. Report only — deleting is the user's
+  // call. Cropped derivatives are a regenerable cache, not source files, so a
+  // stale one (from an earlier crop) isn't worth a warning.
   const existing = (await readdir(assetsDir, { recursive: true }).catch(() => [])) as string[]
   const orphans = existing
     .map((entry) => entry.replace(/\\/g, '/'))
-    .filter((entry) => /\.\w+$/.test(entry) && !referenced.has(entry))
+    .filter((entry) => /\.\w+$/.test(entry) && !referenced.has(entry) && !isDerivedAsset(entry))
   if (orphans.length) {
     warn(
       `[mechanica] ${orphans.length} unused upload(s) in .mech/assets (not exported): ${orphans.join(', ')}`,

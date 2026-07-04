@@ -49,6 +49,17 @@ const uploadFile = async (
   return (await response.json()) as { src: string; previewSrc?: string; width?: number; height?: number }
 }
 
+/** Upload a cropped derivative under a deterministic name (kept out of the library). */
+const uploadDerived = async (blob: Blob, name: string): Promise<{ src: string }> => {
+  const response = await fetch('/@mechanica/upload', {
+    method: 'POST',
+    headers: { 'x-file-name': encodeURIComponent(name), 'x-derived-asset': '1' },
+    body: blob,
+  })
+  if (!response.ok) throw new Error(`Upload failed (${response.status})`)
+  return (await response.json()) as { src: string }
+}
+
 /** List images already uploaded under the project's `.mech/assets`. */
 const listImages = async (): Promise<{ id: string; name: string; src: string }[]> => {
   const response = await fetch('/@mechanica/images')
@@ -150,6 +161,7 @@ export async function mountComposerApp(options: MountComposerOptions): Promise<v
   )
   // Image fields (button/image inspectors) reuse the editor's upload services.
   app.provide('mechFileUploader', uploadFile)
+  app.provide('mechDerivedUploader', uploadDerived)
   app.provide('mechImageLibrary', listImages)
   app.mount(target)
 }

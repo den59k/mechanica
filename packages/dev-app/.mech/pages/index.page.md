@@ -14,6 +14,8 @@ image:
   src: /@mechanica/assets/ChatGPT Image 4 дек. 2025 г., 18_38_04.png
   width: 1024
   height: 1024
+  focalX: 0.176
+  focalY: 0.684
 heading: Banner heading
 caption: So new banner!
 :::
@@ -36,10 +38,10 @@ Author blocks as real Vue components. Arrange them on the page in a live in-brow
 ::: logo-strip #logos
 label: Built on a modern, fast toolchain
 items:
-  - { name: Vite 8 }
-  - { name: Vue 3.5 }
-  - { name: Bun }
+  - { name: Vue 3 }
   - { name: Vitest 4 }
+  - { name: Vite 8 }
+  - { name: Bun }
   - { name: TypeScript }
 :::
 
@@ -143,4 +145,10 @@ bordered: true
 rounded: true
 @text
 Open this block in the editor — the Tone and Size dropdowns and the two checkboxes restyle this card live.
+:::
+
+::: banner #9d80eaae-9a4c-4c85-9571-39cfe96d7494
+image: { src: "" }
+heading: Banner heading
+caption: ""
 :::

@@ -3,10 +3,13 @@
     <!-- Chosen: preview with hover actions + alt text (image SEO / a11y). -->
     <div v-if="value.src" class="mech-image__chosen">
       <div class="mech-image__frame">
-        <!-- Always the real file: previewSrc may be a ~24px LQIP data URI. -->
-        <img :src="value.src" class="mech-image__preview" :alt="value.alt ?? ''" />
+        <!-- Show the cropped derivative when present, else the original file. -->
+        <img :src="value.croppedSrc ?? value.src" class="mech-image__preview" :alt="value.alt ?? ''" />
         <div class="mech-image__actions">
           <button type="button" class="mech-button" @click="openPicker">Replace</button>
+          <button type="button" class="mech-button" @click="openAdjust">
+            {{ canCrop ? 'Crop' : 'Position' }}
+          </button>
           <button type="button" class="mech-button is-danger" @click="clear">Remove</button>
         </div>
       </div>
@@ -41,15 +44,11 @@ import { computed, inject, ref } from 'vue'
 import VIcon from '../../components/VIcon.vue'
 import { dialogKey } from '../../ui/dialog'
 import { analyzeImageFile, readImageSize } from '../../lib/image-size'
+import { resolveCropConfig, type EditorImageValue } from '../../lib/image-crop'
 import ImagePickerDialog from '../../dialogs/ImagePickerDialog.vue'
+import ImageCropDialog from '../../dialogs/ImageCropDialog.vue'
 
-interface ImageValue {
-  src: string
-  previewSrc?: string
-  alt?: string
-  width?: number
-  height?: number
-}
+type ImageValue = EditorImageValue
 type Uploader = (
   file: File,
 ) => Promise<{ src: string; previewSrc?: string; width?: number; height?: number }>
@@ -63,14 +62,27 @@ const dialog = inject(dialogKey, null)
 const dragover = ref(false)
 const busy = ref(false)
 
+// A field opts into crop framing via `crop` on its schema; without it the adjust
+// dialog still offers focal-point (position) editing.
+const canCrop = computed(() => resolveCropConfig(props.schema.crop) !== null)
+
 const set = (next: ImageValue) => emit('update:modelValue', next)
 const clear = () => set({ src: '' })
 const onAlt = (event: Event) => set({ ...value.value, alt: (event.target as HTMLInputElement).value })
 
-// Open the picker (upload a new file or reuse one already in the project).
-// A replacement keeps the authored alt text — cheaper to re-edit than retype.
+// Open the picker (upload a new file or reuse one already in the project). A
+// replacement keeps the authored alt text — cheaper to re-edit than retype —
+// but drops the old crop/focal, which were relative to the previous image.
 const openPicker = () =>
   dialog?.open(ImagePickerDialog, { onSelect: (next: ImageValue) => set({ ...next, alt: value.value.alt }) })
+
+// Open the crop / focal-point dialog for the chosen image.
+const openAdjust = () =>
+  dialog?.open(ImageCropDialog, {
+    image: value.value,
+    crop: props.schema.crop,
+    onApply: (next: ImageValue) => set(next),
+  })
 
 // Dropping a file onto the empty zone uploads it directly — the quick path.
 const onDrop = async (event: DragEvent) => {
