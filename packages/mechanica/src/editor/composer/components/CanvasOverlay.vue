@@ -72,8 +72,8 @@
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch, nextTick } from 'vue'
 import { composerStoreKey, composerHistoryKey } from '../lib/keys'
 import { elementKind, blockLabel } from '../lib/elements-meta'
-import { HANDLES, handlePoint, handleAxes, handleCursor, resizeSize, gapStrips, paddingStrips, type Box, type Handle, type Side } from '../lib/canvas-overlay'
-import { parsePadding, setSide } from '../lib/padding'
+import { HANDLES, handlePoint, handleAxes, handleCursor, resizeSize, gapStrips, paddingStrips, snapTo, type Box, type Handle, type Side } from '../lib/canvas-overlay'
+import { parsePadding, collapsePadding, computePaddingDrag } from '../lib/padding'
 
 const props = defineProps<{ hoverId: string | null }>()
 const store = inject(composerStoreKey)!
@@ -94,12 +94,21 @@ const gapValue = computed(() => {
 const padStrips = ref<{ side: Side; box: Box }[]>([])
 const padDragging = ref<Side | null>(null)
 const PAD_MIN = 6 // minimum grab thickness (screen px) so 0 padding is draggable
-// Each side's drag axis + which pointer direction grows the padding.
-const PAD_AXIS: Record<Side, { axis: 'x' | 'y'; sign: 1 | -1 }> = {
-  t: { axis: 'y', sign: 1 },
-  b: { axis: 'y', sign: -1 },
-  l: { axis: 'x', sign: 1 },
-  r: { axis: 'x', sign: -1 },
+const SNAP = 4 // Shift-drag snaps gap / padding / size to this grid
+const PAD_AXIS: Record<Side, 'x' | 'y'> = { t: 'y', b: 'y', l: 'x', r: 'x' }
+
+/**
+ * Which pointer direction grows a side's padding. The strip should follow the
+ * cursor: the start sides (top / left) always grow toward +. The end sides
+ * (bottom / right) grow toward + when the frame *hugs* that axis (adding padding
+ * pushes the far edge out with the cursor) but toward − when it *fills / is fixed*
+ * (the edge is pinned, so content shrinks inward against the cursor).
+ */
+function padSign(side: Side): 1 | -1 {
+  if (side === 't' || side === 'l') return 1
+  const frame = store.selected
+  const size = frame ? store.effective(frame, side === 'b' ? 'h' : 'w') : undefined
+  return size == null ? 1 : -1 // undefined → hug; a number (fixed) or 'fill' → pinned edge
 }
 const padSideValue = (side: Side) => {
   const f = store.selected
@@ -238,7 +247,21 @@ function startResize(handle: Handle, event: PointerEvent) {
 
   const onMove = (e: PointerEvent) => {
     const size = resizeSize(start, handle, e.clientX - startX, e.clientY - startY, store.zoom)
-    store.setData(id, size, { responsive: true })
+    let { w, h } = size
+    // Alt: edit both axes — grow the un-driven axis by the driven axis's delta.
+    if (e.altKey) {
+      if (w != null && h == null) h = Math.max(8, start.h + (w - start.w))
+      else if (h != null && w == null) w = Math.max(8, start.w + (h - start.h))
+    }
+    // Shift: snap each driven dimension to the grid.
+    if (e.shiftKey) {
+      if (w != null) w = Math.max(8, snapTo(w, SNAP))
+      if (h != null) h = Math.max(8, snapTo(h, SNAP))
+    }
+    const patch: Record<string, number> = {}
+    if (w != null) patch.w = w
+    if (h != null) patch.h = h
+    store.setData(id, patch, { responsive: true })
   }
   const onUp = () => {
     cancelAnimationFrame(raf)
@@ -270,7 +293,8 @@ function startGapDrag(event: PointerEvent) {
 
   const onMove = (e: PointerEvent) => {
     const pos = axis === 'x' ? e.clientX : e.clientY
-    const gap = Math.max(0, Math.round(startGap + (pos - startPos) / store.zoom))
+    const raw = startGap + (pos - startPos) / store.zoom
+    const gap = Math.max(0, e.shiftKey ? snapTo(raw, SNAP) : Math.round(raw))
     store.setData(id, { gap }, { responsive: true })
   }
   const onUp = () => {
@@ -292,8 +316,9 @@ function startPadDrag(side: Side, event: PointerEvent) {
   const id = store.selectedId
   const frame = store.selected
   if (!id || !frame) return
-  const { axis, sign } = PAD_AXIS[side]
-  const start = parsePadding(store.effective(frame, 'padding'))[side]
+  const axis = PAD_AXIS[side]
+  const sign = padSign(side)
+  const startSides = parsePadding(store.effective(frame, 'padding'))
   const startPos = axis === 'x' ? event.clientX : event.clientY
   padDragging.value = side
 
@@ -305,8 +330,10 @@ function startPadDrag(side: Side, event: PointerEvent) {
 
   const onMove = (e: PointerEvent) => {
     const pos = axis === 'x' ? e.clientX : e.clientY
-    const next = Math.max(0, Math.round(start + (sign * (pos - startPos)) / store.zoom))
-    store.setData(id, { padding: setSide(store.effective(frame, 'padding'), side, next) }, { responsive: true })
+    const delta = (sign * (pos - startPos)) / store.zoom
+    // Alt edits both axes (all four sides); Shift snaps to the grid.
+    const sides = computePaddingDrag(startSides, side, delta, { allAxes: e.altKey, snap: e.shiftKey ? SNAP : 0 })
+    store.setData(id, { padding: collapsePadding(sides) }, { responsive: true })
   }
   const onUp = () => {
     cancelAnimationFrame(padRaf)

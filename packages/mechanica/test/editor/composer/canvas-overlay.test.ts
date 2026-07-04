@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { handlePoint, handleAxes, resizeSize, handleCursor, HANDLES, gapStrips, paddingStrips } from '@/editor/composer/lib/canvas-overlay'
+import { handlePoint, handleAxes, resizeSize, handleCursor, HANDLES, gapStrips, paddingStrips, snapTo } from '@/editor/composer/lib/canvas-overlay'
 
 const box = { left: 100, top: 50, width: 200, height: 80 }
 
@@ -102,5 +102,16 @@ describe('paddingStrips', () => {
   it('keeps a minimum grab thickness even at zero padding', () => {
     const strips = paddingStrips(outer, { t: 0, r: 0, b: 0, l: 0 }, 8)
     expect(strips.every((s) => s.box.width >= 8 && s.box.height >= 0)).toBe(true)
+  })
+})
+
+describe('snapTo', () => {
+  it('snaps to the nearest multiple of the step', () => {
+    expect(snapTo(14, 4)).toBe(16) // 3.5 → 4
+    expect(snapTo(13, 4)).toBe(12) // 3.25 → 3
+    expect(snapTo(2, 4)).toBe(4) // 0.5 → 1
+    expect(snapTo(0, 4)).toBe(0)
+    expect(snapTo(25, 4)).toBe(24) // 6.25 → 6
+    expect(snapTo(30, 4)).toBe(32) // 7.5 → 8
   })
 })

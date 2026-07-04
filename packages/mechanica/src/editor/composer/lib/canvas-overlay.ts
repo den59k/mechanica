@@ -95,6 +95,11 @@ export function gapStrips(boxes: Box[], axis: 'x' | 'y', minHit: number): Box[] 
   return strips
 }
 
+/** Snap a value to the nearest multiple of `step` (the Shift-drag grid). */
+export function snapTo(value: number, step: number): number {
+  return Math.round(value / step) * step
+}
+
 /** A frame side, for padding strips. */
 export type Side = 't' | 'r' | 'b' | 'l'
 
