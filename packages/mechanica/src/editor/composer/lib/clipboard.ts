@@ -19,12 +19,7 @@ export function readClipboard(): ContentBlock[] {
   return buffer.map(cloneBlock)
 }
 
-/** Whether there is anything to paste. */
-export function hasClipboard(): boolean {
-  return buffer.length > 0
-}
-
-/** Empty the clipboard (used by tests for isolation). */
+/** Empty the clipboard — used by tests to reset the module-level buffer. */
 export function clearClipboard(): void {
   buffer = []
 }
