@@ -108,6 +108,69 @@ describe('composer store: tree ops', () => {
   })
 })
 
+describe('composer store: multi-selection', () => {
+  const withThree = () => {
+    const store = createComposerStore(base())
+    store.insertItem(item('text'))
+    const a = store.selectedId!
+    store.insertItem(item('image'))
+    const b = store.selectedId!
+    store.insertItem(item('text'))
+    const c = store.selectedId!
+    return { store, a, b, c }
+  }
+
+  it('replaces selection on a plain select, toggles when additive', () => {
+    const { store, a, b, c } = withThree()
+    store.select(a)
+    expect(store.selectedIds).toEqual([a])
+    store.select(b, true) // add
+    store.select(c, true) // add
+    expect(store.selectedIds).toEqual([a, b, c])
+    expect(store.selectedId).toBe(c) // last is primary
+    store.select(b, true) // toggle off
+    expect(store.selectedIds).toEqual([a, c])
+    store.select(a) // plain select replaces
+    expect(store.selectedIds).toEqual([a])
+  })
+
+  it('selectMany replaces; isSelected + selectedNodes reflect the set', () => {
+    const { store, a, c } = withThree()
+    store.selectMany([a, c])
+    expect(store.isSelected(a)).toBe(true)
+    expect(store.isSelected(c)).toBe(true)
+    expect(store.selectedNodes.map((n) => n.id)).toEqual([a, c])
+  })
+
+  it('selectUp narrows a multi-selection to the primary before climbing', () => {
+    const { store, a, b, c } = withThree()
+    store.selectMany([a, b, c])
+    store.selectUp() // collapse to primary
+    expect(store.selectedIds).toEqual([c])
+    store.selectUp() // climb to root (c is a root child)
+    expect(store.selectedId).toBe(store.rootId)
+  })
+
+  it('removeSelected deletes every selected element (never the root)', () => {
+    const { store, a, b } = withThree()
+    store.selectMany([a, b, store.rootId])
+    store.removeSelected()
+    expect(rootChildren(store)).toHaveLength(1) // only the 3rd text remains
+    expect(store.selectedIds).toEqual([])
+    expect(store.template).toHaveLength(1) // root survived
+  })
+
+  it('duplicateSelected copies each and selects the copies', () => {
+    const { store, a, b } = withThree()
+    store.selectMany([a, b])
+    store.duplicateSelected()
+    expect(rootChildren(store)).toHaveLength(5)
+    expect(store.selectedIds).toHaveLength(2)
+    expect(store.selectedIds).not.toContain(a)
+    expect(store.selectedIds).not.toContain(b)
+  })
+})
+
 describe('composer store: data editing + breakpoints', () => {
   const withFrame = () => {
     const store = createComposerStore(base())

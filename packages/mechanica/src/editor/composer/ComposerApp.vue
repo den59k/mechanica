@@ -53,7 +53,8 @@
       </main>
 
       <aside class="mech-composer__panel mech-composer__panel--right">
-        <ComposerInspector v-if="store.selected" />
+        <MultiSelectPanel v-if="store.selectedIds.length > 1" />
+        <ComposerInspector v-else-if="store.selected" />
         <ComposerSettings v-else />
       </aside>
     </div>
@@ -78,6 +79,7 @@ import ComposerLayers from './components/ComposerLayers.vue'
 import ComposerCanvas from './components/ComposerCanvas.vue'
 import ComposerInspector from './components/ComposerInspector.vue'
 import ComposerSettings from './components/ComposerSettings.vue'
+import MultiSelectPanel from './components/MultiSelectPanel.vue'
 
 const props = defineProps<{
   def: ComposedBlockDefinition
@@ -149,10 +151,10 @@ const onKeyDown = (event: KeyboardEvent) => {
   if (event.key === 'Escape') store.selectUp()
   else if ((event.key === 'Delete' || event.key === 'Backspace') && store.selectedId) {
     event.preventDefault()
-    store.remove(store.selectedId)
+    store.removeSelected()
   } else if (mod && ch === 'd' && store.selectedId) {
     event.preventDefault()
-    store.duplicate(store.selectedId)
+    store.duplicateSelected()
   } else if (!mod && !event.altKey && ch) {
     // R / C / T / I arm insertion of Row / Column / Text / Image at the selection.
     const item = insertItemForKey(ch)

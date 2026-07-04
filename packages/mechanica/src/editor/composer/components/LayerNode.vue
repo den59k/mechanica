@@ -2,7 +2,7 @@
   <div
     class="mech-composer__layer"
     :class="{
-      'is-selected': store.selectedId === node.id,
+      'is-selected': store.isSelected(node.id),
       'is-dragging': dnd.dragId === node.id,
       'drop-before': dropPos === 'before',
       'drop-after': dropPos === 'after',
@@ -53,9 +53,11 @@ const label = computed(() =>
 )
 const dropPos = computed(() => (dnd.target?.id === props.node.id ? dnd.target.position : null))
 
-// A drag ending over this row should not also select it.
-const onClick = () => {
-  if (!dnd.suppressClick) store.select(props.node.id)
+// A drag ending over this row should not also select it. Shift/Ctrl/Cmd add the
+// row to a multi-selection.
+const onClick = (event: MouseEvent) => {
+  if (dnd.suppressClick) return
+  store.select(props.node.id, event.shiftKey || event.metaKey || event.ctrlKey)
 }
 
 // Flatten default-slot array or named-slot lists into a single ordered list.

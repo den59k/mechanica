@@ -15,7 +15,6 @@
         class="mech-composer__canvas"
         :class="{ 'is-editing': !!editingId }"
         :style="canvasStyle"
-        @pointerdown="onCanvasPointerDown"
         @click.capture="onClick"
         @dblclick="onCanvasDblClick"
       >
@@ -27,6 +26,9 @@
       </div>
     </div>
     <CanvasOverlay :hover-id="hoverId" />
+
+    <!-- Rubber-band selection box (viewport-local coords). -->
+    <div v-if="marquee" class="mech-composer__marquee" :style="marqueeStyle" />
 
     <!-- Floating zoom controls (Figma-style) -->
     <div class="mech-composer__zoombar">
@@ -63,6 +65,8 @@ import { findBlock } from '../../lib/content-tree'
 import { blockLabel, elementKind } from '../lib/elements-meta'
 import { resolveForCanvas } from '../lib/canvas'
 import { zoomAround, fitView, wheelZoomFactor, type View } from '../lib/canvas-view'
+import { marqueeRect, rectsIntersect } from '../lib/marquee'
+import type { Box } from '../lib/canvas-overlay'
 import CanvasOverlay from './CanvasOverlay.vue'
 
 const store = inject(composerStoreKey)!
@@ -132,12 +136,60 @@ function fit() {
   applyView(fitView(rect.width, rect.height, bpWidth.value, height))
 }
 
-// ── Panning with the middle mouse button (wheel) ──────────────────────────────
+// ── Pointer interactions: pan (middle) / select · drag · marquee (left) ────────
 const panning = ref(false)
 let panStart: { x: number; y: number; panX: number; panY: number } | null = null
+const marquee = ref<Box | null>(null) // viewport-local rubber-band box
+const marqueeStyle = computed(() => ({
+  left: `${marquee.value!.left}px`,
+  top: `${marquee.value!.top}px`,
+  width: `${marquee.value!.width}px`,
+  height: `${marquee.value!.height}px`,
+}))
 
 function onPointerDown(event: PointerEvent) {
-  if (event.button !== 1) return // middle button only
+  if (event.button === 1) return startPan(event) // middle button pans
+  if (event.button !== 0 || editingId.value) return
+  // The floating zoom bar lives inside the viewport — don't treat its clicks as canvas.
+  if ((event.target as HTMLElement).closest('.mech-composer__zoombar')) return
+  const el = (event.target as HTMLElement).closest('[data-block-id]') as HTMLElement | null
+  const id = el?.getAttribute('data-block-id') ?? null
+  const additive = event.shiftKey || event.metaKey || event.ctrlKey
+
+  // Empty space (grey viewport or the root frame's own area) → rubber-band select.
+  if (!id || id === store.rootId) return beginMarquee(event, id, additive)
+
+  // Additive click toggles membership without starting a drag.
+  if (additive) return store.select(id, true)
+
+  // Grabbing one of several selected elements keeps the group (for a group drag);
+  // otherwise select just this element.
+  const grabbingGroup = store.isSelected(id) && store.selectedIds.length > 1
+  if (!grabbingGroup) store.select(id)
+
+  const nodes = store.selectedNodes
+  const allAbs = nodes.length > 0 && nodes.every((n) => !!n.data.$abs)
+  if (grabbingGroup && allAbs) return startGroupAbsDrag(event)
+  if (grabbingGroup) store.select(id) // mixed selection → collapse to the grabbed one
+
+  if (id === store.rootId) return
+  const node = findBlock(store.template, id)
+  if (!node) return
+  if (node.data.$abs) startAbsDrag(id, node, event)
+  else insert.armMove(id, blockLabel(node), event)
+}
+
+// ── Click: block link navigation; selection already happened on pointerdown ────
+function onClick(event: MouseEvent) {
+  if (editingId.value) return // let clicks place the caret while editing text
+  if ((event.target as HTMLElement).closest('[data-block-id]')) {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+}
+
+// ── Pan (middle mouse) ─────────────────────────────────────────────────────────
+function startPan(event: PointerEvent) {
   event.preventDefault()
   panning.value = true
   panStart = { x: event.clientX, y: event.clientY, panX: store.panX, panY: store.panY }
@@ -156,24 +208,51 @@ function onPanUp() {
   window.removeEventListener('pointerup', onPanUp)
 }
 
-// ── Selection ─────────────────────────────────────────────────────────────────
-function onClick(event: MouseEvent) {
-  if (editingId.value) return // let clicks place the caret while editing text
-  const el = (event.target as HTMLElement).closest('[data-block-id]')
-  // Intercept in the capture phase so a clicked button/link selects instead of
-  // navigating, and a click on empty canvas deselects.
-  if (el) {
-    event.preventDefault()
-    event.stopPropagation()
-    store.select(el.getAttribute('data-block-id'))
-  } else {
-    store.select(null)
+// ── Marquee (rubber-band) selection ────────────────────────────────────────────
+function beginMarquee(event: PointerEvent, pressedId: string | null, additive: boolean) {
+  const startX = event.clientX
+  const startY = event.clientY
+  const base = additive ? [...store.selectedIds] : []
+  let moved = false
+  const onMove = (e: PointerEvent) => {
+    if (!moved && Math.hypot(e.clientX - startX, e.clientY - startY) < 4) return
+    moved = true
+    const rect = marqueeRect(startX, startY, e.clientX, e.clientY)
+    const vpr = viewportEl.value!.getBoundingClientRect()
+    marquee.value = { left: rect.left - vpr.left, top: rect.top - vpr.top, width: rect.width, height: rect.height }
+    store.selectMany(collectMarqueeHits(rect, base))
   }
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    marquee.value = null
+    if (!moved) {
+      // A plain click on empty space: select the root frame, or clear.
+      if (pressedId === store.rootId) store.select(store.rootId)
+      else if (!additive) store.select(null)
+    }
+  }
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+}
+
+/** Every element (never the root) whose box intersects the marquee, unioned with `base`. */
+function collectMarqueeHits(rect: Box, base: string[]): string[] {
+  const canvas = canvasEl.value
+  if (!canvas) return base
+  const ids = new Set(base)
+  for (const el of canvas.querySelectorAll<HTMLElement>('[data-block-id]')) {
+    const id = el.getAttribute('data-block-id')!
+    if (id === store.rootId) continue // the marquee selects children, not the whole block
+    const r = el.getBoundingClientRect()
+    if (rectsIntersect(rect, { left: r.left, top: r.top, width: r.width, height: r.height })) ids.add(id)
+  }
+  return [...ids]
 }
 
 // ── Hover highlight ───────────────────────────────────────────────────────────
 function onHoverMove(event: PointerEvent) {
-  if (insert.dragging || panning.value || editingId.value) {
+  if (insert.dragging || panning.value || editingId.value || marquee.value) {
     hoverId.value = null
     return
   }
@@ -223,19 +302,6 @@ function onCanvasDblClick(event: MouseEvent) {
 }
 
 // ── Move / drag on canvas ─────────────────────────────────────────────────────
-function onCanvasPointerDown(event: PointerEvent) {
-  if (event.button !== 0 || editingId.value) return // left button only; not while editing
-  const el = (event.target as HTMLElement).closest('[data-block-id]')
-  if (!el) return // empty canvas → the click handler deselects
-  const id = el.getAttribute('data-block-id')!
-  store.select(id)
-  if (id === store.rootId) return // the block itself doesn't move
-  const node = findBlock(store.template, id)
-  if (!node) return
-  if (node.data.$abs) startAbsDrag(id, node, event)
-  else insert.armMove(id, blockLabel(node), event)
-}
-
 /** Free-drag an absolutely-placed child inside its parent (writes `$abs.x/y`). */
 function startAbsDrag(id: string, node: ContentBlock, event: PointerEvent) {
   const abs = (node.data.$abs ?? {}) as Record<string, unknown>
@@ -251,6 +317,33 @@ function startAbsDrag(id: string, node: ContentBlock, event: PointerEvent) {
       x: Math.round(startX + (e.clientX - originX) / store.zoom),
       y: Math.round(startY + (e.clientY - originY) / store.zoom),
     })
+  }
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    if (moved) history.commit()
+  }
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+}
+
+/** Free-drag a whole selection of absolute elements together (same delta each). */
+function startGroupAbsDrag(event: PointerEvent) {
+  const starts = store.selectedNodes
+    .filter((n) => n.data.$abs)
+    .map((n) => {
+      const abs = n.data.$abs as Record<string, unknown>
+      return { id: n.id, x: typeof abs.x === 'number' ? abs.x : 0, y: typeof abs.y === 'number' ? abs.y : 0 }
+    })
+  const originX = event.clientX
+  const originY = event.clientY
+  let moved = false
+  const onMove = (e: PointerEvent) => {
+    if (!moved && Math.hypot(e.clientX - originX, e.clientY - originY) < 4) return
+    moved = true
+    const dx = Math.round((e.clientX - originX) / store.zoom)
+    const dy = Math.round((e.clientY - originY) / store.zoom)
+    for (const s of starts) store.setAbs(s.id, { x: s.x + dx, y: s.y + dy })
   }
   const onUp = () => {
     window.removeEventListener('pointermove', onMove)

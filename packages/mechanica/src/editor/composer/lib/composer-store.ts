@@ -33,7 +33,10 @@ export type ComposerSnapshot = ComposedBlockDefinition
 
 export interface ComposerStore {
   def: ComposedBlockDefinition
-  selectedId: string | null
+  /** Every selected element id (multi-select). The last is the "primary". */
+  selectedIds: string[]
+  /** The primary selection (last-clicked) — drives the inspector. Read-only; write via `select`. */
+  readonly selectedId: string | null
   breakpoint: CanvasBreakpoint
   /** Canvas view: zoom factor and pan offset (screen px). View state, not persisted. */
   zoom: number
@@ -45,7 +48,10 @@ export interface ComposerStore {
   /** The canonical root frame (the block itself) — always present. */
   readonly rootFrame: ContentBlock
   readonly rootId: string
+  /** The primary selected node (last-clicked). */
   readonly selected: ContentBlock | null
+  /** Every selected node, in selection order (missing ids filtered out). */
+  readonly selectedNodes: ContentBlock[]
   /** Preview prop values for the canvas (schema defaults ← previewData). */
   readonly previewProps: Record<string, unknown>
   /** Create + insert a fresh element from a palette insert item (Row/Column/Text/Image). */
@@ -54,11 +60,21 @@ export interface ComposerStore {
   insertNode(node: ContentBlock): void
   /** Insert a pre-built node at an explicit drop position (drag-to-canvas). */
   insertAt(node: ContentBlock, drop: DropPosition): void
-  select(id: string | null): void
-  /** Walk the selection up one level: child → parent → root → none (Esc). */
+  /** Select `id` (replacing the selection), or clear with `null`. `additive`
+   *  toggles `id` in/out of the current multi-selection. */
+  select(id: string | null, additive?: boolean): void
+  /** Replace the whole selection at once (marquee / range select). */
+  selectMany(ids: string[]): void
+  /** Whether `id` is part of the current selection. */
+  isSelected(id: string): boolean
+  /** Collapse a multi-selection to the primary, then walk up: child → parent → root → none (Esc). */
   selectUp(): void
   remove(id: string): void
+  /** Remove every selected element (skips the root). */
+  removeSelected(): void
   duplicate(id: string): void
+  /** Duplicate every selected element; the copies become the new selection. */
+  duplicateSelected(): void
   move(id: string, delta: number): void
   relocate(id: string, drop: DropPosition): void
   /** Merge `patch` into a node's data — into the current breakpoint layer when
@@ -131,7 +147,7 @@ function normalizedClone(def: ComposedBlockDefinition): ComposedBlockDefinition 
 export function createComposerStore(initial: ComposedBlockDefinition): ComposerStore {
   const store = reactive({
     def: normalizedClone(initial),
-    selectedId: null as string | null,
+    selectedIds: [] as string[],
     breakpoint: 'base' as CanvasBreakpoint,
     zoom: 1,
     panX: 0,
@@ -147,8 +163,17 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
     get rootId(): string {
       return this.def.template[0]!.id
     },
+    get selectedId(): string | null {
+      return this.selectedIds[this.selectedIds.length - 1] ?? null
+    },
     get selected(): ContentBlock | null {
-      return this.selectedId ? findBlock(this.def.template, this.selectedId) : null
+      const id = this.selectedId
+      return id ? findBlock(this.def.template, id) : null
+    },
+    get selectedNodes(): ContentBlock[] {
+      return this.selectedIds
+        .map((id) => findBlock(this.def.template, id))
+        .filter((n): n is ContentBlock => n != null)
     },
     /** Coerce a drop so it can never spawn a second top-level node beside root. */
     rootSafeDrop(drop: DropPosition): DropPosition {
@@ -171,29 +196,63 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
       else if (sel) placeBlock(this.def.template, node, { anchorId: sel.id, position: 'after' })
       // No selection → drop into the root frame, never beside it.
       else ensureSlotList(this.rootFrame).push(node)
-      this.selectedId = node.id
+      this.selectedIds = [node.id]
     },
     insertAt(node: ContentBlock, drop: DropPosition) {
       placeBlock(this.def.template, node, this.rootSafeDrop(drop))
-      this.selectedId = node.id
+      this.selectedIds = [node.id]
     },
-    select(id: string | null) {
-      this.selectedId = id
+    select(id: string | null, additive = false) {
+      if (id === null) {
+        this.selectedIds = []
+      } else if (additive) {
+        this.selectedIds = this.isSelected(id)
+          ? this.selectedIds.filter((x) => x !== id) // toggle off
+          : [...this.selectedIds, id] // add (and become primary)
+      } else {
+        this.selectedIds = [id]
+      }
+    },
+    selectMany(ids: string[]) {
+      this.selectedIds = [...ids]
+    },
+    isSelected(id: string): boolean {
+      return this.selectedIds.includes(id)
     },
     selectUp() {
-      if (!this.selectedId) return
-      const parent = findParentSlot(this.def.template, this.selectedId)
-      this.selectedId = parent ? parent.parent.id : null
+      // First Esc on a multi-selection narrows to the primary; the next climbs.
+      if (this.selectedIds.length > 1) {
+        this.selectedIds = [this.selectedId!]
+        return
+      }
+      const id = this.selectedId
+      if (!id) return
+      const parent = findParentSlot(this.def.template, id)
+      this.selectedIds = parent ? [parent.parent.id] : []
     },
     remove(id: string) {
       if (id === this.rootId) return // the root frame is permanent
       removeBlock(this.def.template, id)
-      if (this.selectedId === id) this.selectedId = null
+      this.selectedIds = this.selectedIds.filter((x) => x !== id)
+    },
+    removeSelected() {
+      const ids = this.selectedIds.filter((id) => id !== this.rootId)
+      for (const id of ids) removeBlock(this.def.template, id)
+      this.selectedIds = []
     },
     duplicate(id: string) {
       if (id === this.rootId) return // duplicating the block itself is meaningless
       const copy = duplicateBlock(this.def.template, id)
-      if (copy) this.selectedId = copy.id
+      if (copy) this.selectedIds = [copy.id]
+    },
+    duplicateSelected() {
+      const copies: string[] = []
+      for (const id of this.selectedIds) {
+        if (id === this.rootId) continue
+        const copy = duplicateBlock(this.def.template, id)
+        if (copy) copies.push(copy.id)
+      }
+      if (copies.length) this.selectedIds = copies
     },
     move(id: string, delta: number) {
       moveBlock(this.def.template, id, delta)
@@ -310,7 +369,8 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
     },
     replace(next: ComposerSnapshot) {
       this.def = normalizedClone(next)
-      if (this.selectedId && !findBlock(this.def.template, this.selectedId)) this.selectedId = null
+      // Drop any selected ids that no longer exist (undo/redo across deletes).
+      this.selectedIds = this.selectedIds.filter((id) => findBlock(this.def.template, id))
     },
   })
 

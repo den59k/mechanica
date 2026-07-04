@@ -305,6 +305,22 @@ $sel: #3b82f6;
   line-height: 1.5;
   white-space: nowrap;
 }
+// Dashed box enclosing a multi-selection.
+.mech-composer__multibox {
+  position: absolute;
+  outline: 1.5px dashed $sel;
+  outline-offset: 1px;
+  border-radius: 1px;
+}
+// Rubber-band (marquee) selection rectangle — viewport-local coords.
+.mech-composer__marquee {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  background: rgba($sel, 0.1);
+  border: 1px solid rgba($sel, 0.8);
+  border-radius: 1px;
+}
 
 // Floating zoom controls (Figma-style, bottom-left of the canvas).
 .mech-composer__zoombar {
@@ -508,8 +524,56 @@ $sel: #3b82f6;
 }
 .mech-composer__hint {
   margin: 0;
+  padding: 12px 14px 0;
   color: var(--mech-muted);
+  font-size: 12.5px;
+}
+// Multi-select panel: the list of selected elements + group actions.
+.mech-composer__multi-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.mech-composer__multi-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--mech-radius-sm);
+  background: none;
+  font: inherit;
   font-size: 13px;
+  color: var(--mech-fg);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--mech-hover);
+  }
+  .mech-composer__layer-icon {
+    color: var(--mech-muted);
+  }
+}
+.mech-composer__multi-actions {
+  flex-direction: row;
+
+  .mech-button {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+}
+.mech-composer__danger {
+  color: var(--mech-danger, #d21c1c);
+
+  &:hover {
+    background: rgba(210, 28, 28, 0.08);
+  }
 }
 .mech-composer__section {
   display: flex;

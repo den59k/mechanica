@@ -1,15 +1,31 @@
 <template>
   <div class="mech-composer__overlay" aria-hidden="true">
-    <!-- Hover outline (skipped when it's the current selection). -->
-    <div v-if="hoverBox && hoverId !== store.selectedId" class="mech-composer__hover" :style="boxStyle(hoverBox)" />
+    <!-- Hover outline (skipped when the hovered element is already selected). -->
+    <div
+      v-if="hoverBox && hoverId && !store.isSelected(hoverId)"
+      class="mech-composer__hover"
+      :style="boxStyle(hoverBox)"
+    />
 
-    <template v-if="selBox">
-      <!-- Frame label above a selected container. -->
-      <div v-if="isFrame" class="mech-composer__frame-label" :style="{ left: `${selBox.left}px`, top: `${selBox.top - 20}px` }">
+    <!-- A thin frame around every selected element. -->
+    <div v-for="(box, i) in selBoxes" :key="i" class="mech-composer__selbox" :style="boxStyle(box)" />
+
+    <!-- Multi-select: a dashed box around the whole group. -->
+    <div v-if="unionBox" class="mech-composer__multibox" :style="boxStyle(unionBox)" />
+
+    <!-- Single select: frame label, size badge, and resize handles on the primary. -->
+    <template v-if="single && primaryBox">
+      <div
+        v-if="isFrame"
+        class="mech-composer__frame-label"
+        :style="{ left: `${primaryBox.left}px`, top: `${primaryBox.top - 20}px` }"
+      >
         {{ selLabel }}
       </div>
-      <div class="mech-composer__selbox" :style="boxStyle(selBox)" />
-      <div class="mech-composer__sizebadge" :style="{ left: `${selBox.left + selBox.width / 2}px`, top: `${selBox.top + selBox.height + 8}px` }">
+      <div
+        class="mech-composer__sizebadge"
+        :style="{ left: `${primaryBox.left + primaryBox.width / 2}px`, top: `${primaryBox.top + primaryBox.height + 8}px` }"
+      >
         {{ sizeBadge }}
       </div>
       <button
@@ -37,8 +53,12 @@ const props = defineProps<{ hoverId: string | null }>()
 const store = inject(composerStoreKey)!
 const history = inject(composerHistoryKey)!
 
-const selBox = ref<Box | null>(null)
+const selBoxes = ref<Box[]>([])
 const hoverBox = ref<Box | null>(null)
+
+const single = computed(() => store.selectedIds.length === 1)
+const primaryBox = computed(() => selBoxes.value[selBoxes.value.length - 1] ?? null)
+const unionBox = computed(() => (store.selectedIds.length > 1 ? union(selBoxes.value) : null))
 
 const selectedNode = computed(() => store.selected)
 const isFrame = computed(() => selectedNode.value != null && elementKind(selectedNode.value.blockId) === 'frame')
@@ -54,6 +74,22 @@ const sizeBadge = computed(() => {
   return m ? `${m.w} × ${m.h}` : ''
 })
 
+/** Bounding box enclosing every selected element. */
+function union(boxes: Box[]): Box | null {
+  if (!boxes.length) return null
+  let l = Infinity
+  let t = Infinity
+  let r = -Infinity
+  let b = -Infinity
+  for (const box of boxes) {
+    l = Math.min(l, box.left)
+    t = Math.min(t, box.top)
+    r = Math.max(r, box.left + box.width)
+    b = Math.max(b, box.top + box.height)
+  }
+  return { left: l, top: t, width: r - l, height: b - t }
+}
+
 // ── Measurement ──────────────────────────────────────────────────────────────
 const viewport = () => document.querySelector('.mech-composer__viewport') as HTMLElement | null
 const blockEl = (id: string | null) =>
@@ -67,11 +103,17 @@ function measure(): void {
     const r = el.getBoundingClientRect()
     return { left: r.left - vpr.left, top: r.top - vpr.top, width: r.width, height: r.height }
   }
-  const selEl = blockEl(store.selectedId)
-  selBox.value = selEl ? toBox(selEl) : null
-  // Publish the world-pixel size so the inspector's SizeInput shows real dims.
-  if (selEl) {
-    const r = selEl.getBoundingClientRect()
+  const boxes: Box[] = []
+  for (const id of store.selectedIds) {
+    const el = blockEl(id)
+    if (el) boxes.push(toBox(el))
+  }
+  selBoxes.value = boxes
+  // Publish the world-pixel size for the inspector's SizeInput — only when a
+  // single element is selected (the inspector is a per-element form).
+  const primaryEl = single.value ? blockEl(store.selectedId) : null
+  if (primaryEl) {
+    const r = primaryEl.getBoundingClientRect()
     store.measured = { w: Math.round(r.width / store.zoom), h: Math.round(r.height / store.zoom) }
   } else {
     store.measured = null
@@ -89,11 +131,11 @@ const boxStyle = (box: Box) => ({
   height: `${box.height}px`,
 })
 function handleStyle(handle: Handle) {
-  const p = handlePoint(selBox.value!, handle)
+  const p = handlePoint(primaryBox.value!, handle)
   return { left: `${p.x}px`, top: `${p.y}px`, cursor: handleCursor(handle) }
 }
 
-// ── Resize ───────────────────────────────────────────────────────────────────
+// ── Resize (single selection only) ─────────────────────────────────────────────
 let raf = 0
 function startResize(handle: Handle, event: PointerEvent) {
   const id = store.selectedId
@@ -150,7 +192,7 @@ watch(() => store.def, remeasure, { deep: true })
 watch(() => [store.zoom, store.panX, store.panY], measure)
 watch(() => store.breakpoint, remeasure)
 watch(
-  () => store.selectedId,
+  () => store.selectedIds,
   () => {
     remeasure()
     nextTick(observeSelected)
