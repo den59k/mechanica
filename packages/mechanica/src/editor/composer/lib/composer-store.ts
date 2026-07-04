@@ -10,16 +10,18 @@ import {
 import {
   findBlock,
   findParentSlot,
+  findParentList,
   removeBlock,
   moveBlock,
   duplicateBlock,
   placeBlock,
   relocateBlock,
   ensureSlotList,
+  uid,
   type DropPosition,
 } from '../../lib/content-tree'
 import { humanize } from '../../props-panel/humanize'
-import { isContainerBlock, type InsertItem } from './elements-meta'
+import { isContainerBlock, elementKind, type InsertItem } from './elements-meta'
 import { normalizeTemplate } from './normalize-template'
 import { effectiveData, type CanvasBreakpoint } from './canvas'
 
@@ -75,6 +77,14 @@ export interface ComposerStore {
   duplicate(id: string): void
   /** Duplicate every selected element; the copies become the new selection. */
   duplicateSelected(): void
+  /** Whether the selection can be grouped: ≥1 non-root element sharing one parent slot. */
+  readonly canGroup: boolean
+  /** Whether the single selected element is a frame with children (ungroupable). */
+  readonly canUngroup: boolean
+  /** Wrap the selection in a new frame, in place and in document order; selects it. */
+  group(): void
+  /** Lift the selected frame's children into its parent, dropping the frame; selects them. */
+  ungroup(): void
   move(id: string, delta: number): void
   relocate(id: string, drop: DropPosition): void
   /** Merge `patch` into a node's data — into the current breakpoint layer when
@@ -175,6 +185,27 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
         .map((id) => findBlock(this.def.template, id))
         .filter((n): n is ContentBlock => n != null)
     },
+    get canGroup(): boolean {
+      const ids = this.selectedIds.filter((id) => id !== this.rootId)
+      if (!ids.length) return false
+      const first = findParentSlot(this.def.template, ids[0]!)
+      if (!first) return false
+      return ids.every((id) => {
+        const ps = findParentSlot(this.def.template, id)
+        return !!ps && ps.parent === first.parent && ps.slot === first.slot
+      })
+    },
+    get canUngroup(): boolean {
+      const node = this.selected
+      return (
+        !!node &&
+        node.id !== this.rootId &&
+        this.selectedIds.length === 1 &&
+        elementKind(node.blockId) === 'frame' &&
+        Array.isArray(node.children) &&
+        node.children.length > 0
+      )
+    },
     /** Coerce a drop so it can never spawn a second top-level node beside root. */
     rootSafeDrop(drop: DropPosition): DropPosition {
       if (drop.anchorId === null || (drop.anchorId === this.rootId && drop.position !== 'inside')) {
@@ -253,6 +284,46 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
         if (copy) copies.push(copy.id)
       }
       if (copies.length) this.selectedIds = copies
+    },
+    group() {
+      const ids = this.selectedIds.filter((id) => id !== this.rootId)
+      if (!ids.length) return
+      const first = findParentSlot(this.def.template, ids[0]!)
+      if (!first) return
+      // Every selected element must sit in the same parent slot to group cleanly.
+      const selected = new Set(ids)
+      const sameParent = [...selected].every((id) => {
+        const ps = findParentSlot(this.def.template, id)
+        return !!ps && ps.parent === first.parent && ps.slot === first.slot
+      })
+      if (!sameParent) return
+
+      const list = ensureSlotList(first.parent, first.slot)
+      const insertIndex = list.findIndex((c) => selected.has(c.id))
+      if (insertIndex < 0) return
+      const members = list.filter((c) => selected.has(c.id)) // document order
+      for (let i = list.length - 1; i >= 0; i--) if (selected.has(list[i]!.id)) list.splice(i, 1)
+
+      // The wrapper inherits the parent's flow direction so nothing reflows sideways.
+      const direction = first.parent.data.direction === 'row' ? 'row' : 'column'
+      const frame: ContentBlock = {
+        id: uid(),
+        blockId: 'mech:frame',
+        data: { direction, gap: 16, padding: 0 },
+        children: members,
+      }
+      list.splice(insertIndex, 0, frame)
+      this.selectedIds = [frame.id]
+    },
+    ungroup() {
+      const node = this.selected
+      if (!node || node.id === this.rootId || elementKind(node.blockId) !== 'frame') return
+      if (!Array.isArray(node.children) || !node.children.length) return
+      const found = findParentList(this.def.template, node.id)
+      if (!found) return
+      const lifted = [...node.children]
+      found.list.splice(found.index, 1, ...lifted) // replace the frame with its children
+      this.selectedIds = lifted.map((k) => k.id)
     },
     move(id: string, delta: number) {
       moveBlock(this.def.template, id, delta)

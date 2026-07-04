@@ -2,11 +2,16 @@ import { describe, it, expect } from 'vitest'
 import type { ComposedBlockDefinition, ContentBlock } from 'mechanica-shared'
 import { createComposerStore } from '@/editor/composer/lib/composer-store'
 import { INSERT_ITEMS } from '@/editor/composer/lib/elements-meta'
+import { findBlock } from '@/editor/lib/content-tree'
 
 const base = (): ComposedBlockDefinition => ({ id: 'hero', name: 'Hero', template: [] })
 const item = (key: string) => INSERT_ITEMS.find((i) => i.key === key)!
 const rootChildren = (store: ReturnType<typeof createComposerStore>) =>
   (store.rootFrame.children as ContentBlock[]) ?? []
+const findFrameChildIds = (store: ReturnType<typeof createComposerStore>, frameId: string) => {
+  const frame = findBlock(store.template, frameId)
+  return frame && Array.isArray(frame.children) ? frame.children.map((c) => c.id) : []
+}
 
 describe('composer store: root-frame invariant', () => {
   it('wraps an empty definition in a single root frame', () => {
@@ -168,6 +173,61 @@ describe('composer store: multi-selection', () => {
     expect(store.selectedIds).toHaveLength(2)
     expect(store.selectedIds).not.toContain(a)
     expect(store.selectedIds).not.toContain(b)
+  })
+
+  it('groups a sibling selection into a new frame, in document order', () => {
+    const { store, a, b, c } = withThree() // [text a, image b, text c] under root
+    store.selectMany([a, c]) // non-contiguous
+    expect(store.canGroup).toBe(true)
+    store.group()
+    // Root now holds [frame, image b] (frame took a's slot), frame wraps [a, c].
+    const kids = rootChildren(store)
+    expect(kids).toHaveLength(2)
+    const frame = kids.find((n) => n.blockId === 'mech:frame')!
+    expect(frame).toBeTruthy()
+    expect((frame.children as ContentBlock[]).map((n) => n.id)).toEqual([a, c])
+    expect(store.selectedIds).toEqual([frame.id]) // the frame is selected
+    expect(store.canUngroup).toBe(true)
+  })
+
+  it('inherits the parent flow direction when grouping', () => {
+    const store = createComposerStore(base())
+    store.setData(store.rootId, { direction: 'row' })
+    store.insertItem(item('text'))
+    const a = store.selectedId!
+    store.insertItem(item('text'))
+    const b = store.selectedId!
+    store.selectMany([a, b])
+    store.group()
+    const frame = rootChildren(store).find((n) => n.blockId === 'mech:frame')!
+    expect(frame.data.direction).toBe('row')
+  })
+
+  it('refuses to group elements from different parents', () => {
+    const store = createComposerStore(base())
+    store.insertItem(item('column')) // a frame under root
+    const frameId = store.selectedId!
+    store.insertItem(item('text')) // text INSIDE the frame
+    const inner = store.selectedId!
+    store.select(null)
+    store.insertItem(item('image')) // image under root (nothing selected → root)
+    const outer = store.selectedId!
+    store.selectMany([inner, outer]) // different parents
+    expect(store.canGroup).toBe(false)
+    store.group()
+    expect(findFrameChildIds(store, frameId)).toEqual([inner]) // unchanged
+  })
+
+  it('ungroups a frame, lifting its children into the parent and selecting them', () => {
+    const { store, a, c } = withThree()
+    store.selectMany([a, c])
+    store.group()
+    const frameId = store.selectedId!
+    store.ungroup()
+    expect(rootChildren(store).some((n) => n.id === frameId)).toBe(false) // frame gone
+    expect(rootChildren(store).map((n) => n.id)).toContain(a)
+    expect(rootChildren(store).map((n) => n.id)).toContain(c)
+    expect(store.selectedIds).toEqual([a, c]) // children selected
   })
 })
 

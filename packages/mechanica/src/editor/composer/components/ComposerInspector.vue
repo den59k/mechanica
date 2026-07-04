@@ -126,6 +126,15 @@
           </button>
         </div>
       </div>
+      <button
+        v-if="store.canUngroup"
+        type="button"
+        class="mech-button mech-composer__ungroup-btn"
+        title="Ungroup — lift children into the parent (Ctrl+Shift+G)"
+        @click="store.ungroup()"
+      >
+        <VIcon name="frame" /> Ungroup
+      </button>
     </section>
 
     <!-- ── Typography (text) ──────────────────────────────────────── -->

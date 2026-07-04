@@ -575,6 +575,22 @@ $sel: #3b82f6;
     background: rgba(210, 28, 28, 0.08);
   }
 }
+.mech-composer__group-btn,
+.mech-composer__ungroup-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+.mech-composer__ungroup-btn {
+  margin-top: 2px;
+}
 .mech-composer__section {
   display: flex;
   flex-direction: column;

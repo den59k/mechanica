@@ -23,13 +23,24 @@
       </div>
     </section>
 
-    <section class="mech-composer__section mech-composer__multi-actions">
-      <button type="button" class="mech-button" @click="store.duplicateSelected()">
-        <VIcon name="copy" /> Duplicate
+    <section class="mech-composer__section">
+      <button
+        type="button"
+        class="mech-button is-primary mech-composer__group-btn"
+        :disabled="!store.canGroup"
+        :title="store.canGroup ? 'Group into a frame (Ctrl+G)' : 'Select elements that share a parent to group'"
+        @click="store.group()"
+      >
+        <VIcon name="frame" /> Group into frame
       </button>
-      <button type="button" class="mech-button mech-composer__danger" @click="store.removeSelected()">
-        <VIcon name="trash" /> Delete
-      </button>
+      <div class="mech-composer__multi-actions">
+        <button type="button" class="mech-button" @click="store.duplicateSelected()">
+          <VIcon name="copy" /> Duplicate
+        </button>
+        <button type="button" class="mech-button mech-composer__danger" @click="store.removeSelected()">
+          <VIcon name="trash" /> Delete
+        </button>
+      </div>
     </section>
 
     <p class="mech-composer__hint">Shift-click an element to add or remove it.</p>

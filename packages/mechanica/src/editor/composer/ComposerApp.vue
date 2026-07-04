@@ -155,6 +155,10 @@ const onKeyDown = (event: KeyboardEvent) => {
   } else if (mod && ch === 'd' && store.selectedId) {
     event.preventDefault()
     store.duplicateSelected()
+  } else if (mod && ch === 'g') {
+    event.preventDefault()
+    if (event.shiftKey) store.ungroup()
+    else store.group()
   } else if (!mod && !event.altKey && ch) {
     // R / C / T / I arm insertion of Row / Column / Text / Image at the selection.
     const item = insertItemForKey(ch)
