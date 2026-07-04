@@ -1,8 +1,10 @@
 import { createApp, shallowRef } from 'vue'
 import { blocksList } from 'virtual:mechanica/blocks'
+import { composedList } from 'virtual:mechanica/composed'
 import { widgetsList } from 'virtual:mechanica/widgets'
 import { registerFieldSchemas, type State } from 'mechanica-shared'
 import { getDataEntries } from '../core/data-registry'
+import { createComposedComponent } from '../core/composed'
 import { registerBuiltinFieldEditors } from './fields/builtin'
 import { registerRichTextWidgets } from './fields/richtext/widgets'
 import EditorApp from './EditorApp.vue'
@@ -181,9 +183,14 @@ const mountPoint = document.createElement('div')
 mountPoint.id = 'mechanica-editor'
 document.body.appendChild(mountPoint)
 
+// Composed blocks join the palette as components carrying blockId/blockSchema,
+// so they list, insert, preview and get a settings form like compiled blocks —
+// and the palette can offer Edit/Delete (they carry `composed: true`).
+const composedComponents = composedList.map(createComposedComponent)
+
 createApp(EditorApp, {
   state,
-  components: blocksList as never,
+  components: [...blocksList, ...composedComponents] as never,
   dataEntries,
   uploadFile,
   uploadDerived,

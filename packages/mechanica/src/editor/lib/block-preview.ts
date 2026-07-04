@@ -4,20 +4,23 @@ import { mechanicaKey, type BlocksMap, type MechanicaContext } from '../../core/
 import { createRouter } from '../../core/router'
 import { buildPreviewContent } from '../../core/preview'
 import { renderBlocks } from '../../core/render-blocks'
+import { registerElements } from '../../elements'
 
 /**
  * An inert runtime context for previews, so a block that injects the Mechanica
  * runtime (router, links, page data) still renders in isolation instead of
  * throwing. The router is built in `server` mode → no history listeners to leak.
+ * `blocks` is the preview's own map so a composed block resolves its inner
+ * elements/blocks through the context.
  */
-function previewContext(): MechanicaContext {
+function previewContext(blocks: BlocksMap): MechanicaContext {
   const content = shallowRef<ContentBlock[]>([])
   const data: Record<string, unknown> = {}
   return {
     mode: 'client',
     content,
     data,
-    blocks: new Map(),
+    blocks,
     router: createRouter(content, data, { mode: 'server' }),
     queryData: {},
     page: {},
@@ -57,6 +60,9 @@ export function mountBlockPreview(
     onError?.()
     return { destroy: () => {} }
   }
+  // A composed block renders its template through the layout elements — register
+  // them so the palette hover preview isn't blank.
+  registerElements(preview.blocks)
 
   const Boundary = defineComponent({
     name: 'BlockPreviewBoundary',
@@ -72,7 +78,7 @@ export function mountBlockPreview(
   })
 
   const app = createApp(Boundary)
-  app.provide(mechanicaKey, previewContext())
+  app.provide(mechanicaKey, previewContext(preview.blocks))
   app.mount(target)
   return { destroy: () => app.unmount() }
 }

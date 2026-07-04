@@ -7,6 +7,11 @@
       @input="search = ($event.target as HTMLInputElement).value"
     />
 
+    <button type="button" class="mech-button mech-palette__new" title="Build a new block in the composer" @click="newBlock">
+      <VIcon name="plus" />
+      <span>New block</span>
+    </button>
+
     <div v-for="group in displayGroups" :key="group.name" class="mech-palette__group">
       <div v-if="group.name" class="mech-palette__group-title">{{ group.name }}</div>
       <div class="mech-palette__grid">
@@ -33,6 +38,21 @@
               loading="lazy"
               @error="thumbFailed.add(block.id)"
             />
+            <!-- Composed blocks (built in the composer) get Edit/Delete on hover. -->
+            <span v-if="block.composed" class="mech-palette__card-actions">
+              <span
+                class="mech-palette__card-action"
+                title="Edit in the composer"
+                @pointerdown.stop.prevent
+                @click.stop="editBlock(block)"
+              ><VIcon name="pencil" /></span>
+              <span
+                class="mech-palette__card-action is-danger"
+                title="Delete block"
+                @pointerdown.stop.prevent
+                @click.stop="deleteBlock(block)"
+              ><VIcon name="trash" /></span>
+            </span>
           </span>
           <span class="mech-palette__name">{{ block.name }}</span>
         </button>
@@ -152,6 +172,25 @@ function clearHover() {
 }
 
 onBeforeUnmount(clearHover)
+
+// ── Composed-block entry points (Block Composer) ─────────────────────────────
+// Navigating leaves the page editor; its beforeunload beacon flushes any
+// pending save first, so edits are never lost.
+function newBlock() {
+  window.location.assign('/@mechanica/composer/~new')
+}
+function editBlock(block: Block) {
+  clearHover()
+  window.location.assign(`/@mechanica/composer/${encodeURIComponent(block.id)}`)
+}
+async function deleteBlock(block: Block) {
+  clearHover()
+  if (!window.confirm(`Delete block “${block.name}”? Pages using it will render nothing.`)) return
+  await fetch(`/@mechanica/composed/delete?id=${encodeURIComponent(block.id)}`, { method: 'POST' })
+  // Our own delete is skipped by the file watcher (no auto-reload) — refresh
+  // so the palette and the live runtime drop the block.
+  window.location.reload()
+}
 </script>
 
 <style lang="scss" scoped>
@@ -162,6 +201,18 @@ onBeforeUnmount(clearHover)
 }
 .mech-palette__search {
   margin-bottom: 2px;
+}
+.mech-palette__new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+
+  .vicon {
+    width: 15px;
+    height: 15px;
+  }
 }
 .mech-palette__group-title {
   font-size: 11px;
@@ -231,6 +282,43 @@ onBeforeUnmount(clearHover)
   height: 100%;
   object-fit: cover;
   object-position: top;
+}
+// Edit/Delete overlay on composed-block cards — revealed on card hover.
+.mech-palette__card-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity 0.12s;
+  pointer-events: auto;
+}
+.mech-palette__item:hover .mech-palette__card-actions {
+  opacity: 1;
+}
+.mech-palette__card-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--mech-bg);
+  box-shadow: var(--mech-shadow-panel);
+  color: var(--mech-fg-alt);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--mech-hover);
+  }
+  &.is-danger:hover {
+    color: var(--mech-error);
+  }
+  .vicon {
+    width: 13px;
+    height: 13px;
+  }
 }
 .mech-palette__name {
   font-size: 12.5px;

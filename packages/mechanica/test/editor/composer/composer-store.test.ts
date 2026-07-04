@@ -117,6 +117,112 @@ describe('composer store: data editing + breakpoints', () => {
   })
 })
 
+describe('composer store: prop exposure', () => {
+  const withText = () => {
+    const store = createComposerStore(base())
+    store.addElement('mech:text')
+    const id = store.selectedId!
+    store.setData(id, { content: 'Welcome', tag: 'h1' })
+    return { store, id }
+  }
+
+  it('exposes a field: binds it, records default + previewData', () => {
+    const { store, id } = withText()
+    const name = store.exposeProp(id, 'content', { type: 'string', format: 'text' }, 'title')
+    expect(name).toBe('title')
+    expect(store.template[0]!.data.content).toEqual({ $bind: 'title' })
+    expect(store.def.props!.title).toMatchObject({ type: 'string', format: 'text', default: 'Welcome' })
+    expect(store.def.previewData!.title).toBe('Welcome')
+    expect(store.boundPropOf(id, 'content')).toBe('title')
+  })
+
+  it('dedupes prop names', () => {
+    const { store, id } = withText()
+    store.addElement('mech:text')
+    const id2 = store.selectedId!
+    store.setData(id2, { content: 'Second' })
+    expect(store.exposeProp(id, 'content', { type: 'string' }, 'text')).toBe('text')
+    expect(store.exposeProp(id2, 'content', { type: 'string' }, 'text')).toBe('text2')
+  })
+
+  it('is a no-op on an already-bound field', () => {
+    const { store, id } = withText()
+    store.exposeProp(id, 'content', { type: 'string' }, 'title')
+    expect(store.exposeProp(id, 'content', { type: 'string' }, 'other')).toBe('title')
+    expect(Object.keys(store.def.props!)).toEqual(['title'])
+  })
+
+  it('unexposes, restoring the preview value and dropping the prop', () => {
+    const { store, id } = withText()
+    store.exposeProp(id, 'content', { type: 'string' }, 'title')
+    store.unexposeProp('title')
+    expect(store.template[0]!.data.content).toBe('Welcome')
+    expect(store.def.props!.title).toBeUndefined()
+    expect(store.def.previewData!.title).toBeUndefined()
+    expect(store.boundPropOf(id, 'content')).toBeNull()
+  })
+
+  it('renames a prop everywhere', () => {
+    const { store, id } = withText()
+    store.exposeProp(id, 'content', { type: 'string' }, 'title')
+    expect(store.renameProp('title', 'heading')).toBe(true)
+    expect(store.template[0]!.data.content).toEqual({ $bind: 'heading' })
+    expect(store.def.props!.heading).toBeDefined()
+    expect(store.def.props!.title).toBeUndefined()
+    expect(store.def.previewData!.heading).toBe('Welcome')
+  })
+
+  it('rejects renaming to a taken or empty name', () => {
+    const { store, id } = withText()
+    store.exposeProp(id, 'content', { type: 'string' }, 'title')
+    store.addElement('mech:text')
+    const id2 = store.selectedId!
+    store.exposeProp(id2, 'content', { type: 'string' }, 'other')
+    expect(store.renameProp('title', 'other')).toBe(false)
+    expect(store.renameProp('title', '!!!')).toBe(false)
+    expect(store.def.props!.title).toBeDefined()
+  })
+
+  it('updates a prop default via setPropDefault', () => {
+    const { store, id } = withText()
+    store.exposeProp(id, 'content', { type: 'string' }, 'title')
+    store.setPropDefault('title', 'New default')
+    expect((store.def.props!.title as Record<string, unknown>).default).toBe('New default')
+    expect(store.def.previewData!.title).toBe('New default')
+  })
+
+  it('lists props in declared order', () => {
+    const { store, id } = withText()
+    store.exposeProp(id, 'content', { type: 'string' }, 'a')
+    store.addElement('mech:button')
+    const bid = store.selectedId!
+    store.exposeProp(bid, 'label', { type: 'string' }, 'b')
+    expect(store.props.map((p) => p.name)).toEqual(['a', 'b'])
+  })
+})
+
+describe('composer store: insertNode + absolute', () => {
+  it('inserts a pre-built code-block node at the selection', () => {
+    const store = createComposerStore(base())
+    store.addElement('mech:frame')
+    store.insertNode({ id: 'x', blockId: 'badge', data: { text: 'Hi' } })
+    // Frame is a container and selected → node goes inside it.
+    expect((store.template[0]!.children as { blockId: string }[])[0]!.blockId).toBe('badge')
+  })
+
+  it('toggles absolute placement on and off', () => {
+    const store = createComposerStore(base())
+    store.addElement('mech:text')
+    const id = store.selectedId!
+    store.setAbsolute(id, true)
+    expect(store.template[0]!.data.$abs).toEqual({ anchor: 'top-left', x: 0, y: 0 })
+    store.setAbs(id, { anchor: 'center', x: 20 })
+    expect(store.template[0]!.data.$abs).toMatchObject({ anchor: 'center', x: 20, y: 0 })
+    store.setAbsolute(id, false)
+    expect(store.template[0]!.data.$abs).toBeUndefined()
+  })
+})
+
 describe('composer store: snapshot / replace', () => {
   it('round-trips through snapshot/replace and drops a stale selection', () => {
     const store = createComposerStore(base())

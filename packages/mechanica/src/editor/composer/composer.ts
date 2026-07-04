@@ -1,8 +1,9 @@
 import { createApp } from 'vue'
-import { registerFieldSchemas, type ComposedBlockDefinition } from 'mechanica-shared'
+import { registerFieldSchemas, type Block, type ComposedBlockDefinition } from 'mechanica-shared'
 import { createMechanica } from '../../core/create-mechanica'
 import type { BlocksMap } from '../../core/state'
 import { registerBuiltinFieldEditors } from '../fields/builtin'
+import { toBlockMeta, type BlockComponent } from '../lib/block-meta'
 import { createSaveQueue, SaveConflictError } from '../lib/save-queue'
 import ComposerApp from './ComposerApp.vue'
 import type { ComposerSnapshot } from './lib/composer-store'
@@ -103,6 +104,14 @@ export async function mountComposerApp(options: MountComposerOptions): Promise<v
     typeof options.target === 'string' ? document.querySelector(options.target) : options.target
   if (!target) throw new Error(`Composer mount target not found: ${String(options.target)}`)
 
+  // Compiled blocks a developer marked `composable: true` become building
+  // material in the composer's insert palette (the "enhance developers" path).
+  const codeBlocks: Block[] = []
+  for (const component of options.blocks.values()) {
+    const meta = toBlockMeta(component as BlockComponent)
+    if (meta.composable && !meta.composed) codeBlocks.push(meta)
+  }
+
   // Save pipeline: first save of a new block creates it (deriving an id from
   // the name); later saves update with optimistic concurrency (409 → conflict).
   const saveQueue = createSaveQueue<ComposerSnapshot>({
@@ -149,6 +158,7 @@ export async function mountComposerApp(options: MountComposerOptions): Promise<v
   const app = createApp(ComposerApp, {
     def,
     blocks: options.blocks,
+    codeBlocks,
     save: saveController,
     onChange: (snapshot: ComposerSnapshot) => saveQueue.push(snapshot),
   })

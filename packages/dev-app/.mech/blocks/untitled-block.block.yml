@@ -1,0 +1,10 @@
+id: untitled-block
+name: Untitled block
+template:
+  - id: 63cf3fe4-2259-442b-be16-c4e42b8d99f1
+    blockId: mech:frame
+    data:
+      direction: column
+      gap: 16
+      padding: 24
+    children: []

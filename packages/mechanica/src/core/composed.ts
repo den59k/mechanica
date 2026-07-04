@@ -36,9 +36,10 @@ export function createComposedComponent(def: ComposedBlockDefinition): Component
     id: def.id,
     name: def.name,
     icon: def.icon,
-    category: def.category,
+    category: def.category ?? 'Site blocks',
     props: def.props,
     previewData: def.previewData,
+    composed: true,
   }
   return component
 }

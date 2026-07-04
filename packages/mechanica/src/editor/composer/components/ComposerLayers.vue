@@ -9,9 +9,20 @@
 </template>
 
 <script setup lang="ts">
-import { inject } from 'vue'
-import { composerStoreKey } from '../lib/keys'
+import { inject, provide } from 'vue'
+import { composerStoreKey, composerLayerDndKey } from '../lib/keys'
+import { useLayerDnd } from '../lib/use-layer-dnd'
+import { isContainerBlock } from '../lib/elements-meta'
+import { findBlock } from '../../lib/content-tree'
 import LayerNode from './LayerNode.vue'
 
 const store = inject(composerStoreKey)!
+
+// Container = a frame, or any block that already holds children (a slotted code
+// block), so a designer can drop into it.
+const isContainer = (id: string): boolean => {
+  const node = findBlock(store.template, id)
+  return !!node && (isContainerBlock(node.blockId) || node.children != null)
+}
+provide(composerLayerDndKey, useLayerDnd(store, isContainer))
 </script>

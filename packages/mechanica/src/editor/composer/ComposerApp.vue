@@ -29,12 +29,6 @@
         </button>
       </div>
 
-      <div class="mech-composer__zoom">
-        <button type="button" class="mech-icon-button" title="Zoom out" @click="zoomBy(-0.1)">−</button>
-        <span class="mech-composer__zoom-value">{{ Math.round(store.zoom * 100) }}%</span>
-        <button type="button" class="mech-icon-button" title="Zoom in" @click="zoomBy(0.1)">+</button>
-      </div>
-
       <div class="mech-composer__bar-gap" />
 
       <button type="button" class="mech-icon-button" :disabled="!canUndo" title="Undo (Ctrl+Z)" @click="history.undo()">
@@ -57,8 +51,9 @@
         <ComposerCanvas />
       </main>
 
-      <aside v-if="store.selected" class="mech-composer__panel mech-composer__panel--right">
-        <ComposerInspector />
+      <aside class="mech-composer__panel mech-composer__panel--right">
+        <ComposerInspector v-if="store.selected" />
+        <ComposerSettings v-else />
       </aside>
     </div>
   </div>
@@ -71,17 +66,21 @@ import type { BlocksMap } from '../../core/state'
 import type { SaveController } from '../lib/types'
 import { createComposerStore, type ComposerSnapshot } from './lib/composer-store'
 import { createComposerHistory } from './lib/composer-history'
-import { composerStoreKey, composerHistoryKey } from './lib/keys'
+import { createInsertDnd } from './lib/use-insert-dnd'
+import { composerStoreKey, composerHistoryKey, composerInsertDndKey } from './lib/keys'
 import type { CanvasBreakpoint } from './lib/canvas'
 import VIcon from '../components/VIcon.vue'
 import InsertPalette from './components/InsertPalette.vue'
 import ComposerLayers from './components/ComposerLayers.vue'
 import ComposerCanvas from './components/ComposerCanvas.vue'
 import ComposerInspector from './components/ComposerInspector.vue'
+import ComposerSettings from './components/ComposerSettings.vue'
 
 const props = defineProps<{
   def: ComposedBlockDefinition
   blocks: BlocksMap
+  /** Compiled blocks marked `composable` — offered in the insert palette. */
+  codeBlocks?: import('mechanica-shared').Block[]
   save?: SaveController
   onChange?: (snapshot: ComposerSnapshot) => void
 }>()
@@ -89,10 +88,13 @@ const props = defineProps<{
 const store = createComposerStore(props.def)
 provide(composerStoreKey, store)
 provide('composerBlocks', props.blocks)
+provide('composerCodeBlocks', props.codeBlocks ?? [])
 
 const history = createComposerHistory(store)
 const { canUndo, canRedo } = history
 provide(composerHistoryKey, history)
+
+provide(composerInsertDndKey, createInsertDnd(store))
 
 const breakpoints: { id: CanvasBreakpoint; label: string; width: number }[] = [
   { id: 'base', label: 'Desktop', width: 1440 },
@@ -100,10 +102,6 @@ const breakpoints: { id: CanvasBreakpoint; label: string; width: number }[] = [
   { id: 'sm', label: 'Mobile', width: 390 },
 ]
 provide('composerBreakpointWidth', computed(() => breakpoints.find((b) => b.id === store.breakpoint)!.width))
-
-const zoomBy = (delta: number) => {
-  store.zoom = Math.min(2, Math.max(0.25, Math.round((store.zoom + delta) * 100) / 100))
-}
 
 const saveStatus = computed(() => props.save?.status ?? 'saved')
 const saveLabel = computed(() => {

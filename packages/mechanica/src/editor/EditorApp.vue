@@ -30,6 +30,7 @@
         <button type="button" class="mech-icon-button" title="Move up" @click="store.move(selected.id, -1)"><VIcon name="arrow-up" /></button>
         <button type="button" class="mech-icon-button" title="Move down" @click="store.move(selected.id, 1)"><VIcon name="arrow-down" /></button>
         <button type="button" class="mech-icon-button" title="Duplicate" @click="store.duplicate(selected.id)"><VIcon name="copy" /></button>
+        <button type="button" class="mech-icon-button" title="Save as a reusable block" @click="saveAsBlock"><VIcon name="frame" /></button>
         <button type="button" class="mech-icon-button is-danger" title="Delete" @click="store.remove(selected.id)"><VIcon name="trash" /></button>
       </div>
 
@@ -154,6 +155,7 @@
 import { computed, nextTick, provide, ref, watch, onScopeDispose, type ShallowRef } from 'vue'
 import type { DataEntry, State } from 'mechanica-shared'
 import { createEditorStore, editorStoreKey } from './lib/store'
+import { cloneBlock } from './lib/content-tree'
 import { createDragController, dragKey } from './lib/drag-controller'
 import { createHistory } from './lib/history'
 import { resolveShortcut } from './lib/shortcuts'
@@ -274,6 +276,36 @@ onScopeDispose(() => {
   document.removeEventListener('keydown', onKeyDown)
   history.dispose()
 })
+
+// Turn the selected block (and its children) into a reusable composed block —
+// the "create component from selection" moment. It's saved to `.mech/blocks`
+// and appears in the palette after the reload. Composed blocks can't be nested
+// in v1, so a composed selection is refused.
+async function saveAsBlock(): Promise<void> {
+  const sel = store.selected
+  if (!sel) return
+  const meta = store.blocksById.get(sel.blockId)
+  if (meta?.composed) {
+    window.alert('This is already a composed block — nest-in-composed is not supported yet.')
+    return
+  }
+  const name = window.prompt('Save this as a reusable block. Name:', meta?.name ?? 'My block')
+  if (!name?.trim()) return
+  const id = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'block'
+  const def = { id, name: name.trim(), template: [cloneBlock(sel)] }
+  const res = await fetch('/@mechanica/composed/create', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(def),
+  })
+  if (res.ok) {
+    window.location.reload() // refresh the palette + runtime with the new block
+  } else {
+    const err = (await res.json().catch(() => null)) as { error?: { id?: string } | string } | null
+    const message = typeof err?.error === 'object' ? err?.error?.id : err?.error
+    window.alert(`Could not save block: ${message ?? res.status}`)
+  }
+}
 
 const collapsed = ref(false)
 // Links clicked on the live page follow through the in-place page switch, so

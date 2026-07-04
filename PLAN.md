@@ -1,6 +1,6 @@
 # PLAN: Block Composer (composed blocks)
 
-Status: **Stages 0–1 complete & verified. Stage 2 (parameterization + palette integration) next.**
+Status: **Stages 0–3 complete & verified. The Block Composer is feature-complete for v1.**
 Owner docs: this file. Companion specs: [CLAUDE.md](./CLAUDE.md) (architecture), [CONTRACT.md](./CONTRACT.md) (`.page.md`), [PREVIEW.md](./PREVIEW.md) (shots/previews).
 
 ## Progress
@@ -30,11 +30,29 @@ Owner docs: this file. Companion specs: [CLAUDE.md](./CLAUDE.md) (architecture),
   Known Stage-2 gaps: a `$bind` field shows its resolved preview value and edits
   to it replace the binding with a literal (no bind UI yet); no drag-reorder in
   the canvas (use layers + move); no inline canvas text editing (inspector only).
-- **Stage 2 — TODO.** Prop exposure (`⚡ Expose as prop` → schema + previewData),
-  `composable: true` code blocks in the insert palette, page-editor palette
-  "Site blocks" section + New/Edit/Delete entry points, `thumbs --blocks`.
-- **Stage 3 — TODO** (breakpoint override affordances, `$abs` dragging, token-first
-  colors, "save selection as block", delete-with-usage-warning).
+- **Stage 2 — DONE.** Prop exposure: a ⚡ on each bindable inspector field
+  (`BindField`) swaps the value for `{ $bind }`, adds a compact prop schema
+  (default = current value) + previewData; a **Block props** panel
+  (`PropsSection`) renames / edits defaults / removes props. On a page, the
+  composed block gets its auto SchemaForm (`composedBlockMeta` unfolds the
+  schema). `composable: true` compiled blocks appear in the composer's
+  **Components** insert section and edit via their own SchemaForm in the
+  inspector. The page-editor palette lists composed blocks under **Site blocks**
+  with a **New block** button + per-card Edit/Delete; `block-preview` registers
+  elements so composed hover-previews render. Verified headlessly (props panel,
+  palette group, Badge code block on canvas).
+- **Stage 3 — DONE.** Layers drag-reorder + reparent (`use-layer-dnd`, drop
+  indicators). Breakpoint override affordances (`OverrideLabel` — a reset ↺ on
+  responsive rows whose current breakpoint overrides them). Absolute placement
+  (`$abs`) via an inspector **Position** section (mode + 5-anchor picker + X/Y).
+  **Token-first color inputs** (`ColorField` + `design-tokens.ts` scans the
+  site's `:root --*` color tokens). **Save selection as a reusable block** from
+  the page editor's block toolbar (`saveAsBlock` → serialize the subtree → POST
+  create). Verified headlessly (reorder, reset ↺, absolute position, 10 token
+  swatches).
+- **Deferred (post-v1):** canvas drag of absolute children (inspector X/Y works);
+  inline canvas text editing; delete-with-usage-count; image-object exposure
+  (image src exposes as a plain URL prop for now); nested composed blocks.
 
 **`bun run build` must run before an export/pack** — the `mechanica-shared/block-format`
 subpath and `mechanica/composer` entry are dist entries.

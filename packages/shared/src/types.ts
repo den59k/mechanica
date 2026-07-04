@@ -76,6 +76,12 @@ export interface Block {
    * governs the page palette. Set via `composable: true` in `defineBlock`.
    */
   composable?: boolean
+  /**
+   * Marks a block produced by the Block Composer (a {@link ComposedBlockDefinition}),
+   * rather than a compiled SFC. The page editor uses it to offer Edit/Delete and
+   * to group these under "Site blocks". Set by the composed-block factory.
+   */
+  composed?: boolean
 }
 
 /**

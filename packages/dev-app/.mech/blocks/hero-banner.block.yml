@@ -3,11 +3,26 @@ name: Hero Banner
 icon: hero
 category: Site blocks
 props:
-  eyebrow: { type: string, title: Eyebrow, default: New }
-  title: { type: string, title: Title, default: Build faster with Mechanica }
-  subtitle: { type: string, title: Subtitle, default: A visual block editor on Vite 8. }
-  ctaLabel: { type: string, title: Button label, default: Get started }
-  ctaHref: { type: string, title: Button link, default: /docs }
+  eyebrow:
+    type: string
+    title: Eyebrow
+    default: New
+  title:
+    type: string
+    title: Title
+    default: Build faster with Mechanica
+  subtitle:
+    type: string
+    title: Subtitle
+    default: A visual block editor on Vite 8.
+  ctaLabel:
+    type: string
+    title: Button label
+    default: Get started
+  ctaHref:
+    type: string
+    title: Button link
+    default: /docs
 previewData:
   title: Build faster with Mechanica
 template:
@@ -17,26 +32,55 @@ template:
       direction: column
       align: center
       gap: 16
-      padding: [96, 24]
+      padding:
+        - 96
+        - 24
       background: "#f6f6f4"
-      $bp: { sm: { padding: [56, 20], gap: 12 } }
+      $bp:
+        sm:
+          padding:
+            - 56
+            - 20
+          gap: 12
     children:
       - id: eyebrow
         blockId: mech:text
-        data: { tag: p, content: { $bind: eyebrow }, size: 13, weight: 600, color: "#6d6d6d", textAlign: center }
+        data:
+          tag: p
+          content:
+            $bind: eyebrow
+          size: 13
+          weight: 600
+          color: "#6d6d6d"
+          textAlign: center
       - id: title
         blockId: mech:text
         data:
           tag: h1
-          content: { $bind: title }
+          content:
+            $bind: title
           size: 48
           weight: 700
           maxWidth: 720
           textAlign: center
-          $bp: { sm: { size: 32 } }
+          $bp:
+            sm:
+              size: 32
       - id: subtitle
         blockId: mech:text
-        data: { tag: p, content: { $bind: subtitle }, size: 18, color: "#4a4a4a", maxWidth: 560, textAlign: center }
+        data:
+          tag: p
+          content:
+            $bind: subtitle
+          size: 18
+          color: "#4a4a4a"
+          maxWidth: 560
+          textAlign: center
       - id: cta
         blockId: mech:button
-        data: { label: { $bind: ctaLabel }, link: { $bind: ctaHref }, variant: primary }
+        data:
+          label:
+            $bind: ctaLabel
+          link:
+            $bind: ctaHref
+          variant: primary

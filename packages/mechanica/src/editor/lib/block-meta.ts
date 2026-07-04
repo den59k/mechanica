@@ -32,6 +32,8 @@ export function toBlockMeta(component: BlockComponent): Block {
     version: schema.version,
     migrate: schema.migrate,
     previewData: schema.previewData,
+    composable: schema.composable,
+    composed: schema.composed,
     props: schema.props
       ? (unfoldSchema(schema.props) as Record<string, unknown>)
       : { type: 'object', properties: {} },
@@ -49,10 +51,10 @@ export function composedBlockMeta(def: ComposedBlockDefinition): Block {
   return {
     id: def.id,
     name: def.name,
-    category: def.category,
+    category: def.category ?? 'Site blocks',
     icon: def.icon,
     previewData: def.previewData,
-    composable: false,
+    composed: true,
     props: def.props
       ? (unfoldSchema(def.props as never) as Record<string, unknown>)
       : { type: 'object', properties: {} },

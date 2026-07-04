@@ -73,17 +73,6 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   }
 }
-.mech-composer__zoom {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-.mech-composer__zoom-value {
-  width: 42px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--mech-muted);
-}
 .mech-composer__save {
   min-width: 70px;
   text-align: right;
@@ -118,23 +107,70 @@
   border-left: 1px solid var(--mech-border);
 }
 
-// ── Canvas ───────────────────────────────────────────────────────────────────
+// ── Canvas (pannable / zoomable infinite viewport) ────────────────────────────
 .mech-composer__stage {
   flex: 1;
-  overflow: auto;
   display: flex;
-  justify-content: center;
-  padding: 32px;
+  min-width: 0;
 }
-.mech-composer__canvas-frame {
-  flex: 0 0 auto;
-  align-self: flex-start;
+.mech-composer__viewport {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  // A faint dot grid gives the infinite canvas a sense of place while panning.
+  background:
+    radial-gradient(circle, var(--mech-border) 1px, transparent 1.2px) 0 0 / 24px 24px,
+    var(--mech-app-bg);
+  cursor: default;
+  user-select: none;
+  touch-action: none;
+
+  &.is-panning {
+    cursor: grabbing;
+  }
+}
+.mech-composer__world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
 }
 .mech-composer__canvas {
   position: relative;
   min-height: 200px;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+// Floating zoom controls (Figma-style, bottom-left of the canvas).
+.mech-composer__zoombar {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--mech-bg);
+  border: 1px solid var(--mech-border);
+  border-radius: var(--mech-radius-sm);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+.mech-composer__zoom-fit {
+  min-width: 48px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--mech-fg);
+  padding: 4px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--mech-hover);
+  }
 }
 .mech-composer__empty {
   position: absolute;
@@ -199,6 +235,7 @@
   overflow-y: auto;
   border-top: 1px solid var(--mech-border);
   padding-bottom: 8px;
+  user-select: none;
 }
 .mech-composer__layers-empty {
   padding: 4px 14px;
@@ -206,12 +243,14 @@
   font-size: 13px;
 }
 .mech-composer__layer {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 5px 10px;
   font-size: 13px;
   cursor: pointer;
+  touch-action: none;
 
   &:hover {
     background: var(--mech-hover);
@@ -219,6 +258,30 @@
   &.is-selected {
     background: var(--mech-accent-soft);
     color: var(--mech-accent);
+  }
+  &.is-dragging {
+    opacity: 0.4;
+  }
+  // Drop indicators driven by the layers DnD controller.
+  &.drop-before::before,
+  &.drop-after::after {
+    content: '';
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    height: 2px;
+    background: var(--mech-accent);
+    border-radius: 2px;
+  }
+  &.drop-before::before {
+    top: -1px;
+  }
+  &.drop-after::after {
+    bottom: -1px;
+  }
+  &.drop-inside {
+    box-shadow: inset 0 0 0 2px var(--mech-accent);
+    border-radius: var(--mech-radius-sm);
   }
 }
 .mech-composer__layer-icon {
@@ -286,10 +349,33 @@
   gap: 10px;
   font-size: 13px;
 
-  > span:first-child {
+  > span:first-child,
+  > .mech-composer__olabel {
     flex: 0 0 auto;
     min-width: 62px;
     color: var(--mech-muted);
+  }
+}
+.mech-composer__olabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  &.is-overridden {
+    color: var(--mech-accent);
+    font-weight: 500;
+  }
+}
+.mech-composer__reset {
+  display: inline-flex;
+  border: none;
+  background: none;
+  padding: 1px;
+  color: var(--mech-accent);
+  cursor: pointer;
+
+  .vicon {
+    font-size: 12px;
   }
 }
 .mech-composer__input {
@@ -334,6 +420,13 @@
   align-items: center;
   gap: 6px;
 }
+.mech-composer__row--top {
+  align-items: flex-start;
+
+  > span:first-child {
+    padding-top: 6px;
+  }
+}
 .mech-composer__color {
   display: flex;
   align-items: center;
@@ -349,6 +442,30 @@
     border-radius: 6px;
     background: none;
     cursor: pointer;
+  }
+}
+.mech-composer__colorfield {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mech-composer__tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.mech-composer__token {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--mech-border-strong);
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 0;
+
+  &.is-active {
+    outline: 2px solid var(--mech-accent);
+    outline-offset: 1px;
   }
 }
 .mech-composer__seg {
@@ -393,4 +510,183 @@
 .mech-composer__image-actions {
   display: flex;
   gap: 6px;
+}
+
+// ── Bindable fields (⚡ expose as prop) ───────────────────────────────────────
+.mech-composer__bindfield {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  > :first-child {
+    flex: 1;
+    min-width: 0;
+  }
+}
+.mech-composer__bind-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--mech-radius-sm);
+  background: var(--mech-field-bg);
+  color: var(--mech-muted);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--mech-accent-soft);
+    color: var(--mech-accent);
+  }
+  .vicon {
+    font-size: 14px;
+  }
+}
+.mech-composer__bind-chip {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px 5px 9px;
+  border-radius: var(--mech-radius-sm);
+  background: var(--mech-accent-soft);
+  color: var(--mech-accent);
+  font-size: 13px;
+  font-weight: 500;
+
+  .vicon {
+    font-size: 14px;
+  }
+}
+.mech-composer__bind-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mech-composer__bind-x {
+  display: inline-flex;
+  border: none;
+  background: none;
+  padding: 2px;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+// ── Block props section (left panel) ─────────────────────────────────────────
+.mech-composer__props {
+  border-top: 1px solid var(--mech-border);
+  padding-bottom: 12px;
+}
+.mech-composer__prop {
+  padding: 4px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.mech-composer__prop-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mech-composer__prop-icon {
+  font-size: 13px;
+  color: var(--mech-accent);
+}
+.mech-composer__prop-name {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mech-fg);
+  padding: 2px 4px;
+  border-radius: 5px;
+
+  &:hover,
+  &:focus {
+    background: var(--mech-field-bg);
+    outline: none;
+  }
+}
+.mech-composer__prop-type {
+  font-size: 11px;
+  color: var(--mech-muted);
+  background: var(--mech-field-bg);
+  padding: 1px 6px;
+  border-radius: var(--mech-radius-pill);
+}
+.mech-composer__prop-remove {
+  border: none;
+  background: none;
+  padding: 2px;
+  color: var(--mech-muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--mech-error);
+  }
+}
+.mech-composer__prop-default {
+  font-size: 12.5px;
+}
+.mech-composer__props-hint {
+  margin: 4px 12px 0;
+  font-size: 11.5px;
+  color: var(--mech-muted);
+}
+.mech-composer__props-empty {
+  margin: 0 12px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--mech-muted);
+}
+
+// ── Block settings (right panel, no selection) ────────────────────────────────
+.mech-composer__settings-hint {
+  margin: 12px 14px;
+  font-size: 12px;
+  color: var(--mech-muted);
+}
+
+// ── Drag-to-insert overlays (teleported to <body>, so top-level selectors) ────
+.mech-composer__drop {
+  position: fixed;
+  z-index: 2147483000;
+  pointer-events: none;
+
+  &.is-line {
+    background: var(--mech-accent);
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7);
+  }
+  &.is-box {
+    border: 2px solid var(--mech-accent);
+    border-radius: 6px;
+    background: var(--mech-accent-soft);
+  }
+}
+.mech-composer__ghost {
+  position: fixed;
+  z-index: 2147483001;
+  pointer-events: none;
+  transform: translate(12px, 12px);
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--mech-fg);
+  color: var(--mech-bg);
+  font-family: var(--mech-font);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
