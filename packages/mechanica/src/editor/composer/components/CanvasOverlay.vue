@@ -39,6 +39,17 @@
         @dblclick.stop="resetAxis(h)"
         @click.stop
       />
+
+      <!-- Gap-drag strips between a frame's flow children. -->
+      <div
+        v-for="(g, i) in gapBoxes"
+        :key="'gap' + i"
+        class="mech-composer__gap"
+        :class="[gapAxis === 'x' ? 'is-col' : 'is-row', { 'is-active': gapDragging }]"
+        :style="boxStyle(g)"
+        :title="`Gap ${gapValue}`"
+        @pointerdown.stop.prevent="startGapDrag($event)"
+      />
     </template>
   </div>
 </template>
@@ -47,7 +58,7 @@
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch, nextTick } from 'vue'
 import { composerStoreKey, composerHistoryKey } from '../lib/keys'
 import { elementKind, blockLabel } from '../lib/elements-meta'
-import { HANDLES, handlePoint, handleAxes, handleCursor, resizeSize, type Box, type Handle } from '../lib/canvas-overlay'
+import { HANDLES, handlePoint, handleAxes, handleCursor, resizeSize, gapStrips, type Box, type Handle } from '../lib/canvas-overlay'
 
 const props = defineProps<{ hoverId: string | null }>()
 const store = inject(composerStoreKey)!
@@ -55,6 +66,15 @@ const history = inject(composerHistoryKey)!
 
 const selBoxes = ref<Box[]>([])
 const hoverBox = ref<Box | null>(null)
+const gapBoxes = ref<Box[]>([])
+const gapAxis = ref<'x' | 'y'>('y')
+const gapDragging = ref(false)
+const GAP_HIT = 9 // strip thickness (screen px)
+
+const gapValue = computed(() => {
+  const f = store.selected
+  return f ? Number(store.effective(f, 'gap')) || 0 : 0
+})
 
 const single = computed(() => store.selectedIds.length === 1)
 const primaryBox = computed(() => selBoxes.value[selBoxes.value.length - 1] ?? null)
@@ -120,6 +140,24 @@ function measure(): void {
   }
   const hovEl = blockEl(props.hoverId)
   hoverBox.value = hovEl ? toBox(hovEl) : null
+
+  // Gap strips: only for a single selected frame laid out in flow (no wrap, not
+  // space-between) with ≥2 in-flow children.
+  gapBoxes.value = []
+  const frame = single.value ? store.selected : null
+  if (frame && elementKind(frame.blockId) === 'frame' && !store.effective(frame, 'wrap') && store.effective(frame, 'justify') !== 'between') {
+    const axis = store.effective(frame, 'direction') === 'row' ? 'x' : 'y'
+    const children = (Array.isArray(frame.children) ? frame.children : []).filter((c) => !c.data.$abs)
+    const boxes: Box[] = []
+    for (const child of children) {
+      const el = blockEl(child.id)
+      if (el) boxes.push(toBox(el))
+    }
+    if (boxes.length >= 2) {
+      gapAxis.value = axis
+      gapBoxes.value = gapStrips(boxes, axis, GAP_HIT)
+    }
+  }
 }
 const remeasure = () => nextTick(measure)
 
@@ -166,6 +204,41 @@ function startResize(handle: Handle, event: PointerEvent) {
   window.addEventListener('pointermove', onMove)
   window.addEventListener('pointerup', onUp)
 }
+// ── Gap drag (drag the strip between two flow children to set the frame gap) ────
+let gapRaf = 0
+function startGapDrag(event: PointerEvent) {
+  const id = store.selectedId
+  const frame = store.selected
+  if (!id || !frame) return
+  const axis = gapAxis.value
+  const startGap = Number(store.effective(frame, 'gap')) || 0
+  const startPos = axis === 'x' ? event.clientX : event.clientY
+  gapDragging.value = true
+
+  const loop = () => {
+    measure()
+    gapRaf = requestAnimationFrame(loop)
+  }
+  gapRaf = requestAnimationFrame(loop)
+
+  const onMove = (e: PointerEvent) => {
+    const pos = axis === 'x' ? e.clientX : e.clientY
+    const gap = Math.max(0, Math.round(startGap + (pos - startPos) / store.zoom))
+    store.setData(id, { gap }, { responsive: true })
+  }
+  const onUp = () => {
+    cancelAnimationFrame(gapRaf)
+    gapRaf = 0
+    gapDragging.value = false
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    history.commit()
+    remeasure()
+  }
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+}
+
 /** Double-click a handle → reset the axis it drives back to Hug. */
 function resetAxis(handle: Handle) {
   const id = store.selectedId
@@ -206,6 +279,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   if (raf) cancelAnimationFrame(raf)
+  if (gapRaf) cancelAnimationFrame(gapRaf)
   ro?.disconnect()
   store.measured = null
 })

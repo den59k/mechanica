@@ -53,6 +53,32 @@ export function resizeSize(
   return out
 }
 
+/**
+ * Interactive strips centered in the gaps between consecutive flow children of a
+ * frame — drag one to change the frame's `gap`. `axis` is the layout axis (`'x'`
+ * for a row, `'y'` for a column); `hit` is the strip's thickness (screen px).
+ * Each strip spans the cross-axis union of the two children it sits between.
+ */
+export function gapStrips(boxes: Box[], axis: 'x' | 'y', hit: number): Box[] {
+  const strips: Box[] = []
+  for (let i = 0; i < boxes.length - 1; i++) {
+    const a = boxes[i]!
+    const b = boxes[i + 1]!
+    if (axis === 'x') {
+      const mid = (a.left + a.width + b.left) / 2
+      const top = Math.min(a.top, b.top)
+      const bottom = Math.max(a.top + a.height, b.top + b.height)
+      strips.push({ left: mid - hit / 2, top, width: hit, height: bottom - top })
+    } else {
+      const mid = (a.top + a.height + b.top) / 2
+      const left = Math.min(a.left, b.left)
+      const right = Math.max(a.left + a.width, b.left + b.width)
+      strips.push({ left, top: mid - hit / 2, width: right - left, height: hit })
+    }
+  }
+  return strips
+}
+
 const CURSORS: Record<Handle, string> = {
   n: 'ns-resize',
   s: 'ns-resize',

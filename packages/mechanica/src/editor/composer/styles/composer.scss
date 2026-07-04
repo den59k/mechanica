@@ -321,6 +321,41 @@ $sel: #3b82f6;
   border: 1px solid rgba($sel, 0.8);
   border-radius: 1px;
 }
+// Gap-drag strips: an invisible grab zone showing an accent line on hover/drag.
+.mech-composer__gap {
+  position: absolute;
+  pointer-events: auto;
+  border: none;
+  background: none;
+  padding: 0;
+
+  &.is-col {
+    cursor: col-resize;
+  }
+  &.is-row {
+    cursor: row-resize;
+  }
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    background: $sel;
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+  }
+  &.is-col::after {
+    width: 3px;
+  }
+  &.is-row::after {
+    height: 3px;
+  }
+  &:hover::after,
+  &.is-active::after {
+    opacity: 0.85;
+  }
+}
 
 // Floating zoom controls (Figma-style, bottom-left of the canvas).
 .mech-composer__zoombar {
