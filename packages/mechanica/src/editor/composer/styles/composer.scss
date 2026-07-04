@@ -383,7 +383,11 @@ $space: #e5227f; // Figma-style spacing pink for gap + padding editing (distinct
   }
   &:hover,
   &.is-active {
-    background: rgba($space, 0.22);
+    background: rgba($sel, 0.18);
+  }
+  // Padding stays on the blue selection colour; only gaps are pink.
+  .mech-composer__space-label {
+    background: $sel;
   }
 }
 
