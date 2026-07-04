@@ -43,23 +43,24 @@ export function setSide(value: unknown, side: keyof Sides, next: number): number
   return collapsePadding({ ...parsePadding(value), [side]: next })
 }
 
+const OPPOSITE: Record<keyof Sides, keyof Sides> = { t: 'b', b: 't', l: 'r', r: 'l' }
+
 /**
  * New per-side padding from a drag gesture. Adds the signed `delta` to the
- * dragged `side` — or to every side when `allAxes` (Alt: edit both axes at once)
- * — snapping each result to `snap` when set (Shift: snap to a grid), rounding to
- * whole px otherwise, and clamping to ≥ 0. Pure.
+ * dragged `side` (snapping to `snap` when set — Shift — else rounding, clamped
+ * ≥ 0). When `symmetric` (Alt), the opposite side is set to that same value, so
+ * the axis stays symmetric. Pure.
  */
 export function computePaddingDrag(
   start: Sides,
   side: keyof Sides,
   delta: number,
-  opts: { allAxes?: boolean; snap?: number } = {},
+  opts: { symmetric?: boolean; snap?: number } = {},
 ): Sides {
-  const { allAxes = false, snap = 0 } = opts
-  const next = (base: number) => {
-    const v = base + delta
-    return Math.max(0, snap ? snapTo(v, snap) : Math.round(v))
-  }
-  if (allAxes) return { t: next(start.t), r: next(start.r), b: next(start.b), l: next(start.l) }
-  return { ...start, [side]: next(start[side]) }
+  const { symmetric = false, snap = 0 } = opts
+  const raw = start[side] + delta
+  const value = Math.max(0, snap ? snapTo(raw, snap) : Math.round(raw))
+  const result: Sides = { ...start, [side]: value }
+  if (symmetric) result[OPPOSITE[side]] = value
+  return result
 }
