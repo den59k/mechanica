@@ -24,15 +24,10 @@
           @input="store.setMeta({ category: value($event) })"
         />
       </label>
-      <label class="mech-composer__row">
+      <div class="mech-composer__row">
         <span>Icon</span>
-        <input
-          class="mech-composer__input"
-          :value="store.def.icon ?? ''"
-          placeholder="Icon name"
-          @input="store.setMeta({ icon: value($event) })"
-        />
-      </label>
+        <IconField :model-value="store.def.icon ?? ''" @update:model-value="store.setMeta({ icon: $event })" />
+      </div>
     </section>
 
     <PropsSection />
@@ -49,6 +44,7 @@
 import { inject } from 'vue'
 import { composerStoreKey } from '../lib/keys'
 import VIcon from '../../components/VIcon.vue'
+import IconField from '../../components/IconField.vue'
 import PropsSection from './PropsSection.vue'
 
 const store = inject(composerStoreKey)!
