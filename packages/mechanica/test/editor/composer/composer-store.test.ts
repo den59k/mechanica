@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import type { ComposedBlockDefinition, ContentBlock } from 'mechanica-shared'
 import { createComposerStore } from '@/editor/composer/lib/composer-store'
 import { INSERT_ITEMS } from '@/editor/composer/lib/elements-meta'
+import { clearClipboard } from '@/editor/composer/lib/clipboard'
 import { findBlock } from '@/editor/lib/content-tree'
 
 const base = (): ComposedBlockDefinition => ({ id: 'hero', name: 'Hero', template: [] })
@@ -228,6 +229,75 @@ describe('composer store: multi-selection', () => {
     expect(rootChildren(store).map((n) => n.id)).toContain(a)
     expect(rootChildren(store).map((n) => n.id)).toContain(c)
     expect(store.selectedIds).toEqual([a, c]) // children selected
+  })
+})
+
+describe('composer store: clipboard (copy / cut / paste)', () => {
+  beforeEach(() => clearClipboard())
+
+  const withThree = () => {
+    const store = createComposerStore(base())
+    store.insertItem(item('text'))
+    const a = store.selectedId!
+    store.insertItem(item('image'))
+    const b = store.selectedId!
+    store.insertItem(item('text'))
+    const c = store.selectedId!
+    return { store, a, b, c }
+  }
+
+  it('pastes a copy with fresh ids after the selected leaf', () => {
+    const { store, a } = withThree()
+    store.select(a) // the first text
+    store.copySelection()
+    store.paste()
+    const kids = rootChildren(store)
+    expect(kids).toHaveLength(4) // text, [pasted text], image, text
+    expect(kids[1]!.blockId).toBe('mech:text')
+    expect(kids[1]!.id).not.toBe(a) // fresh id
+    expect(store.selectedIds).toEqual([kids[1]!.id]) // the paste is selected
+  })
+
+  it('pastes multiple copies preserving order', () => {
+    const { store, a, c } = withThree()
+    store.selectMany([a, c])
+    store.copySelection()
+    store.select(c) // paste after the last text
+    store.paste()
+    // c, [text-copy, text-copy], plus the originals → 5 children total
+    expect(rootChildren(store)).toHaveLength(5)
+    expect(store.selectedIds).toHaveLength(2)
+  })
+
+  it('pastes inside a selected container frame', () => {
+    const { store, a } = withThree()
+    store.select(a)
+    store.copySelection()
+    store.insertItem(item('column')) // a frame under root, selected
+    const frameId = store.selectedId!
+    store.select(frameId)
+    store.paste()
+    const frame = findBlock(store.template, frameId)!
+    expect((frame.children as ContentBlock[]).map((n) => n.blockId)).toEqual(['mech:text'])
+  })
+
+  it('cut removes the original but keeps it pasteable', () => {
+    const { store, a } = withThree()
+    store.select(a)
+    store.cutSelection()
+    expect(rootChildren(store)).toHaveLength(2) // a removed
+    expect(store.selectedIds).toEqual([])
+    store.paste() // into root (nothing selected)
+    expect(rootChildren(store)).toHaveLength(3)
+  })
+
+  it('copySelection ignores the root; paste is a no-op with an empty clipboard', () => {
+    const { store } = withThree()
+    store.select(store.rootId)
+    store.copySelection() // root can't be copied → clipboard stays empty
+    const before = rootChildren(store).length
+    store.paste()
+    expect(rootChildren(store)).toHaveLength(before) // nothing pasted
   })
 })
 

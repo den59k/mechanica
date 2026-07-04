@@ -8,21 +8,10 @@ template:
       gap: 24
       padding: 0
       w: fill
-      h: fill
+      h: 313
       align: stretch
       justify: start
-      $abs:
-        anchor: top-left
-        x: 0
-        y: 0
       wrap: false
-    children:
-      - id: 5b373fee-01a1-4873-820f-5650ba61fb68
-        blockId: mech:frame
-        data:
-          direction: column
-          gap: 16
-          padding: 0
-          align: center
-          justify: center
-        children: []
+      radius: 103
+      background: "#ffffff"
+    children: []

@@ -23,6 +23,7 @@ import {
 import { humanize } from '../../props-panel/humanize'
 import { isContainerBlock, elementKind, type InsertItem } from './elements-meta'
 import { normalizeTemplate } from './normalize-template'
+import { setClipboard, readClipboard } from './clipboard'
 import { effectiveData, type CanvasBreakpoint } from './canvas'
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
@@ -85,6 +86,12 @@ export interface ComposerStore {
   group(): void
   /** Lift the selected frame's children into its parent, dropping the frame; selects them. */
   ungroup(): void
+  /** Copy the selection to the composer clipboard (the root can't be copied). */
+  copySelection(): void
+  /** Copy the selection, then delete it. */
+  cutSelection(): void
+  /** Paste the clipboard: into a selected container, after a selected leaf, else the root. */
+  paste(): void
   move(id: string, delta: number): void
   relocate(id: string, drop: DropPosition): void
   /** Merge `patch` into a node's data — into the current breakpoint layer when
@@ -324,6 +331,51 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
       const lifted = [...node.children]
       found.list.splice(found.index, 1, ...lifted) // replace the frame with its children
       this.selectedIds = lifted.map((k) => k.id)
+    },
+    copySelection() {
+      const nodes = this.selectedNodes.filter((n) => n.id !== this.rootId)
+      if (nodes.length) setClipboard(nodes)
+    },
+    cutSelection() {
+      this.copySelection()
+      this.removeSelected()
+    },
+    paste() {
+      const nodes = readClipboard()
+      if (!nodes.length) return
+      // Nudge absolutely-placed pastes so they don't land exactly on the original.
+      for (const node of nodes) {
+        const abs = node.data.$abs
+        if (isObject(abs)) {
+          if (typeof abs.x === 'number') abs.x += 10
+          if (typeof abs.y === 'number') abs.y += 10
+        }
+      }
+      const sel = this.selected
+      const ids: string[] = []
+      if (sel && isContainerBlock(sel.blockId)) {
+        // A selected frame (incl. the root) receives the paste inside it.
+        const list = ensureSlotList(sel)
+        for (const node of nodes) {
+          list.push(node)
+          ids.push(node.id)
+        }
+      } else if (sel && sel.id !== this.rootId) {
+        // A selected leaf: paste after it, preserving order.
+        let anchorId = sel.id
+        for (const node of nodes) {
+          placeBlock(this.def.template, node, { anchorId, position: 'after' })
+          anchorId = node.id
+          ids.push(node.id)
+        }
+      } else {
+        const list = ensureSlotList(this.rootFrame)
+        for (const node of nodes) {
+          list.push(node)
+          ids.push(node.id)
+        }
+      }
+      this.selectedIds = ids
     },
     move(id: string, delta: number) {
       moveBlock(this.def.template, id, delta)

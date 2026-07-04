@@ -159,6 +159,15 @@ const onKeyDown = (event: KeyboardEvent) => {
     event.preventDefault()
     if (event.shiftKey) store.ungroup()
     else store.group()
+  } else if (mod && ch === 'c' && store.selectedId) {
+    event.preventDefault()
+    store.copySelection()
+  } else if (mod && ch === 'x' && store.selectedId) {
+    event.preventDefault()
+    store.cutSelection()
+  } else if (mod && ch === 'v') {
+    event.preventDefault()
+    store.paste()
   } else if (!mod && !event.altKey && ch) {
     // R / C / T / I arm insertion of Row / Column / Text / Image at the selection.
     const item = insertItemForKey(ch)
