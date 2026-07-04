@@ -29,6 +29,13 @@ describe('responsiveVars: base mapping', () => {
     expect(responsiveVars({ maxWidth: '60ch' }, FRAME_VARS)['--el-maxw']).toBe('60ch')
   })
 
+  it('maps margin (padding shorthand forms, negatives allowed) on frames and leaves', () => {
+    expect(responsiveVars({ margin: 16 }, FRAME_VARS)['--el-margin']).toBe('16px')
+    expect(responsiveVars({ margin: [8, 0] }, FRAME_VARS)['--el-margin']).toBe('8px 0px')
+    expect(responsiveVars({ margin: -12 }, SIZE_VARS)['--el-margin']).toBe('-12px')
+    expect(responsiveVars({ margin: 16, $bp: { sm: { margin: 8 } } }, SIZE_VARS)['--el-margin-sm']).toBe('8px')
+  })
+
   it('ignores unknown keys and invalid enum values', () => {
     const vars = responsiveVars({ direction: 'diagonal', unknown: 1 }, FRAME_VARS)
     expect(vars).toEqual({})

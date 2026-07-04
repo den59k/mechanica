@@ -435,6 +435,56 @@ describe('composer store: insertNode + absolute', () => {
   })
 })
 
+describe('composer store: optional properties (addProp / removeProp / hasProp)', () => {
+  const withText = () => {
+    const store = createComposerStore(base())
+    store.insertItem(item('text'))
+    return { store, id: store.selectedId!, node: () => rootChildren(store)[0]! }
+  }
+
+  it('hasProp is true when the data already carries the key', () => {
+    const { store } = withText()
+    expect(store.hasProp(store.rootFrame, 'padding')).toBe(true) // root seeds padding
+    expect(store.hasProp(store.rootFrame, 'background')).toBe(false)
+  })
+
+  it('addProp shows the row without writing data; the first edit writes it', () => {
+    const { store, id, node } = withText()
+    store.addProp(id, 'margin')
+    expect(store.hasProp(node(), 'margin')).toBe(true)
+    expect('margin' in node().data).toBe(false) // view state only, .block.yml untouched
+    store.setData(id, { margin: [8, 0] })
+    expect(node().data.margin).toEqual([8, 0])
+  })
+
+  it('addProp(position) writes $abs immediately — being on *is* data', () => {
+    const { store, id, node } = withText()
+    store.addProp(id, 'position')
+    expect(node().data.$abs).toEqual({ anchor: 'top-left', x: 0, y: 0 })
+    expect(store.hasProp(node(), 'position')).toBe(true)
+  })
+
+  it('removeProp deletes the key from the base and every $bp layer', () => {
+    const { store, id, node } = withText()
+    store.setData(id, { margin: 16 })
+    store.breakpoint = 'sm'
+    store.setData(id, { margin: 8 }, { responsive: true })
+    store.breakpoint = 'base'
+    store.removeProp(id, 'margin')
+    expect('margin' in node().data).toBe(false)
+    expect((node().data.$bp as Record<string, Record<string, unknown>>).sm!.margin).toBeUndefined()
+    expect(store.hasProp(node(), 'margin')).toBe(false)
+  })
+
+  it('removeProp(position) drops $abs and clears the session-added flag', () => {
+    const { store, id, node } = withText()
+    store.addProp(id, 'position')
+    store.removeProp(id, 'position')
+    expect(node().data.$abs).toBeUndefined()
+    expect(store.hasProp(node(), 'position')).toBe(false)
+  })
+})
+
 describe('composer store: snapshot / replace', () => {
   it('normalizes on replace and drops a stale selection', () => {
     const store = createComposerStore(base())

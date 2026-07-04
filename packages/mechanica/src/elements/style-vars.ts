@@ -62,6 +62,10 @@ export const FRAME_VARS: Record<string, VarSpec> = {
   justify: { cssVar: '--el-justify', to: justifyValue },
   wrap: { cssVar: '--el-wrap', to: (v) => (v ? 'wrap' : 'nowrap') },
   padding: { cssVar: '--el-pad', to: padding },
+  // Outer margin (same shorthand forms as padding; negatives allowed). On a
+  // frame that also sets `maxWidth`, the horizontal part yields to the
+  // centering `margin-inline: auto` (see elements.scss).
+  margin: { cssVar: '--el-margin', to: padding },
   w: { cssVar: '--el-w', to: size },
   h: { cssVar: '--el-h', to: size },
   // Content width: cap the frame's own width and center it (the full-bleed
@@ -75,6 +79,7 @@ export const SIZE_VARS: Record<string, VarSpec> = {
   w: FRAME_VARS.w!,
   h: FRAME_VARS.h!,
   grow: FRAME_VARS.grow!,
+  margin: FRAME_VARS.margin!,
   align: { cssVar: '--el-self', to: alignValue },
   textAlign: { cssVar: '--el-text-align', to: enumMap({ left: 'left', center: 'center', right: 'right' }) },
 }

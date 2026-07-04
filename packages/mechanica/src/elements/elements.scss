@@ -13,6 +13,10 @@
   height: var(--el-h, auto);
   flex-grow: var(--el-grow, 0);
   align-self: var(--el-self, auto);
+  // Default 0 also neutralizes UA margins on text tags (h1/p). A maxWidth
+  // frame's `margin-inline: auto` (below) outranks this shorthand, so its
+  // horizontal margin stays centered even when a margin is set.
+  margin: var(--el-margin, 0);
   min-width: 0; // keep flex children from overflowing their track
 }
 
@@ -36,7 +40,8 @@
 }
 
 .mxel-text {
-  margin: 0;
+  // margin: 0 lives on .mxel (via --el-margin's fallback) — repeating it here
+  // would beat the variable, as this rule comes later at equal specificity.
   text-align: var(--el-text-align, left);
 }
 
@@ -64,6 +69,7 @@
     height: var(--el-h-md, var(--el-h, auto));
     flex-grow: var(--el-grow-md, var(--el-grow, 0));
     align-self: var(--el-self-md, var(--el-self, auto));
+    margin: var(--el-margin-md, var(--el-margin, 0));
   }
   .mxel-frame {
     flex-direction: var(--el-dir-md, var(--el-dir, column));
@@ -85,6 +91,7 @@
     height: var(--el-h-sm, var(--el-h-md, var(--el-h, auto)));
     flex-grow: var(--el-grow-sm, var(--el-grow-md, var(--el-grow, 0)));
     align-self: var(--el-self-sm, var(--el-self-md, var(--el-self, auto)));
+    margin: var(--el-margin-sm, var(--el-margin-md, var(--el-margin, 0)));
   }
   .mxel-frame {
     flex-direction: var(--el-dir-sm, var(--el-dir-md, var(--el-dir, column)));

@@ -22,6 +22,7 @@ import {
 } from '../../lib/content-tree'
 import { humanize } from '../../props-panel/humanize'
 import { isContainerBlock, elementKind, type InsertItem } from './elements-meta'
+import { optionalProp, propPresent } from './inspector-props'
 import { normalizeTemplate } from './normalize-template'
 import { setClipboard, readClipboard } from './clipboard'
 import { effectiveData, type CanvasBreakpoint } from './canvas'
@@ -107,6 +108,15 @@ export interface ComposerStore {
   setAbsolute(id: string, on: boolean): void
   /** Merge into a node's absolute-placement config. */
   setAbs(id: string, patch: Record<string, unknown>): void
+  // ── Optional inspector properties (the "+ Add" menu) ───────────────
+  /** Whether the property row shows: its data keys exist (any layer) or it was
+   *  added this session. */
+  hasProp(node: ContentBlock, key: string): boolean
+  /** Show a property row. View-state only — no data is written until the user
+   *  edits a value (`position` is the exception: being on *is* data). */
+  addProp(id: string, key: string): void
+  /** Hide a property row and delete its data keys from the base + every `$bp` layer. */
+  removeProp(id: string, key: string): void
   setMeta(patch: Partial<Pick<ComposedBlockDefinition, 'name' | 'icon' | 'category'>>): void
   // ── Prop exposure (parameterization) ──────────────────────────────
   /** The prop a node's field is bound to, or null. Bindings live on base data. */
@@ -170,6 +180,9 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
     panX: 0,
     panY: 0,
     measured: null as { w: number; h: number } | null,
+    /** Optional-property rows added this session with no data yet (view state,
+     *  keyed by node id) — union'd with data presence by `hasProp`. */
+    addedProps: {} as Record<string, string[]>,
 
     get template(): ContentBlock[] {
       return this.def.template
@@ -424,6 +437,32 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
       if (!node) return
       const abs = (node.data.$abs ??= { anchor: 'top-left', x: 0, y: 0 }) as Record<string, unknown>
       Object.assign(abs, patch)
+    },
+
+    hasProp(node: ContentBlock, key: string): boolean {
+      const prop = optionalProp(key)
+      if (!prop) return false
+      return propPresent(node, prop) || !!this.addedProps[node.id]?.includes(key)
+    },
+    addProp(id: string, key: string) {
+      // Position's "on" state is the `$abs` object itself, so adding it writes data.
+      if (key === 'position') return this.setAbsolute(id, true)
+      const list = (this.addedProps[id] ??= [])
+      if (!list.includes(key)) list.push(key)
+    },
+    removeProp(id: string, key: string) {
+      const prop = optionalProp(key)
+      const node = findBlock(this.def.template, id)
+      if (!prop || !node) return
+      for (const dataKey of prop.dataKeys) {
+        delete node.data[dataKey]
+        const bp = node.data.$bp
+        if (isObject(bp)) {
+          for (const layer of Object.values(bp)) if (isObject(layer)) delete layer[dataKey]
+        }
+      }
+      const list = this.addedProps[id]
+      if (list) this.addedProps[id] = list.filter((k) => k !== key)
     },
 
     setMeta(patch: Partial<Pick<ComposedBlockDefinition, 'name' | 'icon' | 'category'>>) {

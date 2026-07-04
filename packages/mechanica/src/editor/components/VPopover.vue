@@ -41,7 +41,9 @@ const style = ref<Record<string, string>>({})
 const close = () => emit('update:open', false)
 
 // Anchor the teleported panel under the trigger, flipping above when space is
-// tight and clamping its height.
+// tight and clamping its height. Horizontally the panel is clamped into the
+// viewport (an anchor near the right edge — e.g. the inspector's "+ Add
+// property" button — would otherwise push the panel off-screen).
 function position() {
   const el = props.anchor
   if (!el) return
@@ -52,8 +54,12 @@ function position() {
   const spaceAbove = rect.top - MARGIN
   const flip = spaceBelow < Math.min(max, 200) && spaceAbove > spaceBelow
   const maxHeight = Math.max(120, Math.min(max, flip ? spaceAbove : spaceBelow))
+  // matchWidth panels end up exactly anchor-wide, so measure that, not the
+  // panel's natural (pre-style) width.
+  const panelWidth = props.matchWidth ? rect.width : (panelRef.value?.offsetWidth ?? 0)
+  const left = Math.max(MARGIN, Math.min(rect.left, window.innerWidth - panelWidth - MARGIN))
   style.value = {
-    left: `${Math.round(rect.left)}px`,
+    left: `${Math.round(left)}px`,
     ...(props.matchWidth ? { width: `${Math.round(rect.width)}px` } : {}),
     maxHeight: `${Math.round(maxHeight)}px`,
     ...(flip

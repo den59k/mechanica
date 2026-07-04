@@ -666,6 +666,12 @@ $space: #e5227f; // Figma-style spacing pink for gap + padding editing (distinct
   gap: 9px;
   padding: 8px 14px 14px;
   border-bottom: 1px solid var(--mech-border);
+
+  // Inside a section the title sits on the section's own padding — keep it on
+  // the same left rail as the row labels (matches the Properties header).
+  > .mech-composer__section-title {
+    padding: 4px 0 0;
+  }
 }
 .mech-composer__row {
   display: flex;
@@ -975,6 +981,92 @@ $space: #e5227f; // Figma-style spacing pink for gap + padding editing (distinct
 
   > span:first-child {
     padding-top: 6px;
+  }
+}
+
+// ── Optional properties (the "+ Add" menu) ───────────────────────────────────
+.mech-composer__props-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mech-muted);
+
+  .mech-icon-button {
+    margin: -5px -5px -5px 0; // keep the header row compact
+  }
+}
+// An added property row: the remove button hangs in the section's right gutter
+// and fades in on row hover, so editors stay aligned with the core sections.
+.mech-composer__prop {
+  position: relative;
+
+  .mech-composer__prop-remove {
+    opacity: 0;
+  }
+  &:hover .mech-composer__prop-remove,
+  .mech-composer__prop-remove:focus-visible {
+    opacity: 1;
+  }
+}
+.mech-composer__prop-remove {
+  position: absolute;
+  right: -14px;
+  top: 50%;
+  translate: 0 -50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: var(--mech-bg);
+  color: var(--mech-muted);
+  cursor: pointer;
+  transition: opacity 0.1s;
+
+  &:hover {
+    background: var(--mech-hover);
+    color: var(--mech-fg);
+  }
+  .vicon {
+    font-size: 11px;
+  }
+}
+.mech-composer__row--top.mech-composer__prop .mech-composer__prop-remove {
+  top: 15px; // align with the first line, not the middle of a tall editor
+}
+.mech-composer__add-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 168px;
+}
+.mech-composer__add-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border: none;
+  border-radius: var(--mech-radius-sm);
+  background: none;
+  color: var(--mech-fg);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--mech-hover);
+  }
+  .vicon {
+    font-size: 14px;
+    color: var(--mech-fg-alt);
   }
 }
 .mech-composer__color {
