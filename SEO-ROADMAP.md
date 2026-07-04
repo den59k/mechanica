@@ -103,44 +103,18 @@ accumulated ranking is lost. This is the standard CMS answer.
 
 **Size:** small-medium. Mostly deciding the folder-config shape.
 
-## 5. `<Image>` runtime component (progressive blur-up loading)
+## 5. `<Image>` runtime component (progressive blur-up loading) — ✅ shipped
 
-**What:** a component exported from `mechanica` that renders the image-field
-value correctly and progressively:
-`<Image :image="props.image" />` → `<img src alt width height loading="lazy"
-decoding="async">` painted over an inline blurred preview that shows with the
-first HTML render.
-
-**Why:** every block author currently hand-writes the attributes (see dev-app's
-[Banner.vue](packages/dev-app/src/blocks/Banner.vue) for the manual pattern),
-and large images — full-screen hero banners especially — paint late and shift
-layout without them. One component makes the right thing the default, and it's
-the natural carrier for `srcset` once §1 lands.
-
-**Design sketch:**
-- **Dimensions** (already stored on the field) render as `width`/`height`
-  attributes — the browser reserves the box, zero layout shift.
-- **LQIP blur-up:** at upload, the *editor* downscales the image on a canvas
-  (~24 px wide, WebP/JPEG data URI, ~1 KB) into the field's existing
-  `previewSrc` slot. The component shows it as an inline blurred background the
-  instant HTML renders (a data URI costs no request) while the real image
-  loads over it. No server-side image library — consistent with the repo's
-  no-native-deps stance. Data URIs pass the export's `onFile` rewrite
-  untouched (only `/@mechanica/assets/…` URLs are rewritten).
-- **Deferral is native, not JS:** `loading="lazy"` lets the browser defer
-  offscreen requests itself — SSR-safe, works without JS, and keeps the real
-  `src` in the HTML for image SEO. A hand-rolled IntersectionObserver swap
-  (preview in `src`, real URL in a data attribute) would hide images from
-  crawlers and complicate hydration — avoid.
-- **Heroes are the exception:** above-the-fold banners must *not* be lazy
-  (that delays LCP). An `eager` prop renders `loading="eager"` +
-  `fetchpriority="high"`; the LQIP still covers the download/decode gap —
-  exactly the full-screen-banner case.
-- Editor nit: the image field's own thumbnail should prefer `src` over
-  `previewSrc` once previews are tiny LQIPs.
-
-**Size:** small — one SFC in `src/core/` + the canvas downscale in the editor
-upload path + tests. Good first follow-up; do before or with §1.
+Implemented (July 2026). `<Image :image="props.image" />` (exported from
+`mechanica`, `src/core/image.ts`) renders alt + intrinsic dimensions (no
+layout shift), native `loading="lazy"` + `decoding="async"`, and the field's
+LQIP `previewSrc` — a ~24 px data URI the editor generates on a canvas at
+pick/upload (`analyzeImageFile`) — as a blurred background until the real
+image loads. `eager` switches to `loading="eager"` + `fetchpriority="high"`
+for above-the-fold heroes. Deferral is deliberately native (no
+IntersectionObserver swap: it would hide `src` from crawlers and complicate
+hydration). dev-app's Banner is the reference block. The §1 srcset ladder
+plugs into this component.
 
 ## 6. Article/Product JSON-LD presets (documentation, mostly)
 
@@ -203,7 +177,7 @@ decision.
 
 ---
 
-**Suggested order:** 5 → 8 → 3 → 2 → 4 → 6 → 1 (7 anytime). §5, §3 and §8's
-`llms.txt` half are self-contained quick wins; §8's Markdown mirror wants the
-`toMarkdown` contract settled first; §1 should come last since §5 defines the
-rendering surface it needs.
+**Suggested order:** 8 → 3 → 2 → 4 → 6 → 1 (7 anytime; 5 shipped). §3 and
+§8's `llms.txt` half are self-contained quick wins; §8's Markdown mirror wants
+the `toMarkdown` contract settled first; §1 should come last — it plugs into
+the shipped `<Image>` component.

@@ -43,7 +43,7 @@ import { inject, onMounted, ref } from 'vue'
 import VDialog from '../ui/VDialog.vue'
 import VIcon from '../components/VIcon.vue'
 import { useDialog } from '../ui/dialog'
-import { readImageSize } from '../lib/image-size'
+import { analyzeImageFile, readImageSize } from '../lib/image-size'
 
 interface ImageValue {
   src: string
@@ -84,9 +84,10 @@ async function load() {
 
 // Apply a chosen image and close the dialog — with its intrinsic pixel size,
 // so blocks can render width/height attributes (no layout shift). Measured
-// from `src`, never `previewSrc` (which may be a downscaled preview).
+// from `src`, never `previewSrc` (which may be a downscaled preview) — and
+// skipped when the upload path already decoded the file.
 async function select(value: ImageValue) {
-  const size = await readImageSize(value.src)
+  const size = value.width && value.height ? null : await readImageSize(value.src)
   props.onSelect(size ? { ...value, ...size } : value)
   dialog.back()
 }
@@ -95,8 +96,13 @@ async function upload(file: File) {
   if (!uploader || busy.value) return
   busy.value = true
   try {
-    const result = await uploader(file)
-    select({ src: result.src, previewSrc: result.previewSrc ?? result.src })
+    // Upload and local decode (dimensions + LQIP blur-up preview) in parallel.
+    const [result, info] = await Promise.all([uploader(file), analyzeImageFile(file)])
+    await select({
+      src: result.src,
+      previewSrc: info?.lqip ?? result.previewSrc ?? result.src,
+      ...(info ? { width: info.width, height: info.height } : {}),
+    })
   } finally {
     busy.value = false
   }

@@ -1,6 +1,11 @@
 import { createApp, defineComponent, h, type App, type Component } from 'vue'
 import { unfoldSchema } from 'compact-json-schema'
-import { buildPreviewData, type ContentBlock } from 'mechanica-shared'
+import {
+  areFieldSchemasRegistered,
+  buildPreviewData,
+  registerFieldSchemas,
+  type ContentBlock,
+} from 'mechanica-shared'
 import { createMechanica } from './create-mechanica'
 import { renderBlocks } from './render-blocks'
 import type { BlocksMap } from './state'
@@ -80,6 +85,10 @@ export function buildPreviewContent(
   blockId: string,
   overrides?: Record<string, unknown>,
 ): PreviewContent | null {
+  // The standalone preview route runs without the editor entry, which is what
+  // normally registers the field aliases — without them `unfoldSchema` can't
+  // expand `'image'`/`'smartLink'` props and their defaults degrade to ''.
+  if (!areFieldSchemasRegistered()) registerFieldSchemas()
   if (!blocks.get(blockId)) return null
   const map: BlocksMap = new Map(blocks)
   map.set(SLOT_PLACEHOLDER_ID, SlotPlaceholder as Component)

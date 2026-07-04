@@ -3,7 +3,8 @@
     <!-- Chosen: preview with hover actions + alt text (image SEO / a11y). -->
     <div v-if="value.src" class="mech-image__chosen">
       <div class="mech-image__frame">
-        <img :src="value.previewSrc || value.src" class="mech-image__preview" :alt="value.alt ?? ''" />
+        <!-- Always the real file: previewSrc may be a ~24px LQIP data URI. -->
+        <img :src="value.src" class="mech-image__preview" :alt="value.alt ?? ''" />
         <div class="mech-image__actions">
           <button type="button" class="mech-button" @click="openPicker">Replace</button>
           <button type="button" class="mech-button is-danger" @click="clear">Remove</button>
@@ -39,7 +40,7 @@
 import { computed, inject, ref } from 'vue'
 import VIcon from '../../components/VIcon.vue'
 import { dialogKey } from '../../ui/dialog'
-import { readImageSize } from '../../lib/image-size'
+import { analyzeImageFile, readImageSize } from '../../lib/image-size'
 import ImagePickerDialog from '../../dialogs/ImagePickerDialog.vue'
 
 interface ImageValue {
@@ -76,9 +77,15 @@ const onDrop = async (event: DragEvent) => {
   if (!file || !uploader || busy.value) return
   busy.value = true
   try {
-    const result = await uploader(file)
-    const size = await readImageSize(result.src)
-    set({ src: result.src, previewSrc: result.previewSrc ?? result.src, ...size })
+    // Upload and local decode (dimensions + LQIP blur-up preview) in parallel;
+    // when the file can't be decoded locally, measure the uploaded URL instead.
+    const [result, info] = await Promise.all([uploader(file), analyzeImageFile(file)])
+    const size = info ?? (await readImageSize(result.src))
+    set({
+      src: result.src,
+      previewSrc: info?.lqip ?? result.previewSrc ?? result.src,
+      ...(size ? { width: size.width, height: size.height } : {}),
+    })
   } finally {
     busy.value = false
   }

@@ -21,6 +21,7 @@ export { loadBlocks, usedBlockIds, type BlockLoader, type BlockLoaders } from '.
 export { createComposedComponent } from './composed'
 export { registerElements, elements, isElementBlock } from '../elements'
 export { Link, type LinkTarget } from './link'
+export { Image, type ImageValue } from './image'
 export {
   mountPreviewApp,
   buildPreviewContent,
