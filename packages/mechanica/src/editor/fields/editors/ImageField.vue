@@ -50,7 +50,9 @@ interface ImageValue {
   width?: number
   height?: number
 }
-type Uploader = (file: File) => Promise<{ src: string; previewSrc?: string }>
+type Uploader = (
+  file: File,
+) => Promise<{ src: string; previewSrc?: string; width?: number; height?: number }>
 
 const props = defineProps<{ modelValue?: ImageValue; schema: Record<string, any> }>()
 const emit = defineEmits<{ 'update:modelValue': [ImageValue] }>()
@@ -77,13 +79,16 @@ const onDrop = async (event: DragEvent) => {
   if (!file || !uploader || busy.value) return
   busy.value = true
   try {
-    // Upload and local decode (dimensions + LQIP blur-up preview) in parallel;
-    // when the file can't be decoded locally, measure the uploaded URL instead.
+    // Upload and local decode (dimensions + LQIP blur-up preview) in parallel.
+    // The server's `previewSrc`/size win when present (the optional `sharp`
+    // path), the local decode is the fallback — and when neither could decode
+    // the file, the uploaded URL is measured as a last resort.
     const [result, info] = await Promise.all([uploader(file), analyzeImageFile(file)])
-    const size = info ?? (await readImageSize(result.src))
+    const size =
+      result.width && result.height ? { width: result.width, height: result.height } : (info ?? (await readImageSize(result.src)))
     set({
       src: result.src,
-      previewSrc: info?.lqip ?? result.previewSrc ?? result.src,
+      previewSrc: result.previewSrc ?? info?.lqip ?? result.src,
       ...(size ? { width: size.width, height: size.height } : {}),
     })
   } finally {

@@ -25,8 +25,11 @@ export function defineWidget(definition: RichTextWidget): RichTextWidget {
 
 /** The editor services available to widget editing components. */
 export interface WidgetServices {
-  /** Upload a file to the project's assets, resolving to its public src. */
-  uploadFile: ((file: File) => Promise<{ src: string; previewSrc?: string }>) | null
+  /** Upload a file to the project's assets, resolving to its public src (plus
+   *  dimensions + LQIP previewSrc when the backend can produce them). */
+  uploadFile:
+    | ((file: File) => Promise<{ src: string; previewSrc?: string; width?: number; height?: number }>)
+    | null
   /** Open the project image picker (library + upload); `onSelect` gets the choice. */
   pickImage: (onSelect: (value: { src: string }) => void) => void
 }

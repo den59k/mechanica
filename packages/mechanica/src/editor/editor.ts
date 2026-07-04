@@ -137,16 +137,25 @@ const saveController: SaveController = {
   },
 }
 
-/** Upload a picked file to the dev server, returning its public src. */
-const uploadFile = async (file: File): Promise<{ src: string }> => {
+/** Upload response: the public src, plus dimensions + LQIP `previewSrc` when
+ *  the dev server has the optional `sharp` dependency installed. */
+interface UploadResult {
+  src: string
+  previewSrc?: string
+  width?: number
+  height?: number
+}
+
+/** Upload a picked file to the dev server. */
+const uploadFile = async (file: File): Promise<UploadResult> => {
   const response = await fetch('/@mechanica/upload', {
     method: 'POST',
     headers: { 'x-file-name': encodeURIComponent(file.name) },
     body: file,
   })
   if (!response.ok) throw new Error(`Upload failed (${response.status})`)
-  const { src } = (await response.json()) as { src: string }
-  return { src }
+  const { src, previewSrc, width, height } = (await response.json()) as UploadResult
+  return { src, previewSrc, width, height }
 }
 
 /** List images already uploaded under the project's `.mech/assets`. */

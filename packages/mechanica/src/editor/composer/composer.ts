@@ -35,15 +35,18 @@ function slugify(name: string): string {
 
 const newDefinition = (): ComposedBlockDefinition => ({ id: '', name: 'Untitled block', template: [] })
 
-/** Upload a picked file to the dev server, returning its public src. */
-const uploadFile = async (file: File): Promise<{ src: string; previewSrc?: string }> => {
+/** Upload a picked file to the dev server, returning its public src (plus
+ *  dimensions + LQIP previewSrc when the server has the optional `sharp`). */
+const uploadFile = async (
+  file: File,
+): Promise<{ src: string; previewSrc?: string; width?: number; height?: number }> => {
   const response = await fetch('/@mechanica/upload', {
     method: 'POST',
     headers: { 'x-file-name': encodeURIComponent(file.name) },
     body: file,
   })
   if (!response.ok) throw new Error(`Upload failed (${response.status})`)
-  return (await response.json()) as { src: string; previewSrc?: string }
+  return (await response.json()) as { src: string; previewSrc?: string; width?: number; height?: number }
 }
 
 /** List images already uploaded under the project's `.mech/assets`. */

@@ -1,6 +1,7 @@
 import { parseArgs } from './args'
 import { runBuild } from './build'
 import { runExport } from './export'
+import { runImages } from './images'
 import { runPush } from './push'
 import { runShot } from './shot'
 import { runThumbs, runBlockThumbs } from './thumbs'
@@ -25,6 +26,10 @@ Usage:
   mechanica thumbs --blocks [id]
                             Thumbnail every block (or ids starting with [id])
                             into .mech/thumbs/blocks/ for the palette cards
+  mechanica images          Generate image metadata (dimensions + blur-up
+                            previews) for .mech/assets into .mech/images.json —
+                            for pages authored without the browser editor
+                            (needs the optional sharp dependency; --force redoes all)
 `
 
 /** CLI entry: dispatch a command to its handler. */
@@ -38,6 +43,8 @@ export async function run(argv: string[]): Promise<void> {
       return runBuild()
     case 'export':
       return runExport({ siteUrl: str(flags['site-url']), siteName: str(flags['site-name']) })
+    case 'images':
+      return runImages({ force: flags.force === true })
     case 'push':
       return runPush({ key: str(flags.key), host: str(flags.host), dir: str(flags.dir) })
     case 'shot':

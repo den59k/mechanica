@@ -2,14 +2,27 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import { join } from 'node:path'
-import { getUniqueName, saveUpload, listImages } from '@/vite/dev/assets-store'
+import {
+  getUniqueName,
+  saveUpload,
+  listImages,
+  assetFileOf,
+  readImageManifest,
+  updateImageManifest,
+  harvestImageMeta,
+  applyImageManifest,
+} from '@/vite/dev/assets-store'
+import { setSharpModule } from '@/vite/dev/image-preview'
 
 let mechDir: string
 
 beforeEach(() => {
   mechDir = fs.mkdtempSync(join(os.tmpdir(), 'mech-'))
 })
-afterEach(() => fs.rmSync(mechDir, { recursive: true, force: true }))
+afterEach(() => {
+  fs.rmSync(mechDir, { recursive: true, force: true })
+  setSharpModule(undefined)
+})
 
 describe('getUniqueName', () => {
   it('returns the name unchanged when free', () => {
@@ -35,5 +48,94 @@ describe('saveUpload / listImages', () => {
 
   it('lists nothing when no assets exist', () => {
     expect(listImages(mechDir)).toEqual([])
+  })
+
+  it('enriches raster uploads with dimensions + LQIP when sharp is available', async () => {
+    setSharpModule(((_buffer: Buffer) => ({
+      metadata: async () => ({ width: 900, height: 450 }),
+      resize: () => ({ webp: () => ({ toBuffer: async () => Buffer.from('preview') }) }),
+    })) as never)
+
+    const result = await saveUpload(mechDir, 'photo.png', Buffer.from('data'))
+    expect(result).toEqual({
+      src: '/@mechanica/assets/photo.png',
+      name: 'photo.png',
+      width: 900,
+      height: 450,
+      previewSrc: `data:image/webp;base64,${Buffer.from('preview').toString('base64')}`,
+    })
+    // The analysis is also cached in the image manifest.
+    expect(readImageManifest(mechDir)['photo.png']).toEqual({
+      width: 900,
+      height: 450,
+      previewSrc: `data:image/webp;base64,${Buffer.from('preview').toString('base64')}`,
+    })
+
+    // Non-raster files skip analysis entirely, sharp or not.
+    const doc = await saveUpload(mechDir, 'notes.txt', Buffer.from('hi'))
+    expect(doc).toEqual({ src: '/@mechanica/assets/notes.txt', name: 'notes.txt' })
+    expect(readImageManifest(mechDir)['notes.txt']).toBeUndefined()
+  })
+})
+
+describe('image manifest', () => {
+  const picBlocks = new Map([
+    [
+      'pic',
+      {
+        id: 'pic',
+        name: 'Pic',
+        props: {
+          type: 'object',
+          properties: { image: { type: 'object', format: 'image', properties: {} } },
+          required: ['image'],
+        },
+      },
+    ],
+  ])
+
+  it('assetFileOf maps uploaded-asset srcs to filenames', () => {
+    expect(assetFileOf('/@mechanica/assets/a%20b.png')).toBe('a b.png')
+    expect(assetFileOf('/media/x.png')).toBeNull()
+    expect(assetFileOf(undefined)).toBeNull()
+  })
+
+  it('updateImageManifest merges entries without losing existing fields', () => {
+    updateImageManifest(mechDir, { 'a.png': { width: 10, height: 20 } })
+    updateImageManifest(mechDir, { 'a.png': { previewSrc: 'data:image/webp;base64,x' } })
+    expect(readImageManifest(mechDir)['a.png']).toEqual({
+      width: 10,
+      height: 20,
+      previewSrc: 'data:image/webp;base64,x',
+    })
+  })
+
+  it('harvest strips preview blobs out of content; apply injects them back', () => {
+    const content = [
+      {
+        id: '1',
+        blockId: 'pic',
+        data: {
+          image: { src: '/@mechanica/assets/a.png', previewSrc: 'data:image/webp;base64,x', width: 5, height: 6 },
+        },
+      },
+    ]
+
+    const entries = harvestImageMeta(content as never, picBlocks as never)
+    expect(entries).toEqual({ 'a.png': { width: 5, height: 6, previewSrc: 'data:image/webp;base64,x' } })
+    const image = (content[0]!.data as Record<string, any>).image
+    expect(image.previewSrc).toBeUndefined()
+    expect(image.width).toBe(5) // dimensions stay in page data — they're readable
+
+    applyImageManifest(content as never, picBlocks as never, entries)
+    expect(image.previewSrc).toBe('data:image/webp;base64,x')
+  })
+
+  it('harvest also drops the legacy previewSrc === src fallback', () => {
+    const content = [
+      { id: '1', blockId: 'pic', data: { image: { src: '/@mechanica/assets/a.png', previewSrc: '/@mechanica/assets/a.png' } } },
+    ]
+    harvestImageMeta(content as never, picBlocks as never)
+    expect((content[0]!.data as Record<string, any>).image.previewSrc).toBeUndefined()
   })
 })

@@ -180,8 +180,9 @@ const props = defineProps<{
   state: State
   components: BlockComponent[]
   dataEntries?: DataEntry[]
-  /** Persist a picked file and return its public src; enables image-field uploads. */
-  uploadFile?: (file: File) => Promise<{ src: string; previewSrc?: string }>
+  /** Persist a picked file and return its public src (plus dimensions + LQIP
+   *  previewSrc when the backend can produce them); enables image uploads. */
+  uploadFile?: (file: File) => Promise<{ src: string; previewSrc?: string; width?: number; height?: number }>
   /** List images already uploaded to the project, for the reuse-an-image picker. */
   listImages?: () => Promise<{ id: string; name: string; src: string }[]>
   onChange?: (snapshot: EditorSnapshot) => void

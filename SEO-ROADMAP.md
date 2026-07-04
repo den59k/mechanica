@@ -30,12 +30,17 @@ copies `.mech/assets` files byte-for-byte — a 4 MB photo ships as 4 MB.
   *render* it. Ship a small `<Image>` component from the runtime (see §5)
   that builds `srcset` by convention from `src` + the ladder; the export
   guarantees the files exist.
-- Library choice is the hard part: `sharp` is native (fine under Node ≥ 20 and
-  Bun, but a heavy install); a WASM codec (`@jsquash/*`) is slower but
-  dependency-safe. Suggest an optional peer dependency — no library found →
-  plain copy with a one-line notice, exactly today's behavior.
+- The optional-`sharp` plumbing **already exists** (July 2026):
+  `src/vite/dev/image-preview.ts` resolves `sharp` from the *site's* project
+  root (never a mechanica dependency) and powers upload-time LQIP, the
+  `mechanica images` command, and the export-time metadata backfill — all
+  cached in the image manifest (`.mech/images.json`). The ladder reuses that
+  loader, the manifest (add a `variants` field per asset), and the same
+  export-side walk over image fields — what's left is variant generation,
+  emission, and the `srcset` convention in `<Image>`.
 
-**Size:** the largest item here — new module + `<Image>` + tests. Do last.
+**Size:** the largest item here — variant generation + `<Image>` srcset +
+tests. Do last.
 
 ## 2. Auto OG images (`mechanica og-images`)
 

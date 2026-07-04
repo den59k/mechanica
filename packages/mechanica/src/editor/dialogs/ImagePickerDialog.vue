@@ -43,7 +43,7 @@ import { inject, onMounted, ref } from 'vue'
 import VDialog from '../ui/VDialog.vue'
 import VIcon from '../components/VIcon.vue'
 import { useDialog } from '../ui/dialog'
-import { analyzeImageFile, readImageSize } from '../lib/image-size'
+import { analyzeImageFile, analyzeImageUrl, readImageSize } from '../lib/image-size'
 
 interface ImageValue {
   src: string
@@ -57,7 +57,9 @@ interface LibraryImage {
   name: string
   src: string
 }
-type Uploader = (file: File) => Promise<{ src: string; previewSrc?: string }>
+type Uploader = (
+  file: File,
+) => Promise<{ src: string; previewSrc?: string; width?: number; height?: number }>
 type Library = () => Promise<LibraryImage[]>
 
 const props = defineProps<{ onSelect: (value: ImageValue) => void }>()
@@ -82,13 +84,23 @@ async function load() {
   }
 }
 
-// Apply a chosen image and close the dialog — with its intrinsic pixel size,
-// so blocks can render width/height attributes (no layout shift). Measured
-// from `src`, never `previewSrc` (which may be a downscaled preview) — and
-// skipped when the upload path already decoded the file.
+// Apply a chosen image and close the dialog. Library picks arrive as a bare
+// `{ src }`: fetch + decode the asset locally to fill in the dimensions and
+// LQIP preview (with the image loader as a last-resort size measure). Uploads
+// arrive complete and pass straight through.
 async function select(value: ImageValue) {
-  const size = value.width && value.height ? null : await readImageSize(value.src)
-  props.onSelect(size ? { ...value, ...size } : value)
+  // `previewSrc === src` is the legacy no-preview fallback — treat it as absent.
+  const missingPreview = !value.previewSrc || value.previewSrc === value.src
+  if (!value.width || !value.height || missingPreview) {
+    const info = await analyzeImageUrl(value.src)
+    const size = info ?? (await readImageSize(value.src))
+    value = {
+      ...value,
+      ...(size ? { width: size.width, height: size.height } : {}),
+      ...(info?.lqip && missingPreview ? { previewSrc: info.lqip } : {}),
+    }
+  }
+  props.onSelect(value)
   dialog.back()
 }
 
@@ -97,11 +109,15 @@ async function upload(file: File) {
   busy.value = true
   try {
     // Upload and local decode (dimensions + LQIP blur-up preview) in parallel.
+    // The server's `previewSrc`/size win when present (the optional `sharp`
+    // path); the local canvas decode is the no-dependency fallback.
     const [result, info] = await Promise.all([uploader(file), analyzeImageFile(file)])
+    const width = result.width ?? info?.width
+    const height = result.height ?? info?.height
     await select({
       src: result.src,
-      previewSrc: info?.lqip ?? result.previewSrc ?? result.src,
-      ...(info ? { width: info.width, height: info.height } : {}),
+      previewSrc: result.previewSrc ?? info?.lqip ?? result.src,
+      ...(width && height ? { width, height } : {}),
     })
   } finally {
     busy.value = false

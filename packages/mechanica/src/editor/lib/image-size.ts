@@ -42,6 +42,21 @@ export async function analyzeImageFile(file: Blob): Promise<ImageFileInfo | null
 }
 
 /**
+ * {@link analyzeImageFile} for an already-uploaded URL: fetch the file and
+ * decode it locally. This is how *library picks* get dimensions + LQIP — there
+ * is no `File` in hand, only the asset's src. Null on any failure.
+ */
+export async function analyzeImageUrl(src: string): Promise<ImageFileInfo | null> {
+  try {
+    const response = await fetch(src)
+    if (!response.ok) return null
+    return await analyzeImageFile(await response.blob())
+  } catch {
+    return null
+  }
+}
+
+/**
  * Intrinsic pixel size of an image URL, via the browser's image loader.
  * Resolves `null` when the image can't be loaded or reports no size — callers
  * simply skip the dimensions then, never fail.

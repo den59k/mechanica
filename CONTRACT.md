@@ -130,6 +130,16 @@ is always: **head → regions → children → close.**
 Scalars, nested objects (`secondary: { url: /docs, openNewTab: true }`), and
 arrays of objects all live here as ordinary YAML.
 
+**Image values stay lean.** An `image`-field prop is authored as
+`image: { src: /@mechanica/assets/<file>, alt: "…" }` (plus optional
+`width`/`height`). Never inline a `previewSrc` data URI — the blur-up preview
+and any missing dimensions live in the **image manifest**
+(`.mech/images.json`), maintained by the editor automatically and generated
+headlessly with **`mechanica images`** (requires the project's optional
+`sharp` dependency). The dev server and the export inject manifest entries
+into the rendered state; a data-URI `previewSrc` that does sneak into a save
+is moved to the manifest and stripped from the page file.
+
 ---
 
 ## 3. `@field` regions (prose)

@@ -1,6 +1,6 @@
 # PLAN: Block Composer (composed blocks)
 
-Status: **Stage 0 (foundation) complete & verified. Stage 1 (composer UI) next.**
+Status: **Stages 0–1 complete & verified. Stage 2 (parameterization + palette integration) next.**
 Owner docs: this file. Companion specs: [CLAUDE.md](./CLAUDE.md) (architecture), [CONTRACT.md](./CONTRACT.md) (`.page.md`), [PREVIEW.md](./PREVIEW.md) (shots/previews).
 
 ## Progress
@@ -12,12 +12,32 @@ Owner docs: this file. Companion specs: [CLAUDE.md](./CLAUDE.md) (architecture),
   props resolve; the dev CRUD store + `/@mechanica/composed*` endpoints exist;
   `mechanica shot <id>` and `mechanica shot /page` both render composed blocks.
   Verified end-to-end via `dev-app`'s `hero-banner.block.yml` + `/composed-demo`
-  page (export HTML + 1440/390 shots). Tests: shared `compose`/`block-format`,
-  mechanica `style-vars`/`elements.dom`/`composed.dom`/`collect-composed`/
-  `composed-store` + updated `entries`. **`bun run build` must run before an
-  export/pack** — the new `mechanica-shared/block-format` subpath is a dist entry.
-- **Stage 1 — TODO.** The Composer UI (route, canvas, inspector, save wiring).
-- **Stage 2 / 3 — TODO** (parameterization/palette integration; responsive/absolute/polish).
+  page (export HTML + 1440/390 shots).
+- **Stage 1 — DONE.** The Composer UI at `/@mechanica/composer/<id>` (or `~new`):
+  full-screen dev app (`mechanica/composer` export → `src/editor/composer/`).
+  Shell with name field, breakpoint switcher (1440/768/390), zoom, undo/redo,
+  save status. Left panel: insert palette (Frame/Text/Image/Button) + layers
+  tree. Center: live canvas (renders `def.template` via `renderBlocks`, click to
+  select with a CSS-outline overlay, breakpoint preview by **pre-merging** `$bp`
+  overrides so it works without viewport media queries). Right: inspector with
+  Content / Layout / Size (hug·fill·fixed) / Typography / Style / Image / Button
+  sections; responsive edits write to the active breakpoint layer. Store
+  (`composer-store.ts`) reuses `content-tree` ops; history + debounced
+  create-then-update save (`composer.ts`). Verified in a headless browser:
+  loaded `hero-banner` (5 canvas blocks, no console errors), mobile breakpoint
+  applied the 32px title override, and a from-scratch build (Frame › Text ›
+  Button, edited content) saved to `.mech/blocks/composer-test.block.yml`.
+  Known Stage-2 gaps: a `$bind` field shows its resolved preview value and edits
+  to it replace the binding with a literal (no bind UI yet); no drag-reorder in
+  the canvas (use layers + move); no inline canvas text editing (inspector only).
+- **Stage 2 — TODO.** Prop exposure (`⚡ Expose as prop` → schema + previewData),
+  `composable: true` code blocks in the insert palette, page-editor palette
+  "Site blocks" section + New/Edit/Delete entry points, `thumbs --blocks`.
+- **Stage 3 — TODO** (breakpoint override affordances, `$abs` dragging, token-first
+  colors, "save selection as block", delete-with-usage-warning).
+
+**`bun run build` must run before an export/pack** — the `mechanica-shared/block-format`
+subpath and `mechanica/composer` entry are dist entries.
 
 ## 1. What we are building
 

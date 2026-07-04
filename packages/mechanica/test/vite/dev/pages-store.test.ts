@@ -18,6 +18,7 @@ import {
   pageVersion,
   pageUrlOf,
   setPageBlocks,
+  fillImageMeta,
   PageExistsError,
 } from '@/vite/dev/pages-store'
 
@@ -34,6 +35,73 @@ function writePage(relative: string, data: Record<string, unknown>) {
   fs.mkdirSync(dirname(file), { recursive: true })
   fs.writeFileSync(file, serializePage({ content: [], data: {}, ...data }))
 }
+
+describe('image metadata manifest', () => {
+  afterEach(() => setPageBlocks(undefined))
+
+  const picBlock = {
+    id: 'pic',
+    name: 'Pic',
+    props: {
+      type: 'object',
+      properties: {
+        image: { type: 'object', format: 'image', properties: { src: { type: 'string' } } },
+      },
+      required: ['image'],
+    },
+  }
+
+  it('savePage moves LQIP previews into images.json — .page.md stays blob-free', () => {
+    setPageBlocks([picBlock as never])
+    savePage(mechDir, '/gallery', {
+      content: [
+        {
+          id: 'g',
+          blockId: 'pic',
+          data: {
+            image: {
+              src: '/@mechanica/assets/photo.png',
+              previewSrc: 'data:image/webp;base64,blob',
+              width: 800,
+              height: 600,
+              alt: 'A photo',
+            },
+          },
+        },
+      ],
+    })
+
+    // The page file keeps the meaningful fields but not the preview blob…
+    const raw = fs.readFileSync(getPagePath(mechDir, '/gallery'), 'utf-8')
+    expect(raw).not.toContain('data:image/webp')
+    expect(raw).toContain('width: 800')
+    expect(raw).toContain('alt: A photo')
+
+    // …which landed in the manifest, keyed by asset filename.
+    const manifest = JSON.parse(fs.readFileSync(join(mechDir, 'images.json'), 'utf-8'))
+    expect(manifest['photo.png']).toEqual({
+      width: 800,
+      height: 600,
+      previewSrc: 'data:image/webp;base64,blob',
+    })
+  })
+
+  it('fillImageMeta injects manifest entries into content read for state', () => {
+    setPageBlocks([picBlock as never])
+    fs.writeFileSync(
+      join(mechDir, 'images.json'),
+      JSON.stringify({ 'photo.png': { width: 640, height: 480, previewSrc: 'data:image/webp;base64,x' } }),
+    )
+    const content = [{ id: 'g', blockId: 'pic', data: { image: { src: '/@mechanica/assets/photo.png' } } }]
+    fillImageMeta(mechDir, content as never)
+    expect((content[0]!.data as Record<string, unknown>).image).toEqual({
+      src: '/@mechanica/assets/photo.png',
+      previewSrc: 'data:image/webp;base64,x',
+      width: 640,
+      height: 480,
+    })
+  })
+})
 
 describe('schema migrations on read', () => {
   afterEach(() => setPageBlocks(undefined))

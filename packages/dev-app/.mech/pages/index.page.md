@@ -11,7 +11,7 @@ data:
 
 ::: banner #5807eef5-b60c-457e-b0d4-a07f7facf810
 image:
-  src: /@mechanica/assets/ComfyUI_temp_lkavh_00049_.png
+  src: /@mechanica/assets/ChatGPT Image 4 дек. 2025 г., 18_38_04.png
   width: 1024
   height: 1024
 heading: Banner heading

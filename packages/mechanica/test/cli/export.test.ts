@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { registerFieldSchemas, areFieldSchemasRegistered } from 'mechanica-shared'
 import { serializePage } from 'mechanica-shared/page-format'
 import { exportProject, type SsrBundle } from '@/cli/export'
+import { setSharpModule } from '@/vite/dev/image-preview'
 
 if (!areFieldSchemasRegistered()) registerFieldSchemas()
 
@@ -482,6 +483,106 @@ describe('mechanica export (SEO)', () => {
     // The root page has no trail.
     const home = await readFile(join(dir, 'export/index.html'), 'utf-8')
     expect(home).not.toContain('BreadcrumbList')
+  })
+
+  it('backfills missing image previewSrc + dimensions via optional sharp', async () => {
+    setSharpModule(((_buffer: Buffer) => ({
+      metadata: async () => ({ width: 900, height: 450 }),
+      resize: () => ({ webp: () => ({ toBuffer: async () => Buffer.from('preview') }) }),
+    })) as never)
+    try {
+      await mkdir(join(dir, '.mech/assets'), { recursive: true })
+      await writeFile(join(dir, '.mech/assets/old.png'), 'PNG')
+      await writeFile(
+        join(dir, '.mech/pages/gallery.page.md'),
+        serializePage({
+          // Authored before capture existed: src only, no preview/dimensions.
+          content: [{ id: 'g', blockId: 'pic', data: { image: { src: '/@mechanica/assets/old.png' } } }],
+          data: {},
+        }),
+      )
+
+      await exportProject(dir, ssr)
+
+      const gallery = await readFile(join(dir, 'export/gallery/index.html'), 'utf-8')
+      const lqip = `data:image/webp;base64,${Buffer.from('preview').toString('base64')}`
+      expect(gallery).toContain(`"previewSrc":"${lqip}"`)
+      expect(gallery).toContain('"width":900')
+      expect(gallery).toContain('"height":450')
+      expect(gallery).toContain('"src":"/media/old.png"') // rewrite still applies
+
+      // The computed analysis is cached into the manifest for dev + next runs.
+      const manifest = JSON.parse(await readFile(join(dir, '.mech/images.json'), 'utf-8'))
+      expect(manifest['old.png']).toEqual({ width: 900, height: 450, previewSrc: lqip })
+    } finally {
+      setSharpModule(undefined)
+    }
+  })
+
+  it('fills image metadata from .mech/images.json — no sharp needed', async () => {
+    setSharpModule(null)
+    try {
+      await mkdir(join(dir, '.mech/assets'), { recursive: true })
+      await writeFile(join(dir, '.mech/assets/old.png'), 'PNG')
+      await writeFile(
+        join(dir, '.mech/images.json'),
+        JSON.stringify({ 'old.png': { width: 320, height: 240, previewSrc: 'data:image/webp;base64,manifested' } }),
+      )
+      await writeFile(
+        join(dir, '.mech/pages/gallery.page.md'),
+        serializePage({
+          content: [{ id: 'g', blockId: 'pic', data: { image: { src: '/@mechanica/assets/old.png' } } }],
+          data: {},
+        }),
+      )
+
+      const warnings: string[] = []
+      await exportProject(dir, ssr, { onWarn: (message) => warnings.push(message) })
+
+      const gallery = await readFile(join(dir, 'export/gallery/index.html'), 'utf-8')
+      expect(gallery).toContain('"previewSrc":"data:image/webp;base64,manifested"')
+      expect(gallery).toContain('"width":320')
+      expect(warnings.some((w) => w.includes('lack a preview'))).toBe(false)
+    } finally {
+      setSharpModule(undefined)
+    }
+  })
+
+  it('leaves complete image values alone and hints at sharp when it is missing', async () => {
+    setSharpModule(null) // simulate: optional dependency not installed
+    try {
+      await mkdir(join(dir, '.mech/assets'), { recursive: true })
+      await writeFile(join(dir, '.mech/assets/a.png'), 'PNG')
+      await writeFile(join(dir, '.mech/assets/b.png'), 'PNG')
+      await writeFile(
+        join(dir, '.mech/pages/gallery.page.md'),
+        serializePage({
+          content: [
+            // Complete (captured in the editor) — nothing to backfill.
+            {
+              id: 'done',
+              blockId: 'pic',
+              data: {
+                image: { src: '/@mechanica/assets/a.png', previewSrc: 'data:image/webp;base64,ed', width: 10, height: 20 },
+              },
+            },
+            // Incomplete — would need sharp.
+            { id: 'todo', blockId: 'pic', data: { image: { src: '/@mechanica/assets/b.png' } } },
+          ],
+          data: {},
+        }),
+      )
+
+      const warnings: string[] = []
+      await exportProject(dir, ssr, { onWarn: (message) => warnings.push(message) })
+
+      const gallery = await readFile(join(dir, 'export/gallery/index.html'), 'utf-8')
+      expect(gallery).toContain('"previewSrc":"data:image/webp;base64,ed"')
+      expect(gallery).toContain('"width":10')
+      expect(warnings.some((w) => w.includes('1 image(s)') && w.includes('sharp'))).toBe(true)
+    } finally {
+      setSharpModule(undefined)
+    }
   })
 
   it('warns about page-level SEO issues and duplicate titles', async () => {

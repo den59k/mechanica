@@ -9,6 +9,7 @@ import {
   type ContentBlock,
 } from 'mechanica-shared'
 import { parsePage, serializePage, type PageDoc, type RichTextCodec } from 'mechanica-shared/page-format'
+import { applyImageManifest, harvestImageMeta, readImageManifest, updateImageManifest } from './assets-store'
 import { writeFileAtomic, markMutated } from './fs-utils'
 
 /** Shape of a page file under `<mech>/pages` (the parsed `.page.md` document). */
@@ -50,6 +51,17 @@ export function fillContentDefaults(content: ContentBlock[]): void {
     const meta = blocksMeta!.get(block.blockId)
     if (meta?.props) block.data = passDefaultValue(block.data ?? {}, meta.props)
   })
+}
+
+/**
+ * Inject cached image metadata (`.mech/images.json`: LQIP previews and
+ * intrinsic dimensions) into the content's image field values — the inverse
+ * of the harvesting {@link savePage} does, so page files stay blob-free while
+ * runtime state is complete. A no-op until {@link setPageBlocks} has run.
+ */
+export function fillImageMeta(mechDir: string, content: ContentBlock[]): void {
+  if (!blocksMeta) return
+  applyImageManifest(content, blocksMeta, readImageManifest(mechDir))
 }
 
 /** A page entry as returned by {@link listPages}. */
@@ -218,6 +230,13 @@ export function savePage(
   const page = fs.existsSync(file) ? readFile(file) : emptyPage()
   if (patch.content !== undefined) page.content = patch.content as ContentBlock[]
   if (patch.data !== undefined) page.data = patch.data
+  // Derived image metadata (LQIP previews) moves to `.mech/images.json` on the
+  // way to disk — `.page.md` stays free of base64 blobs, and the state builder
+  // injects the entries back (fillImageMeta). This is also how client-side
+  // captured previews reach the manifest when `sharp` isn't installed.
+  if (blocksMeta && page.content) {
+    updateImageManifest(mechDir, harvestImageMeta(page.content, blocksMeta))
+  }
   writeFile(file, page)
   return pageVersion(mechDir, urlPath)
 }

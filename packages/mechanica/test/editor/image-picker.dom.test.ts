@@ -94,6 +94,45 @@ describe('image picker', () => {
     app.unmount()
   })
 
+  it('library picks fetch + decode the asset for LQIP and dimensions', async () => {
+    // A decodable environment: fetch returns the asset blob, bitmap + canvas
+    // stubs stand in for the browser decoders jsdom lacks.
+    vi.stubGlobal('fetch', async () => ({ ok: true, blob: async () => new Blob(['x']) }))
+    vi.stubGlobal('createImageBitmap', async () => ({ width: 800, height: 400, close: () => {} }))
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: () => ({ drawImage: () => {} }),
+      toDataURL: () => 'data:image/webp;base64,lqip',
+    }
+    const original = document.createElement.bind(document)
+    vi.spyOn(document, 'createElement').mockImplementation(((tag: string, options?: ElementCreationOptions) =>
+      tag === 'canvas' ? (canvas as unknown as HTMLElement) : original(tag, options)) as typeof document.createElement)
+
+    const picked: { src: string }[] = []
+    const el = original('div')
+    const app = createApp({
+      render: () => h(ImagePickerDialog, { onSelect: (v: { src: string }) => picked.push(v) }),
+    })
+    app.provide(dialogKey, createDialogStore())
+    app.provide('mechImageLibrary', async () => [{ id: 'a', name: 'a.png', src: '/a.png' }])
+    app.mount(el)
+    await flush()
+    await nextTick()
+
+    el.querySelector<HTMLButtonElement>('.mech-image-picker__item')!.click()
+    await flush()
+
+    expect(picked.at(-1)).toEqual({
+      src: '/a.png',
+      previewSrc: 'data:image/webp;base64,lqip',
+      width: 800,
+      height: 400,
+    })
+
+    app.unmount()
+  })
+
   it('uploads decode the file locally: LQIP preview + dimensions, no re-measure', async () => {
     // A decodable file (createImageBitmap + canvas available): previewSrc
     // becomes the generated LQIP and the size comes from the bitmap itself.

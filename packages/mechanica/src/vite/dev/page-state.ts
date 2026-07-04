@@ -1,5 +1,5 @@
 import type { PageMeta } from 'mechanica-shared'
-import { readPage, pageVersion, fillContentDefaults } from './pages-store'
+import { readPage, pageVersion, fillContentDefaults, fillImageMeta } from './pages-store'
 import { readSiteData, readFolderData, folderOf } from './data-store'
 
 /**
@@ -41,6 +41,9 @@ export function buildPageState(mechDir: string, urlPath: string) {
   // export — a hand-authored page omitting a defaulted prop renders the same
   // in dev and production (blocks never apply defaults at render time).
   fillContentDefaults(content)
+  // Inject cached image metadata (LQIP previews, dimensions) from
+  // `.mech/images.json` — page files don't carry the preview blobs.
+  fillImageMeta(mechDir, content)
   const folder = folderOf(mechDir, pagePath)
   const siteData = readSiteData(mechDir)
   const folderData = readFolderData(mechDir, folder)

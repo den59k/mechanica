@@ -14,6 +14,7 @@ import {
   resolveQueryKey,
   templateBlockIds,
   validateLinks,
+  walkSchema,
   walkTree,
   type Block,
   type ComposedBlockDefinition,
@@ -23,7 +24,16 @@ import {
 } from 'mechanica-shared'
 import { parsePage, type RichTextCodec } from 'mechanica-shared/page-format'
 import { toBlockMeta, composedBlockMeta, type BlockComponent } from '../editor/lib/block-meta'
+import {
+  assetFileOf,
+  readImageManifest,
+  updateImageManifest,
+  UPLOADS_PREFIX,
+  type ImageManifest,
+  type ImageManifestEntry,
+} from '../vite/dev/assets-store'
 import { readSiteData, readFoldersData } from '../vite/dev/data-store'
+import { analyzeImageBuffer, hasSharp } from '../vite/dev/image-preview'
 import { listPages, setPageCodec } from '../vite/dev/pages-store'
 import { buildRichTextCodec } from '../vite/rich-text-codec'
 import { blockAssetLinks, BLOCKS_MANIFEST_FILE, type BlockChunkRef, type ViteManifest } from './page-assets'
@@ -150,10 +160,80 @@ async function readBlockAssets(
   }
 }
 
-/** The dev-server URL prefix uploaded assets are referenced by in page data. */
-const UPLOADS_PREFIX = '/@mechanica/assets/'
 /** Where uploaded assets land in the static export. */
 const MEDIA_DIR = 'media'
+
+/** An image field value, as stored in page data. */
+interface ImageFieldValue {
+  src: string
+  previewSrc?: string
+  width?: number
+  height?: number
+}
+
+/** Fill a value's missing preview/dimensions from a manifest entry. */
+function fillImageValue(value: ImageFieldValue, entry: ImageManifestEntry): void {
+  if (entry.previewSrc && (!value.previewSrc || value.previewSrc === value.src)) {
+    value.previewSrc = entry.previewSrc
+  }
+  if (entry.width && !value.width) value.width = entry.width
+  if (entry.height && !value.height) value.height = entry.height
+}
+
+/**
+ * Fill missing image metadata — LQIP `previewSrc` + intrinsic dimensions —
+ * into the state being exported (page files are never touched). Sources, in
+ * order: the `.mech/images.json` manifest (written by uploads, editor saves
+ * and `mechanica images`), then the optional `sharp` dependency for anything
+ * still missing — those computed entries are cached back into the manifest.
+ * Without sharp, leftover gaps get a one-time hint.
+ */
+async function backfillImageMeta(
+  pages: ExportPage[],
+  blocksMap: Map<string, Block>,
+  mechDir: string,
+  warn: (message: string) => void,
+): Promise<void> {
+  const manifest = readImageManifest(mechDir)
+  const incomplete = new Map<string, ImageFieldValue[]>()
+  for (const page of pages) {
+    walkTree(page.content, (block) => {
+      const meta = blocksMap.get(block.blockId)
+      if (!meta) return
+      walkSchema(block.data, meta.props, (value: any, schema: any) => {
+        if (schema.format !== 'image') return
+        const file = assetFileOf(value?.src)
+        if (!file) return
+        const entry = manifest[file]
+        if (entry) fillImageValue(value, entry)
+        if (!value.previewSrc || value.previewSrc === value.src || !value.width || !value.height) {
+          incomplete.set(file, [...(incomplete.get(file) ?? []), value])
+        }
+      })
+    })
+  }
+  if (!incomplete.size) return
+
+  if (!(await hasSharp())) {
+    warn(
+      `[mechanica] ${incomplete.size} image(s) lack a preview or dimensions — install the ` +
+        `optional "sharp" dependency or run \`mechanica images\` to generate them`,
+    )
+    return
+  }
+
+  // One decode per distinct file, shared across every value referencing it;
+  // computed entries are cached into the manifest for dev and future exports.
+  const computed: ImageManifest = {}
+  for (const [file, values] of incomplete) {
+    const buffer = await readFile(join(mechDir, 'assets', file)).catch(() => null)
+    const info = buffer ? await analyzeImageBuffer(buffer) : null
+    if (!info) continue
+    computed[file] = info
+    for (const value of values) fillImageValue(value, info)
+  }
+  updateImageManifest(mechDir, computed)
+}
 
 /**
  * Statically render every page of an already-built project into `export/`,
@@ -233,6 +313,10 @@ export async function exportProject(
   for (const issue of validateLinks(pages, blocksMap)) {
     warn(`[mechanica] Broken link on ${issue.page}: ${issue.url} has no matching page`)
   }
+
+  // Fill image metadata (LQIP previews, dimensions) into the exported state:
+  // manifest first, optional `sharp` for anything still missing.
+  await backfillImageMeta(pages, blocksMap, join(cwd, '.mech'), warn)
 
   const exportDir = join(cwd, 'export')
   await rm(exportDir, { recursive: true, force: true })
