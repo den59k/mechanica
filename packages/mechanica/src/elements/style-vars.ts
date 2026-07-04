@@ -151,6 +151,29 @@ export function absStyle(abs: unknown): Style {
   return out
 }
 
+/**
+ * Placement knobs a *non-element* block carries when placed in a composed
+ * template — margin + absolute `$abs`. Built-in elements read these inline; a
+ * component (an arbitrary SFC whose root we can't style) is wrapped in a `.mxel`
+ * div that carries this style instead (see `renderBlocks`).
+ */
+const PLACEMENT_VARS: Record<string, VarSpec> = { margin: FRAME_VARS.margin! }
+
+/**
+ * The placement style (responsive margin vars + `$abs` position) for a block, or
+ * `null` when it carries none — so the renderer only wraps blocks that need it.
+ * The `--el-margin*` vars pair with the `.mxel` rules in `elements.scss`.
+ */
+export function placementStyle(data: unknown): Style | null {
+  if (!isObject(data)) return null
+  const marginVars = responsiveVars(data, PLACEMENT_VARS)
+  const abs = absStyle(data.$abs)
+  const hasMargin = Object.keys(marginVars).length > 0
+  const hasAbs = isObject(data.$abs)
+  if (!hasMargin && !hasAbs) return null
+  return compactStyle(marginVars, abs)
+}
+
 /** Merge helper: drop null/undefined entries so callers can spread freely. */
 export function compactStyle(...styles: (Style | undefined)[]): Style {
   const out: Style = {}

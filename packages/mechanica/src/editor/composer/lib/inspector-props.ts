@@ -22,15 +22,18 @@ export interface OptionalProp {
   dataKeys: string[]
   /** The root frame can't take it (position: the root *is* the block). */
   notRoot?: boolean
+  /** Also offered on a placed component / composed block — it's placement (the
+   *  wrapping `.mxel` div carries it), not a frame-internal knob. */
+  component?: boolean
 }
 
 export const OPTIONAL_PROPS: OptionalProp[] = [
   { key: 'padding', title: 'Padding', icon: 'sides', kinds: ['frame'], dataKeys: ['padding'] },
-  { key: 'margin', title: 'Margin', icon: 'margin', kinds: ['frame', 'text', 'image'], dataKeys: ['margin'] },
+  { key: 'margin', title: 'Margin', icon: 'margin', kinds: ['frame', 'text', 'image'], dataKeys: ['margin'], component: true },
   { key: 'maxWidth', title: 'Content width', icon: 'width', kinds: ['frame'], dataKeys: ['maxWidth'] },
   { key: 'background', title: 'Fill', icon: 'fill', kinds: ['frame'], dataKeys: ['background'] },
   { key: 'radius', title: 'Radius', icon: 'corner', kinds: ['frame', 'image'], dataKeys: ['radius'] },
-  { key: 'position', title: 'Position', icon: 'position', kinds: ['frame', 'text', 'image'], dataKeys: ['$abs'], notRoot: true },
+  { key: 'position', title: 'Position', icon: 'position', kinds: ['frame', 'text', 'image'], dataKeys: ['$abs'], notRoot: true, component: true },
 ]
 
 export function optionalProp(key: string): OptionalProp | null {
@@ -56,8 +59,14 @@ export function propPresent(node: ContentBlock, prop: OptionalProp): boolean {
   return prop.dataKeys.some((key) => layers.some((layer) => key in layer))
 }
 
-/** The properties this element could have (before filtering already-added ones). */
-export function availableProps(kind: ElementKind | null, isRoot: boolean): OptionalProp[] {
+/**
+ * The properties a node could have (before filtering already-added ones). A
+ * built-in element (`kind` set) gets its kind-specific set; a placed component /
+ * composed block (`kind` null, `isComponent`) gets only the placement props
+ * (margin + position) that its wrapping `.mxel` div can carry.
+ */
+export function availableProps(kind: ElementKind | null, isRoot: boolean, isComponent = false): OptionalProp[] {
+  if (isComponent) return OPTIONAL_PROPS.filter((p) => p.component && !(isRoot && p.notRoot))
   if (!kind) return []
   return OPTIONAL_PROPS.filter((p) => p.kinds.includes(kind) && !(isRoot && p.notRoot))
 }

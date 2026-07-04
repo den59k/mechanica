@@ -135,7 +135,7 @@
     </section>
 
     <!-- ── Optional properties (added on demand via "+") ──────────── -->
-    <section v-if="meta" class="mech-composer__section mech-composer__props-section">
+    <section v-if="propDefs.length" class="mech-composer__section mech-composer__props-section">
       <div class="mech-composer__props-head">
         <span>Properties</span>
         <button
@@ -312,7 +312,12 @@ const toggleAutoSpace = () => set('justify', val('justify') === 'between' ? 'sta
 // ── Optional properties (the "+ Add" menu) ───────────────────────────
 const addOpen = ref(false)
 const addBtn = ref<HTMLElement | null>(null)
-const propDefs = computed(() => availableProps(kind.value, isRoot.value))
+// Built-in elements get their kind-specific props; a placed component / composed
+// block (no element `meta`) gets only the placement props (margin + position),
+// which its wrapping `.mxel` div carries at render time.
+const propDefs = computed(() =>
+  meta.value ? availableProps(kind.value, isRoot.value) : availableProps(null, false, true),
+)
 /** A row renders when the property applies to this kind AND is present/added. */
 const show = (key: string) => propDefs.value.some((p) => p.key === key) && store.hasProp(node.value, key)
 const addable = computed(() => propDefs.value.filter((p) => !store.hasProp(node.value, p.key)))

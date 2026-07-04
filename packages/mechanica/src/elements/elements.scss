@@ -50,6 +50,14 @@
   max-width: 100%;
 }
 
+// Placement wrapper for a non-element block (a site component / composed block
+// placed in a composed template) that carries `margin` or `$abs`. It borrows
+// `.mxel` (margin var + responsive fallbacks + box-sizing) and lets the wrapped
+// component define its own size; `$abs` positions it against the parent frame.
+.mxel-slot {
+  display: block;
+}
+
 .mxel-image--empty {
   display: flex;
   align-items: center;

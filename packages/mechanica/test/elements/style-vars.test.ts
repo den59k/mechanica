@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { responsiveVars, absStyle, compactStyle, FRAME_VARS, SIZE_VARS } from '@/elements/style-vars'
+import { responsiveVars, absStyle, compactStyle, placementStyle, FRAME_VARS, SIZE_VARS } from '@/elements/style-vars'
 
 describe('responsiveVars: base mapping', () => {
   it('maps frame layout knobs to CSS variables', () => {
@@ -126,5 +126,37 @@ describe('absStyle', () => {
 describe('compactStyle', () => {
   it('merges and drops empty values', () => {
     expect(compactStyle({ a: '1', b: '' }, undefined, { c: '2' })).toEqual({ a: '1', c: '2' })
+  })
+})
+
+describe('placementStyle (component / composed placement wrapper)', () => {
+  it('returns null when the block carries no placement data', () => {
+    expect(placementStyle({ text: 'Hi' })).toBeNull()
+    expect(placementStyle('nope')).toBeNull()
+    expect(placementStyle(undefined)).toBeNull()
+  })
+
+  it('maps a margin (shorthand forms) to the --el-margin var', () => {
+    expect(placementStyle({ margin: 16 })).toEqual({ '--el-margin': '16px' })
+    expect(placementStyle({ margin: [8, 0] })).toEqual({ '--el-margin': '8px 0px' })
+  })
+
+  it('includes responsive margin overrides from $bp', () => {
+    expect(placementStyle({ margin: 16, $bp: { sm: { margin: 8 } } })).toEqual({
+      '--el-margin': '16px',
+      '--el-margin-sm': '8px',
+    })
+  })
+
+  it('maps $abs to absolute positioning, merged with margin', () => {
+    expect(placementStyle({ $abs: { anchor: 'top-right', x: 12, y: 4 } })).toEqual({
+      position: 'absolute',
+      right: '12px',
+      top: '4px',
+    })
+    expect(placementStyle({ margin: 8, $abs: { anchor: 'top-left', x: 0, y: 0 } })).toMatchObject({
+      '--el-margin': '8px',
+      position: 'absolute',
+    })
   })
 })

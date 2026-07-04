@@ -20,8 +20,13 @@ describe('availableProps', () => {
     expect(root).toContain('padding')
   })
 
-  it('returns nothing for non-element blocks', () => {
+  it('returns nothing for non-element blocks without the component flag', () => {
     expect(availableProps(null, false)).toEqual([])
+  })
+
+  it('offers only placement props (margin + position) to a placed component', () => {
+    const comp = availableProps(null, false, true).map((p) => p.key)
+    expect(comp).toEqual(['margin', 'position'])
   })
 })
 
