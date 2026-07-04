@@ -73,4 +73,14 @@ describe('generateSsrEntry', () => {
     expect(code).toContain('(query[key] = await context.resolveQuery(key))')
     expect(code).toContain('return { html, query }')
   })
+
+  it('bakes the site identity in for the export CLI (empty object when unset)', () => {
+    const bare = generateSsrEntry({ userEntry: '/src/main.ts' })
+    expect(bare).toContain('export const site = {}')
+    const configured = generateSsrEntry({
+      userEntry: '/src/main.ts',
+      site: { url: 'https://acme.test', name: 'Acme' },
+    })
+    expect(configured).toContain('export const site = {"url":"https://acme.test","name":"Acme"}')
+  })
 })

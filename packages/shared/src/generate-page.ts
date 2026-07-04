@@ -11,12 +11,19 @@ function escapeHtml(value: string): string {
 /**
  * Substitute `{{ a.b }}` placeholders in an HTML string with data values. Used to
  * template the `<head>` (title, meta, Open Graph, …) from `defineData` values and
- * the current page. Resolved values are HTML-escaped.
+ * the current page. Resolved values are HTML-escaped. The triple-brace form
+ * `{{{ a.b }}}` serializes the value as raw JSON instead (script-safe, see
+ * {@link serializeState}) — for JSON-LD structured data inside a
+ * `<script type="application/ld+json">`, where HTML-escaping would corrupt it.
  */
 export function passDataToHTML(html: string, data: any): string {
-  return html.replace(/\{\{(.+?)\}\}/g, (_match, expr) =>
-    escapeHtml(String(getValueByPath(data, expr.trim()) ?? '')),
-  )
+  return html.replace(/\{\{\{(.+?)\}\}\}|\{\{(.+?)\}\}/g, (_match, rawExpr, escapedExpr) => {
+    if (rawExpr !== undefined) {
+      const value = getValueByPath(data, rawExpr.trim())
+      return value === undefined ? '' : serializeState(value)
+    }
+    return escapeHtml(String(getValueByPath(data, escapedExpr.trim()) ?? ''))
+  })
 }
 
 export interface PageState {
@@ -45,6 +52,8 @@ export interface GeneratePageOptions {
   dataEntries: { id: string; props: any }[]
   /** Site-level data merged under page data. */
   projectData?: Record<string, any>
+  /** Site identity, exposed to `{{ site.url }}` / `{{ site.name }}` templating. */
+  site?: { url?: string; name?: string }
   baseUrl?: string
   path?: string
   /** Rewrite `/assets/` to this base when set. */
@@ -94,8 +103,11 @@ export async function generatePage(
   // synchronously, so hydration matches the server markup with no refetch.
   if (Object.keys(query).length) state.query = query
 
-  // Template against data plus the page meta, so `{{ page.meta.title }}` works.
-  let index = passDataToHTML(options.index, { ...data, page: options.state.page })
+  // Template against data plus the page identity and site config, so
+  // `{{ page.meta.title }}`, `{{ page.path }}` and `{{ site.url }}` all work.
+  // Uses `state.page` (not `options.state.page`) so `path` is present — the
+  // same shape dev's transformIndexHtml templates against.
+  let index = passDataToHTML(options.index, { ...data, site: options.site, page: state.page })
 
   // Inject the rendered markup into the #app container. A template without it
   // would export empty pages — fail loudly instead of silently shipping shells.

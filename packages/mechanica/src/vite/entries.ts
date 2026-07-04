@@ -102,6 +102,9 @@ export function generatePreviewEntry(options: PreviewEntryOptions): string {
 
 export interface SsrEntryOptions {
   userEntry: string
+  /** Site identity (origin, name) from the plugin options — rides the bundle so
+   *  `mechanica export` can emit canonical URLs, sitemap.xml and robots.txt. */
+  site?: { url?: string; name?: string }
 }
 
 /**
@@ -121,6 +124,7 @@ export function generateSsrEntry(options: SsrEntryOptions): string {
     `export { blocksList } from 'virtual:mechanica/blocks'`,
     `export { composedList } from 'virtual:mechanica/composed'`,
     ``,
+    `export const site = ${JSON.stringify(options.site ?? {})}`,
     `export const dataEntries = getDataEntries()`,
     ``,
     `export async function render(state, context = {}) {`,

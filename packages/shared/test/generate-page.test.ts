@@ -44,6 +44,17 @@ describe('passDataToHTML', () => {
     const out = passDataToHTML(html, { seo: { description: 'A & B <i> "q"' } })
     expect(out).toBe('<meta content="A &amp; B &lt;i&gt; &quot;q&quot;" />')
   })
+
+  it('triple braces emit raw, script-safe JSON (for JSON-LD)', () => {
+    const html = '<script type="application/ld+json">{{{ head.schema }}}</script>'
+    const out = passDataToHTML(html, { head: { schema: { '@type': 'Article', name: 'x</script>' } } })
+    // Real JSON (quotes not HTML-escaped), with `<` escaped so it can't close the script.
+    expect(out).toContain('"@type":"Article"')
+    expect(out).toContain('"name":"x\\u003c/script>"')
+    expect(out).not.toContain('&quot;')
+    // A missing value leaves the script body empty rather than emitting "undefined".
+    expect(passDataToHTML('<script>{{{ missing.x }}}</script>', {})).toBe('<script></script>')
+  })
 })
 
 describe('generatePage', () => {
@@ -60,6 +71,22 @@ describe('generatePage', () => {
     expect(html).toContain('window.state=')
     // The page's own path rides the hydration state.
     expect(html).toContain('"page":{"path":"/"}')
+  })
+
+  it('templates {{ page.path }} and {{ site.* }} like dev does', async () => {
+    const { html } = await generatePage({
+      index:
+        '<html><head><link rel="canonical" href="{{ site.url }}{{ page.path }}/"><title>{{ site.name }}</title></head>' +
+        '<body><div id="app"></div></body></html>',
+      blocksMap,
+      dataEntries: [],
+      site: { url: 'https://acme.test', name: 'Acme' },
+      state: { content: [], data: {} },
+      render: () => '',
+      path: '/about',
+    })
+    expect(html).toContain('<link rel="canonical" href="https://acme.test/about/">')
+    expect(html).toContain('<title>Acme</title>')
   })
 
   it('bakes render-collected query results into the hydration state', async () => {

@@ -3,7 +3,7 @@
     <figure class="mc-container quote__inner">
       <blockquote class="quote__text">“{{ props.quote }}”</blockquote>
       <figcaption class="quote__by">
-        <img v-if="props.avatar && props.avatar.src" :src="props.avatar.src" :alt="props.author" class="quote__avatar" />
+        <img v-if="props.avatar && props.avatar.src" :src="props.avatar.src" :alt="props.avatar.alt || props.author" class="quote__avatar" />
         <span v-else class="quote__avatar quote__avatar--mono">{{ initial }}</span>
         <span class="quote__meta">
           <strong class="quote__author">{{ props.author }}</strong>

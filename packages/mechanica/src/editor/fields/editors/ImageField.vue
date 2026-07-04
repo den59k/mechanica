@@ -1,12 +1,21 @@
 <template>
   <div class="mech-image">
-    <!-- Chosen: preview with hover actions. -->
-    <div v-if="value.src" class="mech-image__frame">
-      <img :src="value.previewSrc || value.src" class="mech-image__preview" alt="" />
-      <div class="mech-image__actions">
-        <button type="button" class="mech-button" @click="openPicker">Replace</button>
-        <button type="button" class="mech-button is-danger" @click="clear">Remove</button>
+    <!-- Chosen: preview with hover actions + alt text (image SEO / a11y). -->
+    <div v-if="value.src" class="mech-image__chosen">
+      <div class="mech-image__frame">
+        <img :src="value.previewSrc || value.src" class="mech-image__preview" :alt="value.alt ?? ''" />
+        <div class="mech-image__actions">
+          <button type="button" class="mech-button" @click="openPicker">Replace</button>
+          <button type="button" class="mech-button is-danger" @click="clear">Remove</button>
+        </div>
       </div>
+      <input
+        class="mech-input"
+        type="text"
+        :value="value.alt ?? ''"
+        placeholder="Alt text — describe the image"
+        @input="onAlt"
+      />
     </div>
 
     <!-- Empty: a drop zone that opens the picker or accepts a dropped file. -->
@@ -30,11 +39,15 @@
 import { computed, inject, ref } from 'vue'
 import VIcon from '../../components/VIcon.vue'
 import { dialogKey } from '../../ui/dialog'
+import { readImageSize } from '../../lib/image-size'
 import ImagePickerDialog from '../../dialogs/ImagePickerDialog.vue'
 
 interface ImageValue {
   src: string
   previewSrc?: string
+  alt?: string
+  width?: number
+  height?: number
 }
 type Uploader = (file: File) => Promise<{ src: string; previewSrc?: string }>
 
@@ -49,9 +62,12 @@ const busy = ref(false)
 
 const set = (next: ImageValue) => emit('update:modelValue', next)
 const clear = () => set({ src: '' })
+const onAlt = (event: Event) => set({ ...value.value, alt: (event.target as HTMLInputElement).value })
 
 // Open the picker (upload a new file or reuse one already in the project).
-const openPicker = () => dialog?.open(ImagePickerDialog, { onSelect: set })
+// A replacement keeps the authored alt text — cheaper to re-edit than retype.
+const openPicker = () =>
+  dialog?.open(ImagePickerDialog, { onSelect: (next: ImageValue) => set({ ...next, alt: value.value.alt }) })
 
 // Dropping a file onto the empty zone uploads it directly — the quick path.
 const onDrop = async (event: DragEvent) => {
@@ -61,7 +77,8 @@ const onDrop = async (event: DragEvent) => {
   busy.value = true
   try {
     const result = await uploader(file)
-    set({ src: result.src, previewSrc: result.previewSrc ?? result.src })
+    const size = await readImageSize(result.src)
+    set({ src: result.src, previewSrc: result.previewSrc ?? result.src, ...size })
   } finally {
     busy.value = false
   }
@@ -69,6 +86,11 @@ const onDrop = async (event: DragEvent) => {
 </script>
 
 <style lang="scss" scoped>
+.mech-image__chosen {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 .mech-image__frame {
   position: relative;
   border-radius: var(--mech-radius);

@@ -10,7 +10,10 @@ const HELP = `mechanica — build Vue 3 sites with a visual block editor
 Usage:
   mechanica build           Build the client + SSR bundles into dist/
   mechanica export          Build, then statically render every page into export/
-                            (--site-url <origin> also emits sitemap.xml)
+                            (a site url — the plugin's siteUrl option or
+                             --site-url <origin> — also turns on the automatic
+                             SEO tags and emits sitemap.xml + robots.txt;
+                             --site-name <name> adds WebSite JSON-LD)
   mechanica push [--key]    Upload dist/ to a backend (--key, --host, --dir)
   mechanica shot <blockId>  Screenshot one block via the dev preview route
   mechanica shot </path>    Screenshot a whole page (editor overlay stripped)
@@ -34,7 +37,7 @@ export async function run(argv: string[]): Promise<void> {
     case 'build':
       return runBuild()
     case 'export':
-      return runExport({ siteUrl: str(flags['site-url']) })
+      return runExport({ siteUrl: str(flags['site-url']), siteName: str(flags['site-name']) })
     case 'push':
       return runPush({ key: str(flags.key), host: str(flags.host), dir: str(flags.dir) })
     case 'shot':

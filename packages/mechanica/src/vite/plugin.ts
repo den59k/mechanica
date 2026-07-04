@@ -48,6 +48,15 @@ export interface MechanicaPluginOptions {
   /** Directory holding local editor state, relative to the Vite root. */
   mechDir?: string
   /**
+   * The site's public origin (`https://example.com`). Templated as
+   * `{{ site.url }}` and — at export — turns on the automatic SEO output:
+   * canonical / `og:url` tags, absolute social-image URLs, sitemap.xml and
+   * robots.txt. `mechanica export --site-url` overrides it.
+   */
+  siteUrl?: string
+  /** The site's display name — `{{ site.name }}` + WebSite JSON-LD at export. */
+  siteName?: string
+  /**
    * How the production client build chunks block code.
    *
    * - `'bundled'` (default) — all blocks share one `blocks` chunk: one
@@ -305,7 +314,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         return generateClientEntry({ userEntry, mount, mode: isDev ? 'dev' : 'client', lazy: isClientBuild })
       }
       if (id === RESOLVED_SSR_ID) {
-        return generateSsrEntry({ userEntry })
+        return generateSsrEntry({ userEntry, site: { url: options.siteUrl, name: options.siteName } })
       }
       if (id === RESOLVED_PREVIEW_ID) {
         return generatePreviewEntry({ userEntry })
@@ -479,7 +488,11 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         // Resolve `{{ … }}` head placeholders the same way the build does, so the
         // dev preview shows real <title>/<meta> values. Template before injecting
         // the state script (whose JSON must not be touched).
-        const templated = passDataToHTML(html, { ...state.data, page: state.page })
+        const templated = passDataToHTML(html, {
+          ...state.data,
+          site: { url: options.siteUrl, name: options.siteName },
+          page: state.page,
+        })
         return templated.replace('<body>', `<body>\n${inject}`)
       },
     },

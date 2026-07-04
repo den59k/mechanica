@@ -30,7 +30,14 @@ export interface FieldType {
 export const builtinFields: FieldType[] = [
   {
     name: 'image',
-    schema: { type: 'object', format: 'image', properties: { src: 'string', previewSrc: 'string?' } },
+    // `alt` is authored in the editor (image SEO + accessibility); `width` /
+    // `height` are the intrinsic pixel size captured when the image is chosen,
+    // so blocks can render dimension attributes and avoid layout shift.
+    schema: {
+      type: 'object',
+      format: 'image',
+      properties: { src: 'string', previewSrc: 'string?', alt: 'string?', width: 'number?', height: 'number?' },
+    },
     // Start empty so the editor shows its upload/pick affordance rather than a
     // placeholder image (and pages render nothing until an image is chosen).
     default: () => ({ src: '' }),

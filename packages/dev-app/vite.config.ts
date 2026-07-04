@@ -6,7 +6,13 @@ import { mechanica, svgGlob } from 'mechanica/plugin'
 const src = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 
 export default defineConfig({
-  plugins: [mechanica(), svgGlob(), vue()],
+  plugins: [
+    // siteUrl/siteName feed `{{ site.* }}` templating and, at export, the
+    // automatic SEO output (canonical/og:url tags, sitemap.xml, robots.txt).
+    mechanica({ siteUrl: 'https://mechanica-demo.example', siteName: 'Mechanica Dev App' }),
+    svgGlob(),
+    vue(),
+  ],
   resolve: {
     // The published package resolves to dist/ (the `import` condition), but
     // dev-app develops mechanica itself: alias the browser-side entry points

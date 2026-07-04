@@ -54,6 +54,17 @@ export {
   type LinkIssue,
 } from './validate-links'
 
+export {
+  pageUrl,
+  paginationVariantPath,
+  applySeoTags,
+  auditPageHtml,
+  buildSitemap,
+  buildRobotsTxt,
+  type SeoTagOptions,
+  type SitemapEntry,
+} from './seo'
+
 export { migrateContent, findUnknownBlocks } from './migrate'
 
 // The `.page.md` codec is deliberately NOT re-exported here: it pulls in the

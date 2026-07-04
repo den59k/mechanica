@@ -58,6 +58,47 @@ const ssr: SsrBundle = {
     `<main data-site="${state.data.site?.name ?? ''}"><h1>${state.content[0]?.data?.title ?? ''}</h1></main>`,
 }
 
+// A render stub with the new contract: on /news (and its variants) it runs a
+// paginated query through the provided resolver and reports what it resolved.
+const NEWS_KEY = 'getPages.' + JSON.stringify({ folderName: 'posts', sort: { by: 'name' }, pageSize: 2 })
+const paginatedSsr: SsrBundle = {
+  ...ssr,
+  render: async (state: any, context: any = {}) => {
+    const path: string = state.page?.path ?? ''
+    if (!context.resolveQuery || (path !== '/news' && !path.startsWith('/news/'))) {
+      return { html: '<main></main>', query: {} }
+    }
+    const result = (await context.resolveQuery(NEWS_KEY)) as {
+      items: { name: string }[]
+      page: number
+      pageCount: number
+    }
+    const list = result.items.map((item) => `<li>${item.name}</li>`).join('')
+    return {
+      html: `<main><ul>${list}</ul><nav>page ${result.page} of ${result.pageCount}</nav></main>`,
+      query: { [NEWS_KEY]: result },
+    }
+  },
+}
+
+const writePosts = async (count: number) => {
+  await mkdir(join(dir, '.mech/pages/posts'), { recursive: true })
+  for (let i = 0; i < count; i++) {
+    const name = String.fromCharCode(97 + i) // a, b, c…
+    await writeFile(
+      join(dir, `.mech/pages/posts/${name}.page.md`),
+      serializePage({ content: [], data: {}, name: `Post ${name.toUpperCase()}` }),
+    )
+  }
+  await writeFile(
+    join(dir, '.mech/pages/news.page.md'),
+    serializePage({
+      content: [{ id: 'n', blockId: 'hero', data: { title: 'News' } }],
+      data: { head: { title: 'News' } },
+    }),
+  )
+}
+
 describe('mechanica export (golden)', () => {
   it('renders every page with data scoping, head templating, and copied assets', async () => {
     const written = await exportProject(dir, ssr)
@@ -240,44 +281,6 @@ describe('mechanica export (golden)', () => {
     expect(contact).not.toContain('Hero-a1')
   })
 
-  // A render stub with the new contract: on /news (and its variants) it runs a
-  // paginated query through the provided resolver and reports what it resolved.
-  const NEWS_KEY = 'getPages.' + JSON.stringify({ folderName: 'posts', sort: { by: 'name' }, pageSize: 2 })
-  const paginatedSsr: SsrBundle = {
-    ...ssr,
-    render: async (state: any, context: any = {}) => {
-      const path: string = state.page?.path ?? ''
-      if (!context.resolveQuery || (path !== '/news' && !path.startsWith('/news/'))) {
-        return { html: '<main></main>', query: {} }
-      }
-      const result = (await context.resolveQuery(NEWS_KEY)) as {
-        items: { name: string }[]
-        page: number
-        pageCount: number
-      }
-      const list = result.items.map((item) => `<li>${item.name}</li>`).join('')
-      return {
-        html: `<main><ul>${list}</ul><nav>page ${result.page} of ${result.pageCount}</nav></main>`,
-        query: { [NEWS_KEY]: result },
-      }
-    },
-  }
-
-  const writePosts = async (count: number) => {
-    await mkdir(join(dir, '.mech/pages/posts'), { recursive: true })
-    for (let i = 0; i < count; i++) {
-      const name = String.fromCharCode(97 + i) // a, b, c…
-      await writeFile(
-        join(dir, `.mech/pages/posts/${name}.page.md`),
-        serializePage({ content: [], data: {}, name: `Post ${name.toUpperCase()}` }),
-      )
-    }
-    await writeFile(
-      join(dir, '.mech/pages/news.page.md'),
-      serializePage({ content: [{ id: 'n', blockId: 'hero', data: { title: 'News' } }], data: {} }),
-    )
-  }
-
   it('splits a paginated page into real /news/2… variants, each with its own slice', async () => {
     await writePosts(5)
 
@@ -333,5 +336,172 @@ describe('mechanica export (golden)', () => {
   it('fails loudly when index.html has no #app container', async () => {
     await writeFile(join(dir, 'dist/index.html'), '<!doctype html><html><body></body></html>')
     await expect(exportProject(dir, ssr)).rejects.toThrow(/id="app"/)
+  })
+})
+
+describe('mechanica export (SEO)', () => {
+  it('injects canonical/og:url, absolutizes social images, emits robots.txt and lastmod', async () => {
+    await writeFile(
+      join(dir, 'dist/index.html'),
+      '<!doctype html><html><head><title>{{ head.title }}</title>' +
+        '<meta property="og:image" content="/media/cover.jpg">' +
+        '</head><body><div id="app"></div></body></html>',
+    )
+
+    await exportProject(dir, ssr, { siteUrl: 'https://acme.test' })
+
+    const home = await readFile(join(dir, 'export/index.html'), 'utf-8')
+    expect(home).toContain('<link rel="canonical" href="https://acme.test/">')
+    expect(home).toContain('<meta property="og:url" content="https://acme.test/">')
+    expect(home).toContain('<meta property="og:image" content="https://acme.test/media/cover.jpg">')
+
+    const post = await readFile(join(dir, 'export/blog/post/index.html'), 'utf-8')
+    expect(post).toContain('<link rel="canonical" href="https://acme.test/blog/post/">')
+
+    const robots = await readFile(join(dir, 'export/robots.txt'), 'utf-8')
+    expect(robots).toContain('Sitemap: https://acme.test/sitemap.xml')
+
+    const sitemap = await readFile(join(dir, 'export/sitemap.xml'), 'utf-8')
+    expect(sitemap).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/)
+  })
+
+  it('templates {{ page.path }} in the head — identically to dev', async () => {
+    await writeFile(
+      join(dir, 'dist/index.html'),
+      '<!doctype html><html><head><link rel="canonical" href="{{ site.url }}{{ page.path }}/">' +
+        '</head><body><div id="app"></div></body></html>',
+    )
+    await exportProject(dir, ssr, { siteUrl: 'https://acme.test' })
+    const post = await readFile(join(dir, 'export/blog/post/index.html'), 'utf-8')
+    // The hand-authored canonical resolved — and the automatic one stood down.
+    expect(post).toContain('<link rel="canonical" href="https://acme.test/blog/post/">')
+    expect(post.match(/rel="canonical"/g)).toHaveLength(1)
+  })
+
+  it('reads site config baked into the SSR bundle, with CLI flags overriding', async () => {
+    const bundled: SsrBundle = { ...ssr, site: { url: 'https://bundled.test', name: 'Bundled' } }
+    await exportProject(dir, bundled)
+    const home = await readFile(join(dir, 'export/index.html'), 'utf-8')
+    expect(home).toContain('<link rel="canonical" href="https://bundled.test/">')
+    expect(home).toContain('"@type":"WebSite"') // root page gets WebSite JSON-LD
+    expect(home).toContain('"name":"Bundled"')
+
+    await exportProject(dir, bundled, { siteUrl: 'https://flag.test' })
+    const overridden = await readFile(join(dir, 'export/index.html'), 'utf-8')
+    expect(overridden).toContain('<link rel="canonical" href="https://flag.test/">')
+  })
+
+  it('honors meta.noindex and auto-noindexes /404 — robots meta + sitemap exclusion', async () => {
+    await writeFile(
+      join(dir, '.mech/pages/secret.page.md'),
+      serializePage({ content: [], data: {}, meta: { noindex: true } }),
+    )
+    await writeFile(
+      join(dir, '.mech/pages/404.page.md'),
+      serializePage({ content: [{ id: 'n', blockId: 'hero', data: { title: 'Not found' } }], data: {} }),
+    )
+
+    await exportProject(dir, ssr, { siteUrl: 'https://acme.test' })
+
+    const secret = await readFile(join(dir, 'export/secret/index.html'), 'utf-8')
+    expect(secret).toContain('<meta name="robots" content="noindex">')
+    const notFound = await readFile(join(dir, 'export/404.html'), 'utf-8')
+    expect(notFound).toContain('<meta name="robots" content="noindex">')
+
+    const sitemap = await readFile(join(dir, 'export/sitemap.xml'), 'utf-8')
+    expect(sitemap).not.toContain('/secret/')
+    expect(sitemap).not.toContain('/404')
+  })
+
+  it('lets meta.lastmod override the page file mtime', async () => {
+    await writeFile(
+      join(dir, '.mech/pages/dated.page.md'),
+      serializePage({ content: [], data: {}, meta: { lastmod: '2020-01-02' } }),
+    )
+    await exportProject(dir, ssr, { siteUrl: 'https://acme.test' })
+    const sitemap = await readFile(join(dir, 'export/sitemap.xml'), 'utf-8')
+    expect(sitemap).toContain('<url><loc>https://acme.test/dated/</loc><lastmod>2020-01-02</lastmod></url>')
+  })
+
+  it('ships public/ files from dist but keeps build-private artifacts out', async () => {
+    await writeFile(join(dir, 'dist/favicon.ico'), 'ICO')
+    await mkdir(join(dir, 'dist/fonts'), { recursive: true })
+    await writeFile(join(dir, 'dist/fonts/inter.woff2'), 'FONT')
+    await writeFile(join(dir, 'dist/ssr.js'), 'export {}')
+    await writeFile(join(dir, 'dist/mechanica-blocks.json'), '{}')
+    await writeFile(join(dir, 'dist/robots.txt'), 'User-agent: *\nDisallow: /private/\n')
+
+    await exportProject(dir, ssr, { siteUrl: 'https://acme.test' })
+
+    expect(await readFile(join(dir, 'export/favicon.ico'), 'utf-8')).toBe('ICO')
+    expect(await readFile(join(dir, 'export/fonts/inter.woff2'), 'utf-8')).toBe('FONT')
+    await expect(access(join(dir, 'export/ssr.js'))).rejects.toBeTruthy()
+    await expect(access(join(dir, 'export/mechanica-blocks.json'))).rejects.toBeTruthy()
+    // The site's own robots.txt (from public/) wins over the generated default.
+    expect(await readFile(join(dir, 'export/robots.txt'), 'utf-8')).toContain('Disallow: /private/')
+  })
+
+  it('gives paginated variants distinct titles plus prev/next and canonical links', async () => {
+    await writePosts(5)
+
+    await exportProject(dir, paginatedSsr, { siteUrl: 'https://acme.test' })
+
+    const first = await readFile(join(dir, 'export/news/index.html'), 'utf-8')
+    expect(first).toContain('<title>News</title>')
+    expect(first).toContain('<link rel="next" href="https://acme.test/news/2/">')
+    expect(first).not.toContain('rel="prev"')
+
+    const second = await readFile(join(dir, 'export/news/2/index.html'), 'utf-8')
+    expect(second).toContain('<title>News — Page 2</title>')
+    expect(second).toContain('<link rel="canonical" href="https://acme.test/news/2/">')
+    expect(second).toContain('<link rel="prev" href="https://acme.test/news/">')
+    expect(second).toContain('<link rel="next" href="https://acme.test/news/3/">')
+
+    const third = await readFile(join(dir, 'export/news/3/index.html'), 'utf-8')
+    expect(third).toContain('<title>News — Page 3</title>')
+    expect(third).not.toContain('rel="next"')
+  })
+
+  it('emits BreadcrumbList JSON-LD from the page trail, named by editor labels', async () => {
+    await writeFile(
+      join(dir, '.mech/pages/blog/index.page.md'),
+      serializePage({ content: [], data: {}, name: 'Blog' }),
+    )
+    await writeFile(
+      join(dir, '.mech/pages/blog/post.page.md'),
+      serializePage({ content: [], data: {}, name: 'My Post' }),
+    )
+
+    await exportProject(dir, ssr, { siteUrl: 'https://acme.test' })
+
+    const post = await readFile(join(dir, 'export/blog/post/index.html'), 'utf-8')
+    expect(post).toContain('"@type":"BreadcrumbList"')
+    expect(post).toContain('"position":1,"name":"Home","item":"https://acme.test/"')
+    expect(post).toContain('"position":2,"name":"Blog","item":"https://acme.test/blog/"')
+    expect(post).toContain('"position":3,"name":"My Post","item":"https://acme.test/blog/post/"')
+    // The root page has no trail.
+    const home = await readFile(join(dir, 'export/index.html'), 'utf-8')
+    expect(home).not.toContain('BreadcrumbList')
+  })
+
+  it('warns about page-level SEO issues and duplicate titles', async () => {
+    const imgSsr: SsrBundle = { ...ssr, render: () => '<main><h1>x</h1><img src="/a.jpg"></main>' }
+    await writeFile(
+      join(dir, '.mech/pages/a.page.md'),
+      serializePage({ content: [], data: { head: { title: 'Same' } } }),
+    )
+    await writeFile(
+      join(dir, '.mech/pages/b.page.md'),
+      serializePage({ content: [], data: { head: { title: 'Same' } } }),
+    )
+
+    const warnings: string[] = []
+    await exportProject(dir, imgSsr, { onWarn: (message) => warnings.push(message) })
+
+    expect(warnings.some((w) => w.includes('SEO on /a') && w.includes('no meta description'))).toBe(true)
+    expect(warnings.some((w) => w.includes('<img> without alt text'))).toBe(true)
+    const duplicate = warnings.find((w) => w.includes('share the title "Same"'))
+    expect(duplicate).toContain('/a')
+    expect(duplicate).toContain('/b')
   })
 })

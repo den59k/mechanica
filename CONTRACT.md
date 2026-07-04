@@ -67,6 +67,13 @@ the dev server, but is **hidden from queries** (`usePages`/`usePagination`) and
 ever written when `true`; publishing a page removes the key. Serialized order:
 `name`, `draft`, `meta`, `data`, `order`, `orderAfter`, `path`.
 
+Two `meta` keys carry export-time SEO semantics: **`meta.noindex: true`**
+injects `<meta name="robots" content="noindex">` and drops the page from
+`sitemap.xml` (for published-but-unlisted pages — thank-you pages, `/404` gets
+this automatically), and **`meta.lastmod: "YYYY-MM-DD"`** overrides the page
+file's mtime as the sitemap `<lastmod>` (useful on CI, where checkouts reset
+mtimes). Other `meta` keys remain free-form `{{ page.meta.* }}` template hints.
+
 ---
 
 ## 2. Block fences

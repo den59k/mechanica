@@ -1,12 +1,18 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createApp, h } from 'vue'
 import FieldControl from '@/editor/fields/FieldControl.vue'
 import { registerBuiltinFieldEditors } from '@/editor/fields/builtin'
 import { clearFieldEditors } from '@/editor/fields/registry'
+import { stubImageLoading } from '../stub-image'
 
 beforeEach(() => {
   clearFieldEditors()
   registerBuiltinFieldEditors()
+  stubImageLoading()
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 function mountField(schema: Record<string, unknown>, initial: unknown, provide: Record<string, unknown> = {}) {
@@ -36,7 +42,17 @@ describe('formatted field editors', () => {
     Object.assign(drop, { dataTransfer: { files: [new File(['x'], 'pic.png', { type: 'image/png' })] } })
     dropzone.dispatchEvent(drop)
     await new Promise((resolve) => setTimeout(resolve)) // let the uploader resolve
-    expect(state.value).toEqual({ src: '/up/pic.png', previewSrc: '/up/pic.png' })
+    // The intrinsic size (stubbed 640×480) is captured alongside the upload.
+    expect(state.value).toEqual({ src: '/up/pic.png', previewSrc: '/up/pic.png', width: 640, height: 480 })
+  })
+
+  it('image: alt text is editable once an image is chosen', () => {
+    const { el, state } = mountField({ type: 'object', format: 'image' }, { src: '/a.png' })
+    const alt = el.querySelector('.mech-image__chosen input.mech-input') as HTMLInputElement
+    expect(alt).toBeTruthy()
+    alt.value = 'A mountain at dusk'
+    alt.dispatchEvent(new Event('input'))
+    expect(state.value).toEqual({ src: '/a.png', alt: 'A mountain at dusk' })
   })
 
   it('smartLink: edits the visible title', () => {

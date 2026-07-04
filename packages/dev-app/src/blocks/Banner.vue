@@ -1,6 +1,15 @@
 <template>
   <section class="banner">
-    <img v-if="props.image?.src" :src="props.image.src" :alt="props.heading" class="banner__image" />
+    <!-- alt + intrinsic width/height come from the image field (authored alt,
+         dimensions captured at pick/upload) — no layout shift, SEO-friendly. -->
+    <img
+      v-if="props.image?.src"
+      :src="props.image.src"
+      :alt="props.image.alt || props.heading"
+      :width="props.image.width"
+      :height="props.image.height"
+      class="banner__image"
+    />
     <div class="banner__body">
       <h2 class="banner__heading">{{ props.heading }}</h2>
       <p v-if="props.caption" class="banner__caption">{{ props.caption }}</p>

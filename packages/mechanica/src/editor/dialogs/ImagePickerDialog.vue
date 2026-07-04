@@ -43,10 +43,14 @@ import { inject, onMounted, ref } from 'vue'
 import VDialog from '../ui/VDialog.vue'
 import VIcon from '../components/VIcon.vue'
 import { useDialog } from '../ui/dialog'
+import { readImageSize } from '../lib/image-size'
 
 interface ImageValue {
   src: string
   previewSrc?: string
+  alt?: string
+  width?: number
+  height?: number
 }
 interface LibraryImage {
   id: string
@@ -78,9 +82,12 @@ async function load() {
   }
 }
 
-// Apply a chosen image and close the dialog.
-function select(value: ImageValue) {
-  props.onSelect(value)
+// Apply a chosen image and close the dialog — with its intrinsic pixel size,
+// so blocks can render width/height attributes (no layout shift). Measured
+// from `src`, never `previewSrc` (which may be a downscaled preview).
+async function select(value: ImageValue) {
+  const size = await readImageSize(value.src)
+  props.onSelect(size ? { ...value, ...size } : value)
   dialog.back()
 }
 

@@ -1,14 +1,20 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
 import ImagePickerDialog from '@/editor/dialogs/ImagePickerDialog.vue'
 import FieldControl from '@/editor/fields/FieldControl.vue'
 import { registerBuiltinFieldEditors } from '@/editor/fields/builtin'
 import { clearFieldEditors } from '@/editor/fields/registry'
 import { dialogKey, createDialogStore } from '@/editor/ui/dialog'
+import { stubImageLoading } from './stub-image'
 
 beforeEach(() => {
   clearFieldEditors()
   registerBuiltinFieldEditors()
+  stubImageLoading()
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 /** Flush microtasks + a macrotask so onMounted fetches and async handlers settle. */
@@ -58,7 +64,9 @@ describe('image picker', () => {
     const items = el.querySelectorAll('.mech-image-picker__item')
     expect(items).toHaveLength(1)
     ;(items[0] as HTMLButtonElement).click()
-    expect(picked.at(-1)).toEqual({ src: '/a.png' })
+    await flush()
+    // The intrinsic size (stubbed 640×480) rides along for layout-shift-free blocks.
+    expect(picked.at(-1)).toEqual({ src: '/a.png', width: 640, height: 480 })
 
     app.unmount()
   })
@@ -80,7 +88,7 @@ describe('image picker', () => {
     input.dispatchEvent(new Event('change'))
     await flush()
 
-    expect(picked.at(-1)).toEqual({ src: '/up/hero.png', previewSrc: '/up/hero.png' })
+    expect(picked.at(-1)).toEqual({ src: '/up/hero.png', previewSrc: '/up/hero.png', width: 640, height: 480 })
 
     app.unmount()
   })

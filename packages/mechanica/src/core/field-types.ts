@@ -6,7 +6,7 @@
 declare module 'compact-json-schema' {
   interface SchemaTypesMap {
     text: string
-    image: { src: string; previewSrc?: string }
+    image: { src: string; previewSrc?: string; alt?: string; width?: number; height?: number }
     file: { src: string }
     color: string
     smartLink: { url: string; title: string; external: boolean }
