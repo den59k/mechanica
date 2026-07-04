@@ -3,6 +3,8 @@ export interface PageItem {
   path: string
   name: string
   folderPath?: string | null
+  /** A work-in-progress page — hidden from queries and the static export. */
+  draft?: boolean
 }
 
 let pagesPromise: Promise<PageItem[]> | null = null

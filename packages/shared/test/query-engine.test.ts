@@ -76,6 +76,18 @@ describe('resolvePagesQuery', () => {
     expect(result).toHaveLength(2)
   })
 
+  it('drops draft pages and never leaks the draft flag', () => {
+    const withDrafts: QuerySource = {
+      listPages: () => [
+        { path: '/', name: 'Home', folderPath: null, order: 0, orderAfter: null, draft: false },
+        { path: '/wip', name: 'WIP', folderPath: null, order: 1, orderAfter: null, draft: true },
+      ],
+    }
+    const result = resolvePagesQuery(withDrafts, {}) as Array<Record<string, unknown>>
+    expect(result.map((p) => p.path)).toEqual(['/'])
+    expect(result[0]).not.toHaveProperty('draft')
+  })
+
   it('paginates with pageSize, clamping the page number', () => {
     const first = resolvePagesQuery(source, { folderName: 'blog', pageSize: 2 }) as PaginatedPagesResult
     expect(first).toMatchObject({ page: 1, pageCount: 2, pageSize: 2, total: 3 })

@@ -59,6 +59,8 @@ export interface PageListItem {
   folderPath: string | null
   order: number
   orderAfter: string | null
+  /** A work-in-progress page — hidden from queries and the static export. */
+  draft: boolean
   [key: string]: unknown
 }
 
@@ -154,6 +156,8 @@ export function duplicatePage(
     meta: source.meta,
     name: input.name,
     path: input.path,
+    // A copy of a draft starts as a draft too; publish it when it's ready.
+    ...(source.draft ? { draft: true } : {}),
   }
   writeFile(file, page)
 
@@ -230,6 +234,19 @@ export function renamePage(mechDir: string, urlPath: string, name: string): void
   writeFile(file, page)
 }
 
+/**
+ * Mark a page as draft (work-in-progress) or published. Drafts stay editable in
+ * dev but drop out of queries and the static export. A no-op on a missing page.
+ */
+export function setPageDraft(mechDir: string, urlPath: string, draft: boolean): void {
+  const file = getPagePath(mechDir, urlPath)
+  if (!fs.existsSync(file)) return
+  const page = readFile(file)
+  if (draft) page.draft = true
+  else delete page.draft
+  writeFile(file, page)
+}
+
 /** List folders (top-level directories) under `<mechDir>/pages`. */
 export function listFolders(mechDir: string): { id: string; path: string; name: string }[] {
   const pagesDir = join(mechDir, 'pages')
@@ -267,6 +284,7 @@ export function listPages(
       folderPath: dir === '' ? null : dir,
       order: page.order ?? 0,
       orderAfter: page.orderAfter ?? null,
+      draft: page.draft === true,
       ...embedded,
     })
   }

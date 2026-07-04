@@ -7,6 +7,7 @@ import {
   deletePage,
   savePage,
   renamePage,
+  setPageDraft,
   movePage,
   listPages,
   listFolders,
@@ -120,6 +121,14 @@ export function createDevMiddleware(
         const pathParam = query.get('path')
         if (!pathParam) return json({ error: 'Missing path' }, 400)
         return json({ success: deletePage(mechDir, pathParam) })
+      }
+
+      if (pathname === '/pages/draft' && req.method === 'POST') {
+        const pathParam = query.get('path')
+        if (!pathParam) return json({ error: 'Missing path' }, 400)
+        const body = JSON.parse((await readBody(req)).toString('utf-8'))
+        setPageDraft(mechDir, pathParam, body.draft === true)
+        return json({ success: true, draft: body.draft === true })
       }
 
       if (pathname === '/pages/duplicate' && req.method === 'POST') {

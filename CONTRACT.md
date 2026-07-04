@@ -48,6 +48,7 @@ The leading `---` … `---` block is YAML carrying **everything that is not
 ```yaml
 ---
 name: Docs                       # editor label for the page
+draft: true                      # optional; a work-in-progress page (omit when published)
 meta: { title: "Docs — Mechanica" }   # build-time <head> hints
 data:                            # page-scoped data overrides (defineData)
   head:
@@ -59,6 +60,12 @@ orderAfter: null                 # optional
 ```
 
 Omit keys that are absent. `data: {}` is written when a page has no overrides.
+
+**`draft`** marks a work-in-progress page. A draft renders and edits normally in
+the dev server, but is **hidden from queries** (`usePages`/`usePagination`) and
+**skipped by the static export** (no HTML file, no sitemap entry). It is only
+ever written when `true`; publishing a page removes the key. Serialized order:
+`name`, `draft`, `meta`, `data`, `order`, `orderAfter`, `path`.
 
 ---
 

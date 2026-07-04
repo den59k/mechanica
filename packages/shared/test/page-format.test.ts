@@ -340,6 +340,20 @@ describe('page-format: envelope', () => {
   it('parses an empty document to an empty page', () => {
     expect(parsePage('')).toEqual({ data: {}, content: [] })
   })
+
+  it('round-trips the draft flag, emitting it only when true', () => {
+    const text = serializePage({ content: [], data: {}, name: 'WIP', draft: true })
+    expect(text).toContain('draft: true')
+    expect(parsePage(text).draft).toBe(true)
+
+    // Published pages omit the key entirely (like `order`).
+    const published = serializePage({ content: [], data: {}, name: 'Live' })
+    expect(published).not.toContain('draft')
+    expect(parsePage(published).draft).toBeUndefined()
+
+    // A literal `draft: false` on disk parses as a published page (no flag).
+    expect(parsePage(['---', 'draft: false', 'data: {}', '---'].join('\n')).draft).toBeUndefined()
+  })
 })
 
 describe('page-format: block schema versions', () => {

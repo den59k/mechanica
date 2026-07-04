@@ -16,6 +16,8 @@ export interface PageQueryItem {
   folderPath?: string | null
   order?: number
   orderAfter?: string | null
+  /** Draft pages are dropped from query results (see {@link resolvePagesQuery}). */
+  draft?: boolean
   [dataId: string]: unknown
 }
 
@@ -98,7 +100,9 @@ export function resolvePagesQuery(
   args: PagesQueryArgs,
   context: QueryContext = {},
 ): PageQueryItem[] | PaginatedPagesResult {
-  let pages = source.listPages({ data: args.data })
+  // Drafts are never visible to queries (`usePages`/`usePagination`), across
+  // every caller (dev server, static export, future backend).
+  let pages = source.listPages({ data: args.data }).filter((page) => !page.draft)
 
   if (args.folderName) {
     // "Pages in this folder" means its children — the folder's own index page
@@ -120,7 +124,7 @@ export function resolvePagesQuery(
       .map((entry) => entry.page)
   }
 
-  const items = pages.map(({ order, orderAfter, folderPath, ...rest }) => rest)
+  const items = pages.map(({ order, orderAfter, folderPath, draft, ...rest }) => rest)
 
   if (args.pageSize && args.pageSize > 0) {
     const total = items.length

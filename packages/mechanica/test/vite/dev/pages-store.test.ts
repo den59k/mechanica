@@ -14,6 +14,7 @@ import {
   movePage,
   listFolders,
   listPages,
+  setPageDraft,
   pageVersion,
   pageUrlOf,
   setPageBlocks,
@@ -135,6 +136,36 @@ describe('duplicatePage', () => {
     createPage(mechDir, { path: '/a', name: 'A' })
     createPage(mechDir, { path: '/b', name: 'B' })
     expect(() => duplicatePage(mechDir, '/a', { path: '/b', name: 'B2' })).toThrow(PageExistsError)
+  })
+})
+
+describe('setPageDraft', () => {
+  it('toggles the draft flag, persisting it and clearing it', () => {
+    createPage(mechDir, { path: '/wip', name: 'WIP' })
+    expect(listPages(mechDir)[0]!.draft).toBe(false)
+
+    setPageDraft(mechDir, '/wip', true)
+    expect(readPage(mechDir, '/wip').draft).toBe(true)
+    expect(listPages(mechDir)[0]!.draft).toBe(true)
+
+    setPageDraft(mechDir, '/wip', false)
+    expect(readPage(mechDir, '/wip').draft).toBeUndefined()
+    expect(listPages(mechDir)[0]!.draft).toBe(false)
+  })
+
+  it('preserves the draft flag across content saves and renames', () => {
+    createPage(mechDir, { path: '/wip', name: 'WIP' })
+    setPageDraft(mechDir, '/wip', true)
+    savePage(mechDir, '/wip', { content: [{ id: '1', blockId: 'x', data: {} }], data: {} })
+    renamePage(mechDir, '/wip', 'Still WIP')
+    expect(readPage(mechDir, '/wip').draft).toBe(true)
+  })
+
+  it('carries the draft flag into a duplicate', () => {
+    createPage(mechDir, { path: '/wip', name: 'WIP' })
+    setPageDraft(mechDir, '/wip', true)
+    duplicatePage(mechDir, '/wip', { path: '/wip-copy', name: 'WIP copy' })
+    expect(readPage(mechDir, '/wip-copy').draft).toBe(true)
   })
 })
 

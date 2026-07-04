@@ -8,6 +8,12 @@ import type { ContentBlock } from './types'
  */
 export interface PageDoc {
   name?: string
+  /**
+   * A work-in-progress page. Drafts render and edit normally in the dev server
+   * but are hidden from queries (`usePages`/`usePagination`) and skipped by the
+   * static export. Absent/false for published pages.
+   */
+  draft?: boolean
   meta?: Record<string, unknown>
   /** Page-scoped data overrides (defineData). */
   data: Record<string, unknown>
@@ -232,6 +238,7 @@ export function parsePage(text: string, options?: PageCodecOptions): PageDoc {
 
   return {
     ...(typeof envelope.name === 'string' ? { name: envelope.name } : {}),
+    ...(envelope.draft === true ? { draft: true } : {}),
     ...(envelope.meta !== undefined ? { meta: envelope.meta as Record<string, unknown> } : {}),
     ...(typeof envelope.order === 'number' ? { order: envelope.order } : {}),
     ...(envelope.orderAfter != null ? { orderAfter: envelope.orderAfter as string } : {}),
@@ -293,6 +300,8 @@ const FLOW_MAX = 72
 export function serializePage(doc: PageDoc, options?: PageCodecOptions): string {
   const envelope: Record<string, unknown> = {}
   if (doc.name !== undefined) envelope.name = doc.name
+  // Only emit `draft` when true — published pages stay clean (like `order`).
+  if (doc.draft) envelope.draft = true
   if (doc.meta !== undefined) envelope.meta = doc.meta
   envelope.data = doc.data ?? {}
   if (doc.order !== undefined) envelope.order = doc.order

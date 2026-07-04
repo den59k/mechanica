@@ -82,6 +82,24 @@ describe('mechanica export (golden)', () => {
     expect(await exportProject(dir, ssr)).toEqual([])
   })
 
+  it('skips draft pages — no HTML, no sitemap entry', async () => {
+    await writeFile(
+      join(dir, '.mech/pages/wip.page.md'),
+      serializePage({
+        content: [{ id: 'w', blockId: 'hero', data: { title: 'Not ready' } }],
+        data: {},
+        draft: true,
+      }),
+    )
+
+    const written = await exportProject(dir, ssr, { siteUrl: 'https://acme.test' })
+    expect(written).not.toContain('/wip')
+    await expect(access(join(dir, 'export/wip/index.html'))).rejects.toBeTruthy()
+
+    const sitemap = await readFile(join(dir, 'export/sitemap.xml'), 'utf-8')
+    expect(sitemap).not.toContain('/wip/')
+  })
+
   it('warns about internal links pointing at missing pages', async () => {
     await writeFile(
       join(dir, '.mech/pages/links.page.md'),

@@ -82,6 +82,7 @@
             >
               <span class="mech-pages__cell-name">
                 <span class="mech-pages__name">{{ page.name || page.path }}</span>
+                <span v-if="page.draft" class="mech-pages__badge is-draft">Draft</span>
                 <span v-if="page.path === current" class="mech-pages__badge">Current</span>
               </span>
               <span class="mech-pages__cell-path">{{ page.path }}</span>
@@ -260,6 +261,11 @@ function onRowMenu(event: MouseEvent, page: PageItem) {
     { label: 'Open', onClick: () => open(page) },
     { label: 'Rename', onClick: () => startEdit(page) },
     { label: 'Duplicate', onClick: () => startDuplicate(page) },
+    {
+      label: page.draft ? 'Publish' : 'Mark as draft',
+      separatorBefore: true,
+      onClick: () => void toggleDraft(page),
+    },
     { label: 'Delete', danger: true, separatorBefore: true, onClick: () => confirmRemove(page) },
   ])
 }
@@ -334,6 +340,16 @@ async function remove(page: PageItem) {
   await load()
   // If we deleted the page we're editing, move somewhere that still exists.
   if (page.path === current.value) openPath(pages.value[0]?.path ?? '/')
+}
+
+/** Toggle a page's draft flag (drafts drop out of queries and the export). */
+async function toggleDraft(page: PageItem) {
+  const response = await fetch(`/@mechanica/pages/draft?path=${encodeURIComponent(page.path)}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ draft: !page.draft }),
+  })
+  if (response.ok) await load()
 }
 </script>
 
@@ -587,6 +603,10 @@ async function remove(page: PageItem) {
   border: 1px solid currentColor;
   border-radius: var(--mech-radius-pill);
   padding: 1px 7px;
+
+  &.is-draft {
+    color: var(--mech-muted);
+  }
 }
 .mech-pages__cell-path {
   min-width: 0;
