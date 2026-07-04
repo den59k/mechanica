@@ -13,6 +13,8 @@
         @input="store.setMeta({ name: ($event.target as HTMLInputElement).value })"
       />
 
+      <InsertToolbar />
+
       <div class="mech-composer__bar-gap" />
 
       <div class="mech-composer__breakpoints" role="group" aria-label="Breakpoint">
@@ -43,7 +45,6 @@
 
     <div class="mech-composer__body">
       <aside class="mech-composer__panel mech-composer__panel--left">
-        <InsertPalette />
         <ComposerLayers />
       </aside>
 
@@ -67,10 +68,11 @@ import type { SaveController } from '../lib/types'
 import { createComposerStore, type ComposerSnapshot } from './lib/composer-store'
 import { createComposerHistory } from './lib/composer-history'
 import { createInsertDnd } from './lib/use-insert-dnd'
+import { insertItemForKey } from './lib/elements-meta'
 import { composerStoreKey, composerHistoryKey, composerInsertDndKey } from './lib/keys'
 import type { CanvasBreakpoint } from './lib/canvas'
 import VIcon from '../components/VIcon.vue'
-import InsertPalette from './components/InsertPalette.vue'
+import InsertToolbar from './components/InsertToolbar.vue'
 import ComposerLayers from './components/ComposerLayers.vue'
 import ComposerCanvas from './components/ComposerCanvas.vue'
 import ComposerInspector from './components/ComposerInspector.vue'
@@ -79,7 +81,7 @@ import ComposerSettings from './components/ComposerSettings.vue'
 const props = defineProps<{
   def: ComposedBlockDefinition
   blocks: BlocksMap
-  /** Compiled blocks marked `composable` — offered in the insert palette. */
+  /** The site's design-system components — offered in the insert palette. */
   codeBlocks?: import('mechanica-shared').Block[]
   save?: SaveController
   onChange?: (snapshot: ComposerSnapshot) => void
@@ -141,13 +143,20 @@ const onKeyDown = (event: KeyboardEvent) => {
     return
   }
   if (typing) return
-  if (event.key === 'Escape') store.select(null)
+  if (event.key === 'Escape') store.selectUp()
   else if ((event.key === 'Delete' || event.key === 'Backspace') && store.selectedId) {
     event.preventDefault()
     store.remove(store.selectedId)
   } else if (mod && event.key.toLowerCase() === 'd' && store.selectedId) {
     event.preventDefault()
     store.duplicate(store.selectedId)
+  } else if (!mod && !event.altKey) {
+    // R / C / T / I arm insertion of Row / Column / Text / Image at the selection.
+    const item = insertItemForKey(event.key)
+    if (item) {
+      event.preventDefault()
+      store.insertItem(item)
+    }
   }
 }
 document.addEventListener('keydown', onKeyDown)

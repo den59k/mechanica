@@ -2,32 +2,28 @@
   <div class="mech-composer__props">
     <div class="mech-composer__section-title">Variables</div>
     <p v-if="!store.props.length" class="mech-composer__props-empty">
-      No variables yet. Click the ⚡ next to a field to turn it into an editable block prop.
+      Click the ⚡ next to any field to turn it into an editable block prop.
     </p>
-    <div v-for="prop in store.props" :key="prop.name" class="mech-composer__prop">
-      <div class="mech-composer__prop-head">
-        <VIcon name="bolt" class="mech-composer__prop-icon" />
-        <input
-          class="mech-composer__prop-name"
-          :value="prop.name"
-          :aria-label="`Prop name for ${prop.name}`"
-          @change="rename(prop.name, ($event.target as HTMLInputElement).value)"
-        />
-        <span class="mech-composer__prop-type">{{ typeLabel(prop.schema) }}</span>
-        <button type="button" class="mech-composer__prop-remove" title="Remove prop" @click="store.unexposeProp(prop.name)">
-          <VIcon name="trash" />
-        </button>
-      </div>
+    <div v-for="prop in store.props" :key="prop.name" class="mech-composer__var">
+      <VIcon name="bolt" class="mech-composer__var-bolt" />
       <input
-        class="mech-composer__input mech-composer__prop-default"
+        class="mech-composer__var-name"
+        :value="prop.name"
+        :aria-label="`Rename ${prop.name}`"
+        @change="rename(prop.name, ($event.target as HTMLInputElement).value)"
+      />
+      <span class="mech-composer__var-type">{{ typeLabel(prop.schema) }}</span>
+      <input
+        class="mech-composer__var-default"
         :value="defaultOf(prop.schema)"
-        placeholder="Default value"
+        placeholder="default"
+        :aria-label="`Default for ${prop.name}`"
         @input="store.setPropDefault(prop.name, ($event.target as HTMLInputElement).value)"
       />
+      <button type="button" class="mech-composer__var-remove" title="Remove variable" @click="store.unexposeProp(prop.name)">
+        <VIcon name="trash" />
+      </button>
     </div>
-    <p v-if="store.props.length" class="mech-composer__props-hint">
-      These become the block's editable fields on a page.
-    </p>
   </div>
 </template>
 
@@ -39,9 +35,7 @@ import VIcon from '../../components/VIcon.vue'
 const store = inject(composerStoreKey)!
 
 const rename = (from: string, to: string) => {
-  if (!store.renameProp(from, to)) {
-    // Reverting is handled by re-render (the input rebinds to the unchanged name).
-  }
+  store.renameProp(from, to) // a rejected rename simply re-renders the unchanged name
 }
 
 const typeLabel = (schema: Record<string, unknown>) => {

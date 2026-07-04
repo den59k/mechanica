@@ -25,6 +25,14 @@
   justify-content: var(--el-justify, flex-start);
   flex-wrap: var(--el-wrap, nowrap);
   padding: var(--el-pad, 0px);
+  max-width: var(--el-maxw, none);
+
+  // "Content width": when a frame caps its own width, center it in its parent.
+  // Scoped to frames that actually set the var so it never absorbs free space
+  // (auto margins would otherwise fight `justify` in a row parent).
+  &[style*='--el-maxw'] {
+    margin-inline: auto;
+  }
 }
 
 .mxel-text {
@@ -35,42 +43,6 @@
 .mxel-image {
   display: block;
   max-width: 100%;
-}
-
-.mxel-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 24px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  font: inherit;
-  font-weight: 500;
-  line-height: 1;
-  text-align: center;
-  text-decoration: none;
-  cursor: pointer;
-  transition: opacity 0.15s ease;
-
-  &:hover {
-    opacity: 0.88;
-  }
-
-  // Black pill primary, matching the design system's primary action.
-  &--primary {
-    background: #111;
-    color: #fff;
-  }
-  &--secondary {
-    background: transparent;
-    border-color: rgba(0, 0, 0, 0.16);
-    color: #111;
-  }
-  &--ghost {
-    background: transparent;
-    color: #111;
-  }
 }
 
 .mxel-image--empty {

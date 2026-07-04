@@ -1,46 +1,37 @@
 import { reactive } from 'vue'
 import type { ContentBlock } from 'mechanica-shared'
-import { findBlock, type DropPosition } from '../../lib/content-tree'
-import { isContainerBlock } from './elements-meta'
-import { computeInsertion, type Axis, type Rect } from './canvas-drop'
+import { resolveCanvasDrop, type DropIndicator } from './canvas-drop-target'
 import type { ComposerStore } from './composer-store'
 
-/** A rendered drop hint, in client (viewport) coordinates for a fixed overlay. */
-export interface DropIndicator {
-  kind: 'line' | 'box'
-  x: number
-  y: number
-  w: number
-  h: number
-}
+export type { DropIndicator } from './canvas-drop-target'
 
 export interface InsertDnd {
   readonly dragging: boolean
-  /** The label of the element being dragged, for the cursor ghost. */
+  /** The label shown in the cursor ghost while dragging. */
   readonly label: string
   /** Current pointer position (client coords) while dragging, else null. */
   readonly pointer: { x: number; y: number } | null
-  /** Where the element would land, or null when the pointer is off-canvas. */
+  /** Where the block would land, or null when the pointer is off-canvas. */
   readonly indicator: DropIndicator | null
-  /** Whether the click ending this drag should be swallowed (already inserted). */
+  /** Whether the click ending this drag should be swallowed (already handled). */
   readonly suppressClick: boolean
-  /** Arm an insert drag from a palette card's pointerdown; begins after a small move. */
+  /** Arm a drag that inserts a *new* node (palette → canvas). */
   arm(make: () => ContentBlock, label: string, event: PointerEvent): void
+  /** Arm a drag that *relocates* an existing node (on-canvas move). */
+  armMove(nodeId: string, label: string, event: PointerEvent): void
 }
 
 const DRAG_THRESHOLD = 4
-const LINE_THICKNESS = 2
-const CANVAS_SELECTOR = '.mech-composer__canvas'
 
 /**
- * Drag-to-insert for the composer: press a palette card, drag onto the canvas,
- * and drop an element at a precise spot with a live insertion indicator. A plain
- * click (no drag past the threshold) falls through to the card's own handler,
- * which appends at the current selection.
+ * Drag-to-place for the composer canvas — unified for palette inserts and
+ * on-canvas moves. A palette card `arm`s an insert (build a fresh node and drop
+ * it); a selected element `armMove`s a relocate (move an existing node). Both
+ * share the live-DOM hit-test ({@link resolveCanvasDrop}) and the same drop
+ * indicator + cursor ghost, so the two interactions never diverge.
  *
- * Hit-testing runs against the live DOM (`elementFromPoint`) so it respects the
- * canvas pan/zoom transform automatically — every rect is already in screen
- * space. The index/line math is delegated to the pure {@link computeInsertion}.
+ * A plain click (no drag past the threshold) falls through to the caller's own
+ * handler; a real drag swallows the trailing click.
  */
 export function createInsertDnd(store: ComposerStore): InsertDnd {
   const state = reactive({
@@ -48,97 +39,38 @@ export function createInsertDnd(store: ComposerStore): InsertDnd {
     label: '',
     pointer: null as { x: number; y: number } | null,
     indicator: null as DropIndicator | null,
-    drop: null as DropPosition | null,
+    drop: null as import('./canvas-drop-target').DropResult['drop'] | null,
     suppressClick: false,
   })
-  let candidate: { make: () => ContentBlock; label: string; x: number; y: number } | null = null
 
-  const isContainerNode = (node: ContentBlock): boolean =>
-    isContainerBlock(node.blockId) || node.children != null
-
-  /** Direct child block elements of a container (excludes deeper descendants). */
-  const directChildBlocks = (containerEl: Element, containerId: string | null): HTMLElement[] =>
-    [...containerEl.querySelectorAll<HTMLElement>('[data-block-id]')].filter((el) => {
-      const parent = el.parentElement?.closest('[data-block-id]') as HTMLElement | null
-      return (parent?.getAttribute('data-block-id') ?? null) === containerId
-    })
-
-  const flexAxis = (el: Element): Axis =>
-    getComputedStyle(el).flexDirection.startsWith('row') ? 'row' : 'column'
-
-  const toRect = (el: Element): Rect => {
-    const r = el.getBoundingClientRect()
-    return { left: r.left, top: r.top, right: r.right, bottom: r.bottom }
-  }
-
-  const clear = (): void => {
-    state.drop = null
-    state.indicator = null
-  }
+  // One of these is set while a drag is armed.
+  let candidate:
+    | { kind: 'insert'; make: () => ContentBlock; label: string; x: number; y: number }
+    | { kind: 'move'; nodeId: string; label: string; x: number; y: number }
+    | null = null
+  // The moving element, made click-through so hit-testing sees past it.
+  let movingEl: HTMLElement | null = null
 
   const compute = (clientX: number, clientY: number): void => {
-    const canvas = document.querySelector(CANVAS_SELECTOR) as HTMLElement | null
-    if (!canvas) return clear()
+    const excludeId = candidate?.kind === 'move' ? candidate.nodeId : undefined
+    const result = resolveCanvasDrop(clientX, clientY, store, excludeId)
+    state.drop = result?.drop ?? null
+    state.indicator = result?.indicator ?? null
+  }
 
-    const hit = (document.elementFromPoint(clientX, clientY) as HTMLElement | null)?.closest(
-      '[data-block-id]',
-    ) as HTMLElement | null
-
-    // Resolve the container we're inserting into: the hit block if it's a
-    // container, else the hit's parent container, else the canvas root.
-    let containerEl: HTMLElement
-    let containerId: string | null
-    if (hit) {
-      const hitId = hit.getAttribute('data-block-id')!
-      const node = findBlock(store.template, hitId)
-      if (node && isContainerNode(node)) {
-        containerEl = hit
-        containerId = hitId
-      } else {
-        const parent = hit.parentElement?.closest('[data-block-id]') as HTMLElement | null
-        containerEl = parent ?? canvas
-        containerId = parent?.getAttribute('data-block-id') ?? null
-      }
-    } else {
-      const r = canvas.getBoundingClientRect()
-      const inside = clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom
-      if (!inside) return clear()
-      containerEl = canvas
-      containerId = null
+  const beginDrag = (): void => {
+    state.dragging = true
+    state.label = candidate!.label
+    if (candidate!.kind === 'move') {
+      movingEl = document.querySelector(`[data-block-id="${candidate!.nodeId}"]`)
+      if (movingEl) movingEl.style.pointerEvents = 'none'
     }
-
-    const childEls = directChildBlocks(containerEl, containerId)
-    const axis: Axis = containerId ? flexAxis(containerEl) : 'column'
-    const ins = computeInsertion(childEls.map(toRect), axis, clientX, clientY)
-
-    if (childEls.length === 0) {
-      // Empty container → drop inside (or append to the root) and outline it.
-      state.drop = containerId
-        ? { anchorId: containerId, position: 'inside' }
-        : { anchorId: null, position: 'after' }
-      const r = containerEl.getBoundingClientRect()
-      state.indicator = { kind: 'box', x: r.left, y: r.top, w: r.width, h: r.height }
-      return
-    }
-
-    state.drop =
-      ins.index === 0
-        ? { anchorId: childEls[0]!.getAttribute('data-block-id'), position: 'before' }
-        : { anchorId: childEls[ins.index - 1]!.getAttribute('data-block-id'), position: 'after' }
-
-    const line = ins.line!
-    state.indicator = line.vertical
-      ? { kind: 'line', x: line.x - LINE_THICKNESS / 2, y: line.y, w: LINE_THICKNESS, h: line.length }
-      : { kind: 'line', x: line.x, y: line.y - LINE_THICKNESS / 2, w: line.length, h: LINE_THICKNESS }
   }
 
   const onMove = (event: PointerEvent): void => {
     if (!state.dragging && candidate) {
       const moved = Math.hypot(event.clientX - candidate.x, event.clientY - candidate.y)
-      if (moved > DRAG_THRESHOLD) {
-        state.dragging = true
-        state.label = candidate.label
-      }
+      if (moved > DRAG_THRESHOLD) beginDrag()
     }
     if (state.dragging) {
       state.pointer = { x: event.clientX, y: event.clientY }
@@ -147,18 +79,28 @@ export function createInsertDnd(store: ComposerStore): InsertDnd {
   }
 
   const onUp = (): void => {
+    if (state.dragging && candidate && state.drop) {
+      if (candidate.kind === 'insert') store.insertAt(candidate.make(), state.drop)
+      else store.relocate(candidate.nodeId, state.drop)
+    }
     if (state.dragging) {
-      if (candidate && state.drop) store.insertAt(candidate.make(), state.drop)
-      // Swallow the click that follows so the card doesn't also append a copy.
       state.suppressClick = true
       setTimeout(() => (state.suppressClick = false), 0)
     }
+    if (movingEl) movingEl.style.pointerEvents = ''
+    movingEl = null
     candidate = null
     state.dragging = false
     state.pointer = null
-    clear()
+    state.indicator = null
+    state.drop = null
     window.removeEventListener('pointermove', onMove)
     window.removeEventListener('pointerup', onUp)
+  }
+
+  const listen = (): void => {
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
   }
 
   return {
@@ -178,9 +120,12 @@ export function createInsertDnd(store: ComposerStore): InsertDnd {
       return state.suppressClick
     },
     arm(make, label, event) {
-      candidate = { make, label, x: event.clientX, y: event.clientY }
-      window.addEventListener('pointermove', onMove)
-      window.addEventListener('pointerup', onUp)
+      candidate = { kind: 'insert', make, label, x: event.clientX, y: event.clientY }
+      listen()
+    },
+    armMove(nodeId, label, event) {
+      candidate = { kind: 'move', nodeId, label, x: event.clientX, y: event.clientY }
+      listen()
     },
   }
 }

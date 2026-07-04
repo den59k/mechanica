@@ -32,7 +32,6 @@ export function toBlockMeta(component: BlockComponent): Block {
     version: schema.version,
     migrate: schema.migrate,
     previewData: schema.previewData,
-    composable: schema.composable,
     composed: schema.composed,
     props: schema.props
       ? (unfoldSchema(schema.props) as Record<string, unknown>)

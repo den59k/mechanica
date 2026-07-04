@@ -1,10 +1,28 @@
 id: untitled-block
 name: Untitled block
 template:
-  - id: 63cf3fe4-2259-442b-be16-c4e42b8d99f1
+  - id: root
     blockId: mech:frame
     data:
-      direction: column
-      gap: 16
-      padding: 24
-    children: []
+      direction: row
+      gap: 24
+      padding: 0
+      w: fill
+      h: fill
+      align: stretch
+      justify: start
+      $abs:
+        anchor: top-left
+        x: 0
+        y: 0
+      wrap: false
+    children:
+      - id: 5b373fee-01a1-4873-820f-5650ba61fb68
+        blockId: mech:frame
+        data:
+          direction: column
+          gap: 16
+          padding: 0
+          align: center
+          justify: center
+        children: []

@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import type { Plugin } from 'vite'
 import { parseVueRequest } from '@vitejs/plugin-vue'
@@ -6,6 +7,7 @@ import { compileBlock } from '../compiler/compile-block'
 import { collectBlocks, collectBlocksLazy } from './collect-blocks'
 import { collectWidgets } from './collect-widgets'
 import { collectComposed, loadComposedDefinitions, COMPOSED_EXT } from './collect-composed'
+import { generateComponentsModule } from './collect-components'
 import {
   generateClientEntry,
   generateComposerEntry,
@@ -36,6 +38,8 @@ export const WIDGETS_MODULE_ID = 'virtual:mechanica/widgets'
 export const COMPOSED_MODULE_ID = 'virtual:mechanica/composed'
 /** Virtual module mounting the Block Composer (the composer dev route). */
 export const COMPOSER_MODULE_ID = 'virtual:mechanica/composer'
+/** Virtual module exposing the site's design-system components manifest. */
+export const COMPONENTS_MODULE_ID = 'virtual:mechanica/components'
 
 const RESOLVED_BLOCKS_ID = '\0' + BLOCKS_MODULE_ID
 const RESOLVED_CLIENT_ID = '\0' + CLIENT_MODULE_ID
@@ -44,6 +48,7 @@ const RESOLVED_PREVIEW_ID = '\0' + PREVIEW_MODULE_ID
 const RESOLVED_WIDGETS_ID = '\0' + WIDGETS_MODULE_ID
 const RESOLVED_COMPOSED_ID = '\0' + COMPOSED_MODULE_ID
 const RESOLVED_COMPOSER_ID = '\0' + COMPOSER_MODULE_ID
+const RESOLVED_COMPONENTS_ID = '\0' + COMPONENTS_MODULE_ID
 
 export interface MechanicaPluginOptions {
   /** The user's `defineMechanicaApp` entry module, relative to the Vite root. */
@@ -54,6 +59,13 @@ export interface MechanicaPluginOptions {
   blocksDir?: string
   /** Directory scanned for `defineWidget` modules, relative to the Vite root. */
   widgetsDir?: string
+  /**
+   * The Block Composer's components manifest (`defineComposerComponents`),
+   * relative to the Vite root. Its components — the site's design system —
+   * become building material in the composer and are registered into every
+   * runtime block set. Defaults to `src/composer.ts`; absent = no components.
+   */
+  composerFile?: string
   /** Directory holding local editor state, relative to the Vite root. */
   mechDir?: string
   /**
@@ -93,6 +105,9 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
   let widgetsDir = ''
   let mechDir = ''
   let composedDir = ''
+  // Absolute path + root-relative import specifier for the components manifest.
+  let composerFilePath = ''
+  let composerSpecifier = ''
   let userEntry = ''
   let mount = ''
   let root = ''
@@ -230,6 +245,15 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
     void ensurePageCodec(server)
   }
 
+  // Regenerate `virtual:mechanica/components` when the manifest file appears or
+  // disappears (the inert ↔ real module toggle). Edits to an existing manifest
+  // propagate through the module graph on their own.
+  const invalidateComponents = (server: import('vite').ViteDevServer): void => {
+    const mod = server.moduleGraph.getModuleById(RESOLVED_COMPONENTS_ID)
+    if (mod) server.moduleGraph.invalidateModule(mod)
+    server.ws.send({ type: 'full-reload' })
+  }
+
   return {
     name: 'mechanica',
     enforce: 'pre',
@@ -273,6 +297,9 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       widgetsDir = join(config.root, options.widgetsDir ?? 'src/widgets')
       mechDir = join(config.root, options.mechDir ?? '.mech')
       composedDir = join(mechDir, 'blocks')
+      const composerFileRel = (options.composerFile ?? 'src/composer.ts').replace(/^\/+/, '')
+      composerFilePath = join(config.root, composerFileRel)
+      composerSpecifier = '/' + composerFileRel
       userEntry = '/' + (options.entry ?? 'src/main.ts').replace(/^\/+/, '')
       mount = options.mount ?? '#app'
       root = config.root
@@ -326,6 +353,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       if (id === WIDGETS_MODULE_ID) return RESOLVED_WIDGETS_ID
       if (id === COMPOSED_MODULE_ID) return RESOLVED_COMPOSED_ID
       if (id === COMPOSER_MODULE_ID) return RESOLVED_COMPOSER_ID
+      if (id === COMPONENTS_MODULE_ID) return RESOLVED_COMPONENTS_ID
     },
 
     async load(id) {
@@ -356,6 +384,11 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       }
       if (id === RESOLVED_COMPOSER_ID) {
         return generateComposerEntry({ userEntry })
+      }
+      if (id === RESOLVED_COMPONENTS_ID) {
+        // Existence is checked at load time so adding/removing the manifest
+        // toggles between the real and the inert module on the next reload.
+        return generateComponentsModule(existsSync(composerFilePath) ? composerSpecifier : null)
       }
     },
 
@@ -426,10 +459,12 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         if (isBlockFile(file)) invalidateBlocks(server)
         else if (isWidgetFile(file)) invalidateWidgets(server)
         else if (isComposedFile(file) && !wasRecentlyMutated(file)) invalidateComposed(server)
+        else if (slash(file) === slash(composerFilePath)) invalidateComponents(server)
       })
       server.watcher.on('unlink', (file) => {
         if (isWidgetFile(file)) invalidateWidgets(server)
         else if (isComposedFile(file) && !wasRecentlyMutated(file)) invalidateComposed(server)
+        else if (slash(file) === slash(composerFilePath)) invalidateComponents(server)
         if (!isBlockFile(file)) return
         blockSchemas.delete(slash(file))
         invalidateBlocks(server)

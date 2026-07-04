@@ -1,18 +1,20 @@
 import { defineComponent, h, type Component } from 'vue'
 import type { BlocksMap } from '../core/state'
-import { Link } from '../core/link'
 import { responsiveVars, absStyle, compactStyle, FRAME_VARS, SIZE_VARS } from './style-vars'
 import './elements.scss'
 
 /**
- * Layout primitives for composed blocks (the Block Composer). They are ordinary
- * runtime components — placed in a composed template as `ContentBlock`s with the
- * ids below and rendered by `renderBlocks` like any block — so a composed block
- * previews, exports and screenshots through the exact same pipeline as a page.
- * Registered into every runtime `BlocksMap` by {@link registerElements}.
+ * Layout / content primitives for composed blocks (the Block Composer): the
+ * container `mech:frame`, `mech:text` and `mech:image`. They are ordinary runtime
+ * components — placed in a composed template as `ContentBlock`s and rendered by
+ * `renderBlocks` like any block — so a composed block previews, exports and
+ * screenshots through the exact same pipeline as a page. Registered into every
+ * runtime `BlocksMap` by {@link registerElements}.
  *
- * Kept as render functions (not SFCs) so they never go through the block
- * compiler. See PLAN.md § 4.1.
+ * Deliberately *no* Button element: a button's look is a design-system decision,
+ * so a site ships its own via the components manifest (`defineComposerComponents`)
+ * instead of inheriting a generic one. Kept as render functions (not SFCs) so
+ * they never go through the block compiler. See PLAN.md § 4.1 / COMPOSER-REDESIGN §6.1.
  */
 
 type Data = Record<string, unknown>
@@ -130,35 +132,11 @@ const Image = defineComponent({
   },
 })
 
-const BUTTON_VARIANTS = new Set(['primary', 'secondary', 'ghost'])
-
-/** Button — a labelled link. Uses the runtime `Link` so routing/link-following work. */
-const Button = defineComponent({
-  name: 'MechButton',
-  inheritAttrs: false,
-  setup(_props, { attrs }) {
-    return () => {
-      const data = attrs as Data
-      const variant = typeof data.variant === 'string' && BUTTON_VARIANTS.has(data.variant) ? data.variant : 'primary'
-      const style = compactStyle(responsiveVars(data, SIZE_VARS), absStyle(data.$abs))
-      const cls = ['mxel', 'mxel-button', `mxel-button--${variant}`]
-      const label = String(data.label ?? 'Button')
-      const link = data.link as string | { url?: string } | undefined
-      const hasTarget = typeof link === 'string' ? link !== '' : !!link?.url
-      if (hasTarget) {
-        return h(Link, { to: link!, class: cls, style, 'data-block-id': blockId(data) }, () => label)
-      }
-      return h('button', { type: 'button', class: cls, style, 'data-block-id': blockId(data) }, label)
-    }
-  },
-})
-
 /** Element blockId → component. The single source of truth for the id set. */
 export const elements: Record<string, Component> = {
   'mech:frame': Frame,
   'mech:text': Text,
   'mech:image': Image,
-  'mech:button': Button,
 }
 
 /** Whether a block id is a built-in composer element (they ship with the runtime). */

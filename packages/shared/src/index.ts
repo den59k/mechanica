@@ -2,6 +2,8 @@ export type {
   Block,
   ContentBlock,
   ComposedBlockDefinition,
+  ComposerComponentDefinition,
+  ComposerComponentEntry,
   PropBinding,
   DataEntry,
   DataScope,

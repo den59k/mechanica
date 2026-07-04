@@ -9,6 +9,7 @@ import {
 } from 'mechanica-shared'
 import {
   findBlock,
+  findParentSlot,
   removeBlock,
   moveBlock,
   duplicateBlock,
@@ -18,7 +19,8 @@ import {
   type DropPosition,
 } from '../../lib/content-tree'
 import { humanize } from '../../props-panel/humanize'
-import { elementMeta, isContainerBlock } from './elements-meta'
+import { isContainerBlock, type InsertItem } from './elements-meta'
+import { normalizeTemplate } from './normalize-template'
 import { effectiveData, type CanvasBreakpoint } from './canvas'
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
@@ -37,16 +39,24 @@ export interface ComposerStore {
   zoom: number
   panX: number
   panY: number
+  /** Measured on-canvas size of the selected node (from the overlay). View state. */
+  measured: { w: number; h: number } | null
   readonly template: ContentBlock[]
+  /** The canonical root frame (the block itself) — always present. */
+  readonly rootFrame: ContentBlock
+  readonly rootId: string
   readonly selected: ContentBlock | null
   /** Preview prop values for the canvas (schema defaults ← previewData). */
   readonly previewProps: Record<string, unknown>
-  addElement(blockId: string): void
-  /** Insert a pre-built node (a code block, a pasted subtree) at the selection. */
+  /** Create + insert a fresh element from a palette insert item (Row/Column/Text/Image). */
+  insertItem(item: InsertItem): void
+  /** Insert a pre-built node (a component, a pasted subtree) at the selection. */
   insertNode(node: ContentBlock): void
   /** Insert a pre-built node at an explicit drop position (drag-to-canvas). */
   insertAt(node: ContentBlock, drop: DropPosition): void
   select(id: string | null): void
+  /** Walk the selection up one level: child → parent → root → none (Esc). */
+  selectUp(): void
   remove(id: string): void
   duplicate(id: string): void
   move(id: string, delta: number): void
@@ -110,50 +120,78 @@ function replaceBinding(
   }
 }
 
+/** Deep-clone a definition and enforce the root-frame invariant. */
+function normalizedClone(def: ComposedBlockDefinition): ComposedBlockDefinition {
+  const c = clone(def)
+  c.template = normalizeTemplate(c.template ?? [])
+  return c
+}
+
 /** Create the reactive editor store for one composed block. */
 export function createComposerStore(initial: ComposedBlockDefinition): ComposerStore {
   const store = reactive({
-    def: clone(initial),
+    def: normalizedClone(initial),
     selectedId: null as string | null,
     breakpoint: 'base' as CanvasBreakpoint,
     zoom: 1,
     panX: 0,
     panY: 0,
+    measured: null as { w: number; h: number } | null,
 
     get template(): ContentBlock[] {
       return this.def.template
     },
+    get rootFrame(): ContentBlock {
+      return this.def.template[0]!
+    },
+    get rootId(): string {
+      return this.def.template[0]!.id
+    },
     get selected(): ContentBlock | null {
       return this.selectedId ? findBlock(this.def.template, this.selectedId) : null
+    },
+    /** Coerce a drop so it can never spawn a second top-level node beside root. */
+    rootSafeDrop(drop: DropPosition): DropPosition {
+      if (drop.anchorId === null || (drop.anchorId === this.rootId && drop.position !== 'inside')) {
+        return { anchorId: this.rootId, position: 'inside' }
+      }
+      return drop
     },
     get previewProps(): Record<string, unknown> {
       const props = this.def.props ? (unfoldSchema(this.def.props as never) as Record<string, unknown>) : undefined
       return buildPreviewData(props, this.def.previewData)
     },
 
-    addElement(blockId: string) {
-      const meta = elementMeta(blockId)
-      if (meta) this.insertNode(meta.create())
+    insertItem(item: InsertItem) {
+      this.insertNode(item.create())
     },
     insertNode(node: ContentBlock) {
       const sel = this.selected
       if (sel && isContainerBlock(sel.blockId)) ensureSlotList(sel).push(node)
       else if (sel) placeBlock(this.def.template, node, { anchorId: sel.id, position: 'after' })
-      else this.def.template.push(node)
+      // No selection → drop into the root frame, never beside it.
+      else ensureSlotList(this.rootFrame).push(node)
       this.selectedId = node.id
     },
     insertAt(node: ContentBlock, drop: DropPosition) {
-      placeBlock(this.def.template, node, drop)
+      placeBlock(this.def.template, node, this.rootSafeDrop(drop))
       this.selectedId = node.id
     },
     select(id: string | null) {
       this.selectedId = id
     },
+    selectUp() {
+      if (!this.selectedId) return
+      const parent = findParentSlot(this.def.template, this.selectedId)
+      this.selectedId = parent ? parent.parent.id : null
+    },
     remove(id: string) {
+      if (id === this.rootId) return // the root frame is permanent
       removeBlock(this.def.template, id)
       if (this.selectedId === id) this.selectedId = null
     },
     duplicate(id: string) {
+      if (id === this.rootId) return // duplicating the block itself is meaningless
       const copy = duplicateBlock(this.def.template, id)
       if (copy) this.selectedId = copy.id
     },
@@ -161,7 +199,8 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
       moveBlock(this.def.template, id, delta)
     },
     relocate(id: string, drop: DropPosition) {
-      relocateBlock(this.def.template, id, drop)
+      if (id === this.rootId) return // the root never relocates
+      relocateBlock(this.def.template, id, this.rootSafeDrop(drop))
     },
 
     setData(id: string, patch: Record<string, unknown>, opts?: { responsive?: boolean }) {
@@ -270,7 +309,7 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
       return clone(this.def)
     },
     replace(next: ComposerSnapshot) {
-      this.def = clone(next)
+      this.def = normalizedClone(next)
       if (this.selectedId && !findBlock(this.def.template, this.selectedId)) this.selectedId = null
     },
   })

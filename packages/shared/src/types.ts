@@ -71,18 +71,38 @@ export interface Block {
   /** Slot name → slot metadata (currently `true`). */
   slots?: Record<string, unknown>
   /**
-   * Offer this block as a building material inside the Block Composer (the
-   * visual constructor), not (only) on pages. Independent of `hidden`, which
-   * governs the page palette. Set via `composable: true` in `defineBlock`.
-   */
-  composable?: boolean
-  /**
    * Marks a block produced by the Block Composer (a {@link ComposedBlockDefinition}),
    * rather than a compiled SFC. The page editor uses it to offer Edit/Delete and
    * to group these under "Site blocks". Set by the composed-block factory.
    */
   composed?: boolean
 }
+
+/**
+ * One entry in the Block Composer's components manifest (`src/composer.ts`,
+ * declared with `defineComposerComponents`). It exposes a site's own design
+ * system — a plain Vue SFC plus the compact-json-schema for its editable props —
+ * as building material in the composer, without touching the block compiler.
+ *
+ * DOM-free here: `component` is typed `unknown`; the `mechanica` package narrows
+ * it to a Vue `Component`. A manifest value may also be a bare string, which
+ * re-exposes an existing compiled block (by id) in the composer palette.
+ */
+export interface ComposerComponentDefinition {
+  /** The Vue component rendered for this id (narrowed to `Component` in `mechanica`). */
+  component?: unknown
+  /** Display name in the composer's Components palette. */
+  name: string
+  /** VIcon name (or raw `<svg>`) for the palette card. */
+  icon?: string
+  /** compact-json-schema describing the editable props (same field registry as blocks). */
+  props?: Record<string, unknown>
+  /** Example prop values for the canvas / previews. */
+  previewData?: Record<string, unknown>
+}
+
+/** A components-manifest entry: a definition, or a string id re-exposing a compiled block. */
+export type ComposerComponentEntry = ComposerComponentDefinition | string
 
 /**
  * A designer-assembled block ("composed block"): a named, parameterized

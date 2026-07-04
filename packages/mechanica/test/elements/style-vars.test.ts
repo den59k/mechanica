@@ -24,6 +24,11 @@ describe('responsiveVars: base mapping', () => {
     expect(responsiveVars({ grow: true }, FRAME_VARS)['--el-grow']).toBe('1')
   })
 
+  it('maps content width (maxWidth → --el-maxw)', () => {
+    expect(responsiveVars({ maxWidth: 720 }, FRAME_VARS)['--el-maxw']).toBe('720px')
+    expect(responsiveVars({ maxWidth: '60ch' }, FRAME_VARS)['--el-maxw']).toBe('60ch')
+  })
+
   it('ignores unknown keys and invalid enum values', () => {
     const vars = responsiveVars({ direction: 'diagonal', unknown: 1 }, FRAME_VARS)
     expect(vars).toEqual({})

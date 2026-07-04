@@ -1,10 +1,26 @@
 # COMPOSER-REDESIGN: Block Composer v2 — Figma-grade UX
 
-Status: **design approved, not started.** This document is the implementation
-spec for the Composer redesign. Read [PLAN.md](./PLAN.md) first (v1 design +
-what already exists) and [CLAUDE.md](./CLAUDE.md) (architecture, conventions,
-verification rules). Everything in PLAN.md that this document does not
-explicitly change **stays as built**.
+Status: **implemented (R1–R5), verified.** This document was the implementation
+spec for the Composer redesign; the code now matches it. Read [PLAN.md](./PLAN.md)
+first (v1 design + foundations) and [CLAUDE.md](./CLAUDE.md) (architecture,
+conventions, verification rules). Everything in PLAN.md that this document does
+not explicitly change **stays as built**.
+
+**Done:** R1 root-frame invariant (`lib/normalize-template.ts`, store
+protections, Esc-walks-up, Row/Column presets, `maxWidth`). R2 components
+manifest (`defineComposerComponents` → `src/composer.ts` → `virtual:mechanica/components`,
+registered into every entry; `composable` + `mech:button` removed; userland
+`UiButton`; bindable `ComponentFields`). R3 top-toolbar insert + Components
+popover + R/C/T/I keys, layers-only left panel, Figma inspector (`NumInput`/
+`SizeInput`/`AlignGrid`/icon `SegControl`, `lib/padding.ts`, per-side padding,
+compact Variables). R4 on-canvas overlay (`lib/canvas-overlay.ts` +
+`CanvasOverlay.vue`: hover, selection frame, 8 resize handles, size badge, frame
+label; resize; move-relocate via the shared `lib/canvas-drop-target.ts`; `$abs`
+free drag; `store.measured` → `SizeInput`; `history.commit()` on drag end). R5
+inline text editing (double-click) + Components popover search. **Deferred
+polish** (optional, non-blocking): padding drag-strips on canvas, gap drag,
+NumInput label-scrub, block-icon picker popover, lazy components chunk +
+per-page preload (components register eagerly today).
 
 ## 1. Why — critique of the current composer
 

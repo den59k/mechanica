@@ -37,7 +37,11 @@
 
     <PropsSection />
 
-    <p class="mech-composer__settings-hint">Select an element on the canvas to edit it.</p>
+    <button type="button" class="mech-composer__root-link" @click="store.select(store.rootId)">
+      <VIcon name="frame" />
+      <span>Edit root layout</span>
+      <VIcon name="chevron-down" class="mech-composer__root-link-arrow" />
+    </button>
   </div>
 </template>
 

@@ -77,7 +77,7 @@ template:
           maxWidth: 560
           textAlign: center
       - id: cta
-        blockId: mech:button
+        blockId: button
         data:
           label:
             $bind: ctaLabel

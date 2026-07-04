@@ -64,6 +64,9 @@ export const FRAME_VARS: Record<string, VarSpec> = {
   padding: { cssVar: '--el-pad', to: padding },
   w: { cssVar: '--el-w', to: size },
   h: { cssVar: '--el-h', to: size },
+  // Content width: cap the frame's own width and center it (the full-bleed
+  // background + centered content-column section pattern, without a second box).
+  maxWidth: { cssVar: '--el-maxw', to: px },
   grow: { cssVar: '--el-grow', to: (v) => (v ? '1' : '0') },
 }
 

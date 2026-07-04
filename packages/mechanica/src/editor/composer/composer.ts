@@ -1,4 +1,5 @@
 import { createApp } from 'vue'
+import { unfoldSchema } from 'compact-json-schema'
 import { registerFieldSchemas, type Block, type ComposedBlockDefinition } from 'mechanica-shared'
 import { createMechanica } from '../../core/create-mechanica'
 import type { BlocksMap } from '../../core/state'
@@ -16,11 +17,41 @@ interface ComposerWindow {
   __MECHANICA_COMPOSER__?: { blockId?: string }
 }
 
+/** A raw components-manifest entry, as `virtual:mechanica/components` exposes it. */
+export interface ComposerComponentDef {
+  id: string
+  name?: string
+  icon?: string
+  props?: Record<string, unknown>
+  previewData?: Record<string, unknown>
+  /** Set on string entries: the compiled block id being re-exposed. */
+  ref?: string
+}
+
 export interface MountComposerOptions {
-  /** Block components (compiled + composed), keyed by id — the canvas renders with these. */
+  /** Block components (compiled + composed + site components), keyed by id — the canvas renders with these. */
   blocks: BlocksMap
+  /** The site's design-system components (from the manifest) offered in the palette. */
+  components?: ComposerComponentDef[]
   /** Mount target selector or element. */
   target: string | Element
+}
+
+/** Convert a manifest entry to the `Block`-shaped metadata the palette/inspector use. */
+function componentToBlock(def: ComposerComponentDef, blocks: BlocksMap): Block | null {
+  if (def.ref) {
+    const component = blocks.get(def.ref)
+    return component ? toBlockMeta(component as BlockComponent) : null
+  }
+  return {
+    id: def.id,
+    name: def.name ?? def.id,
+    icon: def.icon,
+    previewData: def.previewData,
+    props: def.props
+      ? (unfoldSchema(def.props as never) as Record<string, unknown>)
+      : { type: 'object', properties: {} },
+  }
 }
 
 /** kebab-case an id from a display name. */
@@ -104,12 +135,13 @@ export async function mountComposerApp(options: MountComposerOptions): Promise<v
     typeof options.target === 'string' ? document.querySelector(options.target) : options.target
   if (!target) throw new Error(`Composer mount target not found: ${String(options.target)}`)
 
-  // Compiled blocks a developer marked `composable: true` become building
-  // material in the composer's insert palette (the "enhance developers" path).
+  // The site's design-system components (from `src/composer.ts`) are the
+  // composer's "real" building material — the developer-authored half of the
+  // designer↔developer bridge.
   const codeBlocks: Block[] = []
-  for (const component of options.blocks.values()) {
-    const meta = toBlockMeta(component as BlockComponent)
-    if (meta.composable && !meta.composed) codeBlocks.push(meta)
+  for (const def of options.components ?? []) {
+    const meta = componentToBlock(def, options.blocks)
+    if (meta) codeBlocks.push(meta)
   }
 
   // Save pipeline: first save of a new block creates it (deriving an id from

@@ -53,20 +53,6 @@ describe('element blocks', () => {
     expect(img.getAttribute('alt')).toBe('A')
   })
 
-  it('button renders a link when a target is present, a <button> otherwise', () => {
-    const linked = mount({
-      content: [{ id: 'b', blockId: 'mech:button', data: { label: 'Go', link: 'https://x.com', variant: 'secondary' } }],
-      data: {},
-    })
-    const a = linked.querySelector('a.mxel-button') as HTMLAnchorElement
-    expect(a.getAttribute('href')).toBe('https://x.com')
-    expect(a.classList.contains('mxel-button--secondary')).toBe(true)
-    expect(a.textContent).toBe('Go')
-
-    const bare = mount({ content: [{ id: 'b', blockId: 'mech:button', data: { label: 'Nope' } }], data: {} })
-    expect(bare.querySelector('button.mxel-button')?.textContent).toBe('Nope')
-  })
-
   it('absolute placement produces position/inset style', () => {
     const el = mount({
       content: [{ id: 't', blockId: 'mech:text', data: { content: 'x', $abs: { anchor: 'top-right', x: 12, y: 8 } } }],
