@@ -87,6 +87,30 @@ describe('absStyle', () => {
       transform: 'translate(calc(-50% + 0px), calc(-50% + 0px))',
     })
   })
+  it('pins to an edge-centre, translating only the centred axis', () => {
+    // Top edge-centre: horizontal is centred (translate X), vertical rides `top`.
+    expect(absStyle({ anchor: 'top', x: 4, y: 6 })).toEqual({
+      position: 'absolute',
+      top: '6px',
+      left: '50%',
+      transform: 'translate(calc(-50% + 4px), 0)',
+    })
+    // Right edge-centre: horizontal rides `right`, vertical is centred (translate Y).
+    expect(absStyle({ anchor: 'right', x: 12, y: 0 })).toEqual({
+      position: 'absolute',
+      top: '50%',
+      right: '12px',
+      transform: 'translate(0, calc(-50% + 0px))',
+    })
+  })
+  it('pins to the bottom edge-centre', () => {
+    expect(absStyle({ anchor: 'bottom', x: 0, y: 10 })).toEqual({
+      position: 'absolute',
+      bottom: '10px',
+      left: '50%',
+      transform: 'translate(calc(-50% + 0px), 0)',
+    })
+  })
   it('defaults a missing anchor to top-left with zero offsets', () => {
     expect(absStyle({})).toEqual({ position: 'absolute', top: '0px', left: '0px' })
   })

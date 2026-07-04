@@ -1,3 +1,5 @@
+import { shortcutChar } from './keyboard'
+
 export type ShortcutAction =
   | 'undo'
   | 'redo'
@@ -11,6 +13,8 @@ export type ShortcutAction =
 
 export interface ShortcutEvent {
   key: string
+  /** Physical key position (`event.code`) — makes letter shortcuts layout-independent. */
+  code?: string
   metaKey?: boolean
   ctrlKey?: boolean
   shiftKey?: boolean
@@ -23,13 +27,14 @@ export interface ShortcutEvent {
 /**
  * Map a keyboard event to an editor action. Pure, so it's easy to test. Typing
  * suppresses everything except Escape, so field editing (and native text undo)
- * isn't hijacked.
+ * isn't hijacked. Letter matches go through `shortcutChar`, so a Cyrillic/Greek/
+ * other non-Latin layout triggers the same shortcuts as US-QWERTY.
  */
 export function resolveShortcut(event: ShortcutEvent): ShortcutAction | null {
   if (event.key === 'Escape') return 'deselect'
 
   const mod = event.metaKey || event.ctrlKey
-  const key = event.key.toLowerCase()
+  const key = shortcutChar(event) ?? ''
 
   // The quick switcher opens even while typing (like every command palette).
   if (mod && key === 'k') return 'quickSwitch'

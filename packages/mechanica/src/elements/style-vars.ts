@@ -103,6 +103,20 @@ export function responsiveVars(data: Record<string, unknown>, specs: Record<stri
   return out
 }
 
+// The 9 anchor points decompose into an independent horizontal + vertical edge
+// (corners, the four edge-centres, and the middle). Edge-centres and the middle
+// pull the element back over the anchor line with a translate.
+const ANCHOR_H: Record<string, 'left' | 'center' | 'right'> = {
+  'top-left': 'left', left: 'left', 'bottom-left': 'left',
+  top: 'center', center: 'center', bottom: 'center',
+  'top-right': 'right', right: 'right', 'bottom-right': 'right',
+}
+const ANCHOR_V: Record<string, 'top' | 'center' | 'bottom'> = {
+  'top-left': 'top', top: 'top', 'top-right': 'top',
+  left: 'center', center: 'center', right: 'center',
+  'bottom-left': 'bottom', bottom: 'bottom', 'bottom-right': 'bottom',
+}
+
 /** Absolute placement (`$abs`) → position/inset/transform/z-index inline style. */
 export function absStyle(abs: unknown): Style {
   if (!isObject(abs)) return {}
@@ -110,32 +124,23 @@ export function absStyle(abs: unknown): Style {
   const x = typeof abs.x === 'number' ? abs.x : 0
   const y = typeof abs.y === 'number' ? abs.y : 0
   const anchor = typeof abs.anchor === 'string' ? abs.anchor : 'top-left'
-  const xUnit = `${x}px`
-  const yUnit = `${y}px`
+  const h = ANCHOR_H[anchor] ?? 'left'
+  const v = ANCHOR_V[anchor] ?? 'top'
 
-  switch (anchor) {
-    case 'top-right':
-      out.top = yUnit
-      out.right = xUnit
-      break
-    case 'bottom-left':
-      out.bottom = yUnit
-      out.left = xUnit
-      break
-    case 'bottom-right':
-      out.bottom = yUnit
-      out.right = xUnit
-      break
-    case 'center':
-      out.top = '50%'
-      out.left = '50%'
-      out.transform = `translate(calc(-50% + ${xUnit}), calc(-50% + ${yUnit}))`
-      break
-    case 'top-left':
-    default:
-      out.top = yUnit
-      out.left = xUnit
-      break
+  if (h === 'left') out.left = `${x}px`
+  else if (h === 'right') out.right = `${x}px`
+  else out.left = '50%'
+
+  if (v === 'top') out.top = `${y}px`
+  else if (v === 'bottom') out.bottom = `${y}px`
+  else out.top = '50%'
+
+  // A centred axis pulls the element back by half its own size; the offset rides
+  // in the translate. A non-centred axis contributes 0 on that side.
+  if (h === 'center' || v === 'center') {
+    const tx = h === 'center' ? `calc(-50% + ${x}px)` : '0'
+    const ty = v === 'center' ? `calc(-50% + ${y}px)` : '0'
+    out.transform = `translate(${tx}, ${ty})`
   }
   if (typeof abs.z === 'number') out.zIndex = String(abs.z)
   return out

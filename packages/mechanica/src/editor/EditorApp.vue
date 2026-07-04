@@ -246,6 +246,7 @@ const onKeyDown = (event: KeyboardEvent) => {
 
   const action = resolveShortcut({
     key: event.key,
+    code: event.code,
     metaKey: event.metaKey,
     ctrlKey: event.ctrlKey,
     shiftKey: event.shiftKey,

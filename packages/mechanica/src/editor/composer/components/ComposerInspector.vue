@@ -156,19 +156,16 @@
         <span>Mode</span>
         <SegControl :options="positionOptions" :model-value="isAbsolute ? 'absolute' : 'flow'" @update:model-value="store.setAbsolute(node.id, $event === 'absolute')" />
       </div>
-      <template v-if="isAbsolute">
-        <div class="mech-composer__row">
-          <span>Anchor</span>
-          <SegControl :options="anchorOptions" :model-value="absValue('anchor') ?? 'top-left'" @update:model-value="store.setAbs(node.id, { anchor: $event })" />
-        </div>
-        <div class="mech-composer__row">
-          <span>Offset</span>
-          <div class="mech-composer__inline">
-            <NumInput label="X" :model-value="absNum('x')" @update:model-value="store.setAbs(node.id, { x: $event ?? 0 })" />
-            <NumInput label="Y" :model-value="absNum('y')" @update:model-value="store.setAbs(node.id, { y: $event ?? 0 })" />
+      <div v-if="isAbsolute" class="mech-composer__row mech-composer__row--top">
+        <span>Pin to</span>
+        <div class="mech-composer__abs">
+          <AnchorGrid :model-value="absAnchor" @update:model-value="store.setAbs(node.id, { anchor: $event })" />
+          <div class="mech-composer__abs-offsets">
+            <NumInput label="X" :model-value="absNum('x')" :aria-label="absXLabel" @update:model-value="store.setAbs(node.id, { x: $event ?? 0 })" />
+            <NumInput label="Y" :model-value="absNum('y')" :aria-label="absYLabel" @update:model-value="store.setAbs(node.id, { y: $event ?? 0 })" />
           </div>
         </div>
-      </template>
+      </div>
     </section>
 
     <!-- ── Fill (frame) ───────────────────────────────────────────── -->
@@ -202,6 +199,7 @@ import ColorField from './ColorField.vue'
 import NumInput from './NumInput.vue'
 import SizeInput from './SizeInput.vue'
 import AlignGrid from './AlignGrid.vue'
+import AnchorGrid from './AnchorGrid.vue'
 
 const store = inject(composerStoreKey)!
 const uploader = inject<((file: File) => Promise<{ src: string }>) | null>('mechFileUploader', null)
@@ -253,6 +251,20 @@ const isAbsolute = computed(() => !!absObj.value)
 const absValue = (key: string) => absObj.value?.[key]
 const absNum = (key: string): number | '' =>
   typeof absObj.value?.[key] === 'number' ? (absObj.value![key] as number) : 0
+const absAnchor = computed(() => (typeof absValue('anchor') === 'string' ? (absValue('anchor') as string) : 'top-left'))
+// The offset origin depends on the pinned edge, so spell it out for a11y.
+const absXLabel = computed(() => {
+  const a = absAnchor.value
+  if (a === 'top-right' || a === 'bottom-right' || a === 'right') return 'Offset from right edge'
+  if (a === 'top' || a === 'bottom' || a === 'center') return 'Horizontal offset from center'
+  return 'Offset from left edge'
+})
+const absYLabel = computed(() => {
+  const a = absAnchor.value
+  if (a === 'bottom-left' || a === 'bottom-right' || a === 'bottom') return 'Offset from bottom edge'
+  if (a === 'left' || a === 'right' || a === 'center') return 'Vertical offset from center'
+  return 'Offset from top edge'
+})
 
 // ── Image ────────────────────────────────────────────────────────────
 const previewBg = computed(() => {
@@ -302,12 +314,5 @@ const fitOptions: SegOption[] = [
 const positionOptions: SegOption[] = [
   { value: 'flow', label: 'In flow' },
   { value: 'absolute', label: 'Absolute' },
-]
-const anchorOptions: SegOption[] = [
-  { value: 'top-left', label: '↖', title: 'Top left' },
-  { value: 'top-right', label: '↗', title: 'Top right' },
-  { value: 'center', label: '•', title: 'Center' },
-  { value: 'bottom-left', label: '↙', title: 'Bottom left' },
-  { value: 'bottom-right', label: '↘', title: 'Bottom right' },
 ]
 </script>

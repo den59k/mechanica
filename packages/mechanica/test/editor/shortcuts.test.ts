@@ -40,4 +40,12 @@ describe('resolveShortcut', () => {
     expect(resolveShortcut(ev({ key: 'K', metaKey: true, typing: true }))).toBe('quickSwitch')
     expect(resolveShortcut(ev({ key: 'k' }))).toBeNull()
   })
+
+  it('fires on the physical key under a non-Latin layout', () => {
+    // Russian layout emits Cyrillic chars; the physical key (code) still matches.
+    expect(resolveShortcut(ev({ key: 'я', code: 'KeyZ', metaKey: true }))).toBe('undo')
+    expect(resolveShortcut(ev({ key: 'л', code: 'KeyK', ctrlKey: true }))).toBe('quickSwitch')
+    expect(resolveShortcut(ev({ key: 'в', code: 'KeyD', ctrlKey: true, hasSelection: true }))).toBe('duplicate')
+    expect(resolveShortcut(ev({ key: 'с', code: 'KeyC', metaKey: true, hasSelection: true }))).toBe('copy')
+  })
 })

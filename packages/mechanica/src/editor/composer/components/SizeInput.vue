@@ -8,11 +8,14 @@
       :min="0"
       @update:model-value="onNumber"
     />
-    <select class="mech-composer__unit" :value="mode" :aria-label="`${axis} sizing`" @change="onMode">
-      <option value="hug">Hug</option>
-      <option value="fill">Fill</option>
-      <option value="fixed">Fixed</option>
-    </select>
+    <VSelect
+      class="mech-composer__unit"
+      compact
+      :model-value="mode"
+      :options="modeOptions"
+      :aria-label="`${axis === 'w' ? 'Width' : 'Height'} sizing`"
+      @update:model-value="onMode"
+    />
   </div>
 </template>
 
@@ -21,6 +24,7 @@ import { computed, inject } from 'vue'
 import type { ContentBlock } from 'mechanica-shared'
 import { composerStoreKey } from '../lib/keys'
 import NumInput from './NumInput.vue'
+import VSelect, { type SelectOption } from '../../components/VSelect.vue'
 
 const props = defineProps<{ node: ContentBlock; axis: 'w' | 'h' }>()
 const store = inject(composerStoreKey)!
@@ -28,6 +32,12 @@ const store = inject(composerStoreKey)!
 const value = computed(() => store.effective(props.node, props.axis))
 const mode = computed(() => (typeof value.value === 'number' ? 'fixed' : value.value === 'fill' ? 'fill' : 'hug'))
 const fixedValue = computed<number | ''>(() => (typeof value.value === 'number' ? value.value : ''))
+
+const modeOptions: SelectOption[] = [
+  { value: 'hug', label: 'Hug' },
+  { value: 'fill', label: 'Fill' },
+  { value: 'fixed', label: 'Fixed' },
+]
 
 // The measured on-canvas size feeds the placeholder in Hug/Fill so a designer
 // still sees how big it actually is (populated by the canvas overlay, R4).
@@ -44,8 +54,7 @@ function onNumber(n: number | undefined) {
   // Typing a number switches the axis to Fixed; clearing it reverts to Hug.
   set(n === undefined ? undefined : n)
 }
-function onMode(event: Event) {
-  const next = (event.target as HTMLSelectElement).value
+function onMode(next: unknown) {
   if (next === 'hug') set(undefined)
   else if (next === 'fill') set('fill')
   else set(typeof value.value === 'number' ? value.value : 240)

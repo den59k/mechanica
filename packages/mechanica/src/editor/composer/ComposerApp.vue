@@ -69,6 +69,7 @@ import { createComposerStore, type ComposerSnapshot } from './lib/composer-store
 import { createComposerHistory } from './lib/composer-history'
 import { createInsertDnd } from './lib/use-insert-dnd'
 import { insertItemForKey } from './lib/elements-meta'
+import { shortcutChar } from '../lib/keyboard'
 import { composerStoreKey, composerHistoryKey, composerInsertDndKey } from './lib/keys'
 import type { CanvasBreakpoint } from './lib/canvas'
 import VIcon from '../components/VIcon.vue'
@@ -137,7 +138,9 @@ const onKeyDown = (event: KeyboardEvent) => {
   const typing =
     !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
   const mod = event.metaKey || event.ctrlKey
-  if (mod && event.key.toLowerCase() === 'z') {
+  // Match on physical key so the shortcuts fire under any keyboard layout.
+  const ch = shortcutChar(event)
+  if (mod && ch === 'z') {
     event.preventDefault()
     event.shiftKey ? history.redo() : history.undo()
     return
@@ -147,12 +150,12 @@ const onKeyDown = (event: KeyboardEvent) => {
   else if ((event.key === 'Delete' || event.key === 'Backspace') && store.selectedId) {
     event.preventDefault()
     store.remove(store.selectedId)
-  } else if (mod && event.key.toLowerCase() === 'd' && store.selectedId) {
+  } else if (mod && ch === 'd' && store.selectedId) {
     event.preventDefault()
     store.duplicate(store.selectedId)
-  } else if (!mod && !event.altKey) {
+  } else if (!mod && !event.altKey && ch) {
     // R / C / T / I arm insertion of Row / Column / Text / Image at the selection.
-    const item = insertItemForKey(event.key)
+    const item = insertItemForKey(ch)
     if (item) {
       event.preventDefault()
       store.insertItem(item)
