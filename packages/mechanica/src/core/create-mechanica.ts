@@ -1,5 +1,5 @@
 import { shallowReactive, shallowRef, type App, type Plugin } from 'vue'
-import type { ContentBlock, PageMeta, State } from 'mechanica-shared'
+import type { ComposedBlockDefinition, ContentBlock, PageMeta, State } from 'mechanica-shared'
 import {
   mechanicaKey,
   type BlocksMap,
@@ -9,6 +9,8 @@ import {
 } from './state'
 import { createRouter } from './router'
 import { loadBlocks, type BlockLoaders } from './load-blocks'
+import { registerElements } from '../elements'
+import { createComposedComponent } from './composed'
 import { exposeRuntime, mergeData } from '../editor/lib/bridge'
 
 export interface CreateMechanicaOptions {
@@ -21,6 +23,13 @@ export interface CreateMechanicaOptions {
    * navigation loads a page's missing block chunks before rendering it.
    */
   blockLoaders?: BlockLoaders
+  /**
+   * Composed-block definitions (from `virtual:mechanica/composed`). Each is
+   * registered into the block set as a component, and SPA navigation expands a
+   * placed composed block into the compiled blocks its template uses so their
+   * chunks load first.
+   */
+  composed?: ComposedBlockDefinition[]
   /** Execution mode. Defaults to `'client'`. */
   mode?: MechanicaMode
   /** Query resolver for server/dev modes. */
@@ -42,6 +51,15 @@ export function createMechanica(options: CreateMechanicaOptions = {}): Plugin {
 
       const blocks = options.blocks ?? new Map()
       const loaders = options.blockLoaders
+
+      // Layout primitives always ship with the runtime; composed blocks are
+      // registered as components and mapped by id for chunk expansion on nav.
+      registerElements(blocks)
+      const composedMap = new Map<string, ComposedBlockDefinition>()
+      for (const def of options.composed ?? []) {
+        composedMap.set(def.id, def)
+        blocks.set(def.id, createComposedComponent(def))
+      }
 
       // Reactive so <Content> re-keys blocks when e.g. the pagination context
       // changes. Wraps the state's own object, so mutations write through
@@ -65,7 +83,7 @@ export function createMechanica(options: CreateMechanicaOptions = {}): Plugin {
           baseUrl: initial?.baseUrl,
           ensureBlocks: loaders
             ? async (next) => {
-                await loadBlocks(loaders, next, blocks)
+                await loadBlocks(loaders, next, blocks, composedMap)
               }
             : undefined,
           // SPA navigation carries the target page's meta and baked query

@@ -70,6 +70,58 @@ export interface Block {
   props?: Record<string, unknown>
   /** Slot name → slot metadata (currently `true`). */
   slots?: Record<string, unknown>
+  /**
+   * Offer this block as a building material inside the Block Composer (the
+   * visual constructor), not (only) on pages. Independent of `hidden`, which
+   * governs the page palette. Set via `composable: true` in `defineBlock`.
+   */
+  composable?: boolean
+}
+
+/**
+ * A designer-assembled block ("composed block"): a named, parameterized
+ * {@link ContentBlock} subtree saved as data. It is not compiled — at render
+ * time it *expands* into its template through the normal block-render pipeline,
+ * so it behaves like any other block (palette, settings form, export, shots).
+ *
+ * Authored in the Block Composer and persisted as `.mech/blocks/<id>.block.yml`
+ * (codec in `mechanica-shared/block-format`); a developer can hand-write the
+ * same file. See PLAN.md.
+ */
+export interface ComposedBlockDefinition {
+  /** Stable, kebab-case id; unique across compiled blocks and composed blocks. */
+  id: string
+  /** Display name shown in the palette. */
+  name: string
+  /** VIcon name shown on the palette card. */
+  icon?: string
+  /** Palette grouping; defaults to a "Site blocks" group in the editor. */
+  category?: string
+  /**
+   * compact-json-schema for the props exposed out of the template (§ prop
+   * bindings). Placed instances get an auto-generated settings form from this,
+   * exactly like a compiled block's `props`.
+   */
+  props?: Record<string, unknown>
+  /**
+   * Example prop values for previews (palette hover, `/@mechanica/preview`,
+   * `mechanica shot`). Captured from the canvas values at author time.
+   */
+  previewData?: Record<string, unknown>
+  /**
+   * The block body: element/block nodes. A value inside a node's `data` may be
+   * a {@link PropBinding} (`{ $bind: 'propName' }`) that resolves from the
+   * instance's props at render time (see `resolveComposedTemplate`).
+   */
+  template: ContentBlock[]
+}
+
+/**
+ * A placeholder inside a composed template's data, replaced at render time by
+ * the value of the named prop on the placed instance.
+ */
+export interface PropBinding {
+  $bind: string
 }
 
 /** A block placed in a page's content tree. */

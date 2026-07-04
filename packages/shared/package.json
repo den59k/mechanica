@@ -26,6 +26,11 @@
       "types": "./dist/types/page-format.d.ts",
       "bun": "./src/page-format.ts",
       "import": "./dist/page-format.js"
+    },
+    "./block-format": {
+      "types": "./dist/types/block-format.d.ts",
+      "bun": "./src/block-format.ts",
+      "import": "./dist/block-format.js"
     }
   },
   "scripts": {

@@ -1,7 +1,23 @@
 # PLAN: Block Composer (composed blocks)
 
-Status: **design accepted, not started**
+Status: **Stage 0 (foundation) complete & verified. Stage 1 (composer UI) next.**
 Owner docs: this file. Companion specs: [CLAUDE.md](./CLAUDE.md) (architecture), [CONTRACT.md](./CONTRACT.md) (`.page.md`), [PREVIEW.md](./PREVIEW.md) (shots/previews).
+
+## Progress
+
+- **Stage 0 — DONE.** Composed blocks authored by hand as `.mech/blocks/<id>.block.yml`
+  render through the normal pipeline in dev, SSR and static export; the four
+  elements (`mech:frame`/`text`/`image`/`button`) ship with the runtime;
+  responsive `$bp` overrides bake to CSS-variable media-query chains; `$bind`
+  props resolve; the dev CRUD store + `/@mechanica/composed*` endpoints exist;
+  `mechanica shot <id>` and `mechanica shot /page` both render composed blocks.
+  Verified end-to-end via `dev-app`'s `hero-banner.block.yml` + `/composed-demo`
+  page (export HTML + 1440/390 shots). Tests: shared `compose`/`block-format`,
+  mechanica `style-vars`/`elements.dom`/`composed.dom`/`collect-composed`/
+  `composed-store` + updated `entries`. **`bun run build` must run before an
+  export/pack** — the new `mechanica-shared/block-format` subpath is a dist entry.
+- **Stage 1 — TODO.** The Composer UI (route, canvas, inspector, save wiring).
+- **Stage 2 / 3 — TODO** (parameterization/palette integration; responsive/absolute/polish).
 
 ## 1. What we are building
 

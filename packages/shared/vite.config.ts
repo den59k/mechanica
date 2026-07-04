@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 
-// Library build → dist/. Both entries in one build so modules they share
+// Library build → dist/. All entries in one build so modules they share
 // (schema helpers, the field registry) land in a common chunk — one instance
 // at runtime, never two copies of the registry.
 export default defineConfig({
@@ -12,6 +12,7 @@ export default defineConfig({
       entry: {
         index: 'src/index.ts',
         'page-format': 'src/page-format.ts',
+        'block-format': 'src/block-format.ts',
       },
       formats: ['es'],
     },

@@ -29,10 +29,19 @@ describe('generateClientEntry', () => {
     const code = generateClientEntry({ userEntry: '/src/main.ts', mount: '#app', mode: 'client', lazy: true })
     expect(code).toContain("import { blockLoaders } from 'virtual:mechanica/blocks'")
     expect(code).not.toContain('blocksMap') // nothing eager left
-    expect(code).toContain('loadBlocks(blockLoaders, state.content ?? []).then((blocks) => {')
+    // Composed blocks expand into the compiled blocks their templates use.
+    expect(code).toContain("import { composedList } from 'virtual:mechanica/composed'")
+    expect(code).toContain('const composedMap = new Map(composedList.map((def) => [def.id, def]))')
+    expect(code).toContain('loadBlocks(blockLoaders, state.content ?? [], undefined, composedMap).then((blocks) => {')
     // Loaders reach the runtime so SPA navigation can fetch missing chunks.
-    expect(code).toContain('{ mode: "client", state, blocks, blockLoaders }')
+    expect(code).toContain('{ mode: "client", state, blocks, blockLoaders, composed: composedList }')
     expect(code).toContain('.mount("#app")')
+  })
+
+  it('eager mode passes composed definitions to the app', () => {
+    const code = generateClientEntry({ userEntry: '/src/main.ts', mount: '#app', mode: 'client' })
+    expect(code).toContain("import { composedList } from 'virtual:mechanica/composed'")
+    expect(code).toContain('blocks: blocksMap, composed: composedList')
   })
 })
 
@@ -42,8 +51,10 @@ describe('generatePreviewEntry', () => {
     expect(code).toContain('import "/src/main.ts"')
     expect(code).not.toContain('import definition')
     expect(code).not.toContain('.mount(')
-    expect(code).toContain("import { mountPreviewApp } from 'mechanica'")
-    expect(code).toContain("mountPreviewApp({ blocks: blocksMap, target: '#app'")
+    expect(code).toContain("import { mountPreviewApp, createComposedComponent } from 'mechanica'")
+    // Composed blocks are registered so /@mechanica/preview/<id> can render one.
+    expect(code).toContain('for (const def of composedList) blocks.set(def.id, createComposedComponent(def))')
+    expect(code).toContain("mountPreviewApp({ blocks, target: '#app'")
     expect(code).toContain("fetch('/@mechanica/state?path=/')")
   })
 })

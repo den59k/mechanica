@@ -1,5 +1,10 @@
 import { unfoldSchema } from 'compact-json-schema'
-import { getDefaultValue, type Block, type ContentBlock } from 'mechanica-shared'
+import {
+  getDefaultValue,
+  type Block,
+  type ComposedBlockDefinition,
+  type ContentBlock,
+} from 'mechanica-shared'
 import { humanize } from '../props-panel/humanize'
 import { uid } from './content-tree'
 
@@ -31,6 +36,26 @@ export function toBlockMeta(component: BlockComponent): Block {
       ? (unfoldSchema(schema.props) as Record<string, unknown>)
       : { type: 'object', properties: {} },
     slots: schema.slots,
+  }
+}
+
+/**
+ * Editor-facing metadata for a composed block, in the same {@link Block} shape
+ * as {@link toBlockMeta} produces for a compiled block — so the palette, the
+ * settings form and schema-default filling treat both uniformly. `props` is
+ * unfolded from the definition's compact schema.
+ */
+export function composedBlockMeta(def: ComposedBlockDefinition): Block {
+  return {
+    id: def.id,
+    name: def.name,
+    category: def.category,
+    icon: def.icon,
+    previewData: def.previewData,
+    composable: false,
+    props: def.props
+      ? (unfoldSchema(def.props as never) as Record<string, unknown>)
+      : { type: 'object', properties: {} },
   }
 }
 

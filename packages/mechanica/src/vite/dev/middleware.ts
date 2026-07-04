@@ -18,6 +18,16 @@ import { saveUpload, listImages } from './assets-store'
 import { resolveDevQuery } from './query-dev'
 import { mergeSiteData, mergeFolderData, folderOf } from './data-store'
 import { buildPageState } from './page-state'
+import {
+  listComposedBlocks,
+  readComposedBlock,
+  createComposedBlock,
+  saveComposedBlock,
+  deleteComposedBlock,
+  composedVersion,
+  ComposedBlockExistsError,
+} from './composed-store'
+import type { ComposedBlockDefinition } from 'mechanica-shared'
 
 /** What `/blocks` reports per block — enough for the thumbs CLI to walk them. */
 export interface BlockListing {
@@ -189,6 +199,61 @@ export function createDevMiddleware(
         return json({ success: true, version })
       }
 
+      // ── Composed blocks (Block Composer) ─────────────────────────────────
+      if (pathname === '/composed' && req.method === 'GET') return json(listComposedBlocks(mechDir))
+
+      if (pathname === '/composed/get' && req.method === 'GET') {
+        const id = query.get('id')
+        if (!id || !isValidId(id)) return json({ error: 'Missing or invalid id' }, 400)
+        const result = readComposedBlock(mechDir, id)
+        if (!result) return json({ error: 'not found' }, 404)
+        return json(result)
+      }
+
+      if (pathname === '/composed/create' && req.method === 'POST') {
+        const def = JSON.parse((await readBody(req)).toString('utf-8')) as ComposedBlockDefinition
+        const invalid = validateComposed(def)
+        if (invalid) return json({ error: invalid }, 400)
+        // Reject an id already used by a compiled or composed block.
+        const existing = (await options.blocks?.()) ?? []
+        if (existing.some((block) => block.id === def.id)) {
+          return json({ error: { id: 'A block with this id already exists' } }, 400)
+        }
+        try {
+          return json({ success: true, ...createComposedBlock(mechDir, def) })
+        } catch (error) {
+          if (error instanceof ComposedBlockExistsError) {
+            return json({ error: { id: 'A block with this id already exists' } }, 400)
+          }
+          throw error
+        }
+      }
+
+      if (pathname === '/composed/save' && req.method === 'POST') {
+        const id = query.get('id')
+        if (!id || !isValidId(id)) return json({ error: 'Missing or invalid id' }, 400)
+        const body = JSON.parse((await readBody(req)).toString('utf-8')) as {
+          def: ComposedBlockDefinition
+          version?: string
+          force?: boolean
+        }
+        const invalid = validateComposed(body.def)
+        if (invalid) return json({ error: invalid }, 400)
+        // Optimistic concurrency: reject a save over an external edit (a 409),
+        // like the page save path — `force: true` overrides.
+        if (!body.force && typeof body.version === 'string') {
+          const current = composedVersion(mechDir, id)
+          if (current != null && current !== body.version) return json({ error: 'conflict', version: current }, 409)
+        }
+        return json({ success: true, ...saveComposedBlock(mechDir, id, body.def) })
+      }
+
+      if (pathname === '/composed/delete' && req.method === 'POST') {
+        const id = query.get('id')
+        if (!id || !isValidId(id)) return json({ error: 'Missing or invalid id' }, 400)
+        return json({ success: deleteComposedBlock(mechDir, id) })
+      }
+
       next()
     } catch (error) {
       json({ error: String(error) }, 500)
@@ -203,4 +268,19 @@ function readBody(req: Connect.IncomingMessage): Promise<Buffer> {
     req.on('end', () => resolve(Buffer.concat(chunks)))
     req.on('error', reject)
   })
+}
+
+/** A safe composed-block id — a filename component, never a path (no traversal). */
+function isValidId(id: string): boolean {
+  return /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(id)
+}
+
+/** Validate an incoming composed-block definition; returns a field-error map or null. */
+function validateComposed(def: unknown): Record<string, string> | null {
+  if (!def || typeof def !== 'object') return { def: 'Invalid definition' }
+  const d = def as Record<string, unknown>
+  if (typeof d.id !== 'string' || !isValidId(d.id)) return { id: 'A valid id is required' }
+  if (typeof d.name !== 'string' || d.name === '') return { name: 'A name is required' }
+  if (d.template !== undefined && !Array.isArray(d.template)) return { template: 'template must be a list' }
+  return null
 }

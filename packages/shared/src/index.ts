@@ -1,12 +1,21 @@
 export type {
   Block,
   ContentBlock,
+  ComposedBlockDefinition,
+  PropBinding,
   DataEntry,
   DataScope,
   PageMeta,
   State,
   PageLink,
 } from './types'
+
+export {
+  resolveComposedTemplate,
+  resolveBindings,
+  templateBlockIds,
+  isBinding,
+} from './compose'
 
 export {
   type FieldType,

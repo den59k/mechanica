@@ -8,9 +8,11 @@ import svgGlob from './src/svg-plugin'
 // subpath must come first — the bare alias also prefix-matches it.
 const sharedSrc = fileURLToPath(new URL('../shared/src/index.ts', import.meta.url))
 const sharedPageFormat = fileURLToPath(new URL('../shared/src/page-format.ts', import.meta.url))
+const sharedBlockFormat = fileURLToPath(new URL('../shared/src/block-format.ts', import.meta.url))
 const srcDir = fileURLToPath(new URL('./src', import.meta.url))
 const alias = {
   'mechanica-shared/page-format': sharedPageFormat,
+  'mechanica-shared/block-format': sharedBlockFormat,
   'mechanica-shared': sharedSrc,
   '@': srcDir,
 }

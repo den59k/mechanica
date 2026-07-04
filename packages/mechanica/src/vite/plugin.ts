@@ -5,11 +5,12 @@ import { passDataToHTML, serializeState } from 'mechanica-shared'
 import { compileBlock } from '../compiler/compile-block'
 import { collectBlocks, collectBlocksLazy } from './collect-blocks'
 import { collectWidgets } from './collect-widgets'
+import { collectComposed, loadComposedDefinitions, COMPOSED_EXT } from './collect-composed'
 import { generateClientEntry, generatePreviewEntry, generateSsrEntry } from './entries'
 import { createDevMiddleware } from './dev/middleware'
 import { createPreviewMiddleware } from './dev/preview'
 import { setPageCodec, setPageBlocks, pageUrlOf } from './dev/pages-store'
-import { toBlockMeta } from '../editor/lib/block-meta'
+import { toBlockMeta, composedBlockMeta } from '../editor/lib/block-meta'
 import { buildPageState } from './dev/page-state'
 import { wasRecentlyMutated } from './dev/fs-utils'
 import { buildRichTextCodec } from './rich-text-codec'
@@ -25,12 +26,15 @@ export const SSR_MODULE_ID = 'virtual:mechanica/ssr'
 export const PREVIEW_MODULE_ID = 'virtual:mechanica/preview'
 /** Virtual module exposing the site's rich-text widgets (editor-only). */
 export const WIDGETS_MODULE_ID = 'virtual:mechanica/widgets'
+/** Virtual module exposing composed-block definitions (from `.mech/blocks`). */
+export const COMPOSED_MODULE_ID = 'virtual:mechanica/composed'
 
 const RESOLVED_BLOCKS_ID = '\0' + BLOCKS_MODULE_ID
 const RESOLVED_CLIENT_ID = '\0' + CLIENT_MODULE_ID
 const RESOLVED_SSR_ID = '\0' + SSR_MODULE_ID
 const RESOLVED_PREVIEW_ID = '\0' + PREVIEW_MODULE_ID
 const RESOLVED_WIDGETS_ID = '\0' + WIDGETS_MODULE_ID
+const RESOLVED_COMPOSED_ID = '\0' + COMPOSED_MODULE_ID
 
 export interface MechanicaPluginOptions {
   /** The user's `defineMechanicaApp` entry module, relative to the Vite root. */
@@ -70,6 +74,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
   let blocksDir = ''
   let widgetsDir = ''
   let mechDir = ''
+  let composedDir = ''
   let userEntry = ''
   let mount = ''
   let root = ''
@@ -144,6 +149,8 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
     file.endsWith('.vue') && slash(file).startsWith(slash(blocksDir) + '/')
   const isWidgetFile = (file: string): boolean =>
     /\.(ts|js|mts|mjs)$/.test(file) && slash(file).startsWith(slash(widgetsDir) + '/')
+  const isComposedFile = (file: string): boolean =>
+    file.endsWith(COMPOSED_EXT) && slash(file).startsWith(slash(composedDir) + '/')
 
   // Configure the page store's rich-text codec once, from the project's block
   // schemas (loaded via SSR so we read the compiled `blockSchema`). Memoized;
@@ -155,8 +162,16 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         .ssrLoadModule(BLOCKS_MODULE_ID)
         .then((mod) => {
           setPageCodec(buildRichTextCodec(mod.blocksList ?? []))
-          // The same block set feeds page-read schema migrations.
-          setPageBlocks((mod.blocksList ?? []).map(toBlockMeta))
+          // The same block set feeds page-read schema migrations. Composed
+          // blocks join it so their placed data gets schema defaults filled
+          // (in dev) exactly like compiled blocks.
+          const composed = loadComposedDefinitions(composedDir, (file, error) =>
+            server.config.logger.warn(`[mechanica] skipped ${slash(file)}: ${error}`),
+          )
+          setPageBlocks([
+            ...(mod.blocksList ?? []).map(toBlockMeta),
+            ...composed.map(composedBlockMeta),
+          ])
         })
         .catch((error) => {
           server.config.logger.warn(`[mechanica] rich-text codec unavailable: ${error}`)
@@ -184,6 +199,17 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
     const mod = server.moduleGraph.getModuleById(RESOLVED_WIDGETS_ID)
     if (mod) server.moduleGraph.invalidateModule(mod)
     server.ws.send({ type: 'full-reload' })
+  }
+
+  // Re-collect `virtual:mechanica/composed` and reload when a composed block
+  // file is added/removed/edited. Also resets the page codec so the fresh
+  // definition feeds default-filling (like a compiled block's schema change).
+  const invalidateComposed = (server: import('vite').ViteDevServer): void => {
+    codecReady = null
+    const mod = server.moduleGraph.getModuleById(RESOLVED_COMPOSED_ID)
+    if (mod) server.moduleGraph.invalidateModule(mod)
+    server.ws.send({ type: 'full-reload' })
+    void ensurePageCodec(server)
   }
 
   return {
@@ -228,6 +254,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       blocksDir = join(config.root, options.blocksDir ?? 'src/blocks')
       widgetsDir = join(config.root, options.widgetsDir ?? 'src/widgets')
       mechDir = join(config.root, options.mechDir ?? '.mech')
+      composedDir = join(mechDir, 'blocks')
       userEntry = '/' + (options.entry ?? 'src/main.ts').replace(/^\/+/, '')
       mount = options.mount ?? '#app'
       root = config.root
@@ -262,6 +289,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       if (id === SSR_MODULE_ID) return RESOLVED_SSR_ID
       if (id === PREVIEW_MODULE_ID) return RESOLVED_PREVIEW_ID
       if (id === WIDGETS_MODULE_ID) return RESOLVED_WIDGETS_ID
+      if (id === COMPOSED_MODULE_ID) return RESOLVED_COMPOSED_ID
     },
 
     async load(id) {
@@ -284,6 +312,11 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       }
       if (id === RESOLVED_WIDGETS_ID) {
         return collectWidgets(widgetsDir, (p) => this.resolve(p))
+      }
+      if (id === RESOLVED_COMPOSED_ID) {
+        return collectComposed(composedDir, (file, error) =>
+          this.warn(`[mechanica] skipped composed block ${slash(file)}: ${error}`),
+        )
       }
     },
 
@@ -321,13 +354,16 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         createDevMiddleware(mechDir, {
           ready: () => ensurePageCodec(server),
           // Block listing for `mechanica thumbs --blocks` — loaded fresh so a
-          // re-collected blocks module (HMR add/remove) is reflected.
+          // re-collected blocks module (HMR add/remove) is reflected. Composed
+          // blocks join it so they get palette thumbnails too.
           blocks: async () => {
             const mod = await server.ssrLoadModule(BLOCKS_MODULE_ID)
-            return ((mod.blocksList ?? []) as Parameters<typeof toBlockMeta>[0][]).map((component) => {
+            const compiled = ((mod.blocksList ?? []) as Parameters<typeof toBlockMeta>[0][]).map((component) => {
               const meta = toBlockMeta(component)
               return { id: meta.id, name: meta.name, hidden: meta.hidden }
             })
+            const composed = loadComposedDefinitions(composedDir).map((def) => ({ id: def.id, name: def.name }))
+            return [...compiled, ...composed]
           },
         }),
       )
@@ -349,12 +385,21 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       server.watcher.on('add', (file) => {
         if (isBlockFile(file)) invalidateBlocks(server)
         else if (isWidgetFile(file)) invalidateWidgets(server)
+        else if (isComposedFile(file) && !wasRecentlyMutated(file)) invalidateComposed(server)
       })
       server.watcher.on('unlink', (file) => {
         if (isWidgetFile(file)) invalidateWidgets(server)
+        else if (isComposedFile(file) && !wasRecentlyMutated(file)) invalidateComposed(server)
         if (!isBlockFile(file)) return
         blockSchemas.delete(slash(file))
         invalidateBlocks(server)
+      })
+      // Composed definitions are baked into the virtual module as JSON, so an
+      // *edit* to an existing `.block.yml` (unlike a widget/block edit, which
+      // propagates through the module graph) needs a re-collect. Our own writes
+      // (the composer's saves) are skipped — they refresh through the store.
+      server.watcher.on('change', (file) => {
+        if (isComposedFile(file) && !wasRecentlyMutated(file)) invalidateComposed(server)
       })
 
       // External edits to the `.mech` store (Claude editing a .page.md, manual

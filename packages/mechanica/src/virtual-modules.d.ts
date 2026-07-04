@@ -9,6 +9,11 @@ declare module 'virtual:mechanica/widgets' {
   export const widgetsList: RichTextWidget[]
 }
 
+declare module 'virtual:mechanica/composed' {
+  import type { ComposedBlockDefinition } from 'mechanica-shared'
+  export const composedList: ComposedBlockDefinition[]
+}
+
 // Minimal slice of Vite's HMR client API (avoids depending on vite/client
 // types, which would also claim .css/.svg module shapes we declare ourselves).
 interface ImportMeta {

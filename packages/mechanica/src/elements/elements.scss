@@ -1,0 +1,128 @@
+// Static stylesheet for composed-block elements (mech:frame / text / image /
+// button). Shipped once with the runtime and imported by `registerElements`.
+//
+// Responsive works by variable indirection: elements set only inline CSS
+// variables (`--el-dir`, `--el-dir-md`, `--el-dir-sm`, …); the property → var
+// bindings live here so media queries can choose which variable to read. Each
+// narrower breakpoint falls back through the wider ones to the base value.
+// (See style-vars.ts.)
+
+.mxel {
+  box-sizing: border-box;
+  width: var(--el-w, auto);
+  height: var(--el-h, auto);
+  flex-grow: var(--el-grow, 0);
+  align-self: var(--el-self, auto);
+  min-width: 0; // keep flex children from overflowing their track
+}
+
+.mxel-frame {
+  display: flex;
+  position: relative; // positioning context for $abs children
+  flex-direction: var(--el-dir, column);
+  gap: var(--el-gap, 0px);
+  align-items: var(--el-align, stretch);
+  justify-content: var(--el-justify, flex-start);
+  flex-wrap: var(--el-wrap, nowrap);
+  padding: var(--el-pad, 0px);
+}
+
+.mxel-text {
+  margin: 0;
+  text-align: var(--el-text-align, left);
+}
+
+.mxel-image {
+  display: block;
+  max-width: 100%;
+}
+
+.mxel-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 500;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+
+  &:hover {
+    opacity: 0.88;
+  }
+
+  // Black pill primary, matching the design system's primary action.
+  &--primary {
+    background: #111;
+    color: #fff;
+  }
+  &--secondary {
+    background: transparent;
+    border-color: rgba(0, 0, 0, 0.16);
+    color: #111;
+  }
+  &--ghost {
+    background: transparent;
+    color: #111;
+  }
+}
+
+.mxel-image--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  color: rgba(0, 0, 0, 0.4);
+  font-size: 13px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px dashed rgba(0, 0, 0, 0.16);
+  border-radius: 8px;
+}
+
+// ── Breakpoint md (≤ 1024px) ─────────────────────────────────────────────────
+@media (max-width: 1024px) {
+  .mxel {
+    width: var(--el-w-md, var(--el-w, auto));
+    height: var(--el-h-md, var(--el-h, auto));
+    flex-grow: var(--el-grow-md, var(--el-grow, 0));
+    align-self: var(--el-self-md, var(--el-self, auto));
+  }
+  .mxel-frame {
+    flex-direction: var(--el-dir-md, var(--el-dir, column));
+    gap: var(--el-gap-md, var(--el-gap, 0px));
+    align-items: var(--el-align-md, var(--el-align, stretch));
+    justify-content: var(--el-justify-md, var(--el-justify, flex-start));
+    flex-wrap: var(--el-wrap-md, var(--el-wrap, nowrap));
+    padding: var(--el-pad-md, var(--el-pad, 0px));
+  }
+  .mxel-text {
+    text-align: var(--el-text-align-md, var(--el-text-align, left));
+  }
+}
+
+// ── Breakpoint sm (≤ 640px) ──────────────────────────────────────────────────
+@media (max-width: 640px) {
+  .mxel {
+    width: var(--el-w-sm, var(--el-w-md, var(--el-w, auto)));
+    height: var(--el-h-sm, var(--el-h-md, var(--el-h, auto)));
+    flex-grow: var(--el-grow-sm, var(--el-grow-md, var(--el-grow, 0)));
+    align-self: var(--el-self-sm, var(--el-self-md, var(--el-self, auto)));
+  }
+  .mxel-frame {
+    flex-direction: var(--el-dir-sm, var(--el-dir-md, var(--el-dir, column)));
+    gap: var(--el-gap-sm, var(--el-gap-md, var(--el-gap, 0px)));
+    align-items: var(--el-align-sm, var(--el-align-md, var(--el-align, stretch)));
+    justify-content: var(--el-justify-sm, var(--el-justify-md, var(--el-justify, flex-start)));
+    flex-wrap: var(--el-wrap-sm, var(--el-wrap-md, var(--el-wrap, nowrap)));
+    padding: var(--el-pad-sm, var(--el-pad-md, var(--el-pad, 0px)));
+  }
+  .mxel-text {
+    text-align: var(--el-text-align-sm, var(--el-text-align-md, var(--el-text-align, left)));
+  }
+}

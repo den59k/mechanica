@@ -1,5 +1,5 @@
 import { createApp, createSSRApp, type App, type Component } from 'vue'
-import type { State } from 'mechanica-shared'
+import type { ComposedBlockDefinition, State } from 'mechanica-shared'
 import { createMechanica } from './create-mechanica'
 import type { BlockLoaders } from './load-blocks'
 import type { BlocksMap, MechanicaMode, QueryResolver } from './state'
@@ -28,6 +28,7 @@ export interface CreateMechanicaAppOptions {
   state?: State
   blocks?: BlocksMap
   blockLoaders?: BlockLoaders
+  composed?: ComposedBlockDefinition[]
   resolveQuery?: QueryResolver
 }
 
@@ -46,6 +47,7 @@ export function createMechanicaApp(
       state: options.state,
       blocks: options.blocks,
       blockLoaders: options.blockLoaders,
+      composed: options.composed,
       resolveQuery: options.resolveQuery,
     }),
   )
