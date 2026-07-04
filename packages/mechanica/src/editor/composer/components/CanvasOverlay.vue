@@ -24,7 +24,9 @@
         :style="boxStyle(p.box)"
         :title="`Padding ${padSideValue(p.side)}`"
         @pointerdown.stop.prevent="startPadDrag(p.side, $event)"
-      />
+      >
+        <span class="mech-composer__space-label">{{ padSideValue(p.side) }}</span>
+      </div>
       <div
         v-if="isFrame"
         class="mech-composer__frame-label"
@@ -59,7 +61,9 @@
         :style="boxStyle(g)"
         :title="`Gap ${gapValue}`"
         @pointerdown.stop.prevent="startGapDrag($event)"
-      />
+      >
+        <span class="mech-composer__space-label">{{ gapValue }}</span>
+      </div>
     </template>
   </div>
 </template>

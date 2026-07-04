@@ -56,19 +56,26 @@ describe('handleCursor', () => {
 })
 
 describe('gapStrips', () => {
-  it('centers a vertical strip in a row gap, spanning the cross union', () => {
-    // Two 100×40 boxes side by side with a 20px gap (right edge 200, next left 220).
+  it('fills the actual row gap, spanning the cross union', () => {
+    // Two boxes side by side with a 20px gap (right edge 200, next left 220).
     const a = { left: 100, top: 50, width: 100, height: 40 }
     const b = { left: 220, top: 60, width: 100, height: 30 }
     expect(gapStrips([a, b], 'x', 8)).toEqual([
-      { left: 206, top: 50, width: 8, height: 40 }, // mid=(200+220)/2=210, hit 8 → 206..214
+      { left: 200, top: 50, width: 20, height: 40 }, // gap 200..220, cross union 50..90
     ])
   })
-  it('centers a horizontal strip in a column gap', () => {
+  it('fills the actual column gap', () => {
     const a = { left: 50, top: 0, width: 80, height: 40 } // bottom 40
-    const b = { left: 60, top: 60, width: 100, height: 40 } // top 60 → mid 50
+    const b = { left: 60, top: 60, width: 100, height: 40 } // top 60 → gap 20
     expect(gapStrips([a, b], 'y', 6)).toEqual([
-      { left: 50, top: 47, width: 110, height: 6 }, // union left 50..160
+      { left: 50, top: 40, width: 110, height: 20 }, // gap 40..60, cross union 50..160
+    ])
+  })
+  it('expands a sub-minimum gap to the grab width, centered', () => {
+    const a = { left: 0, top: 0, width: 100, height: 10 } // right 100
+    const b = { left: 104, top: 0, width: 10, height: 10 } // left 104 → gap 4 < 8
+    expect(gapStrips([a, b], 'x', 8)).toEqual([
+      { left: 98, top: 0, width: 8, height: 10 }, // mid 102, expanded to 98..106
     ])
   })
   it('produces N-1 strips and none for a single child', () => {

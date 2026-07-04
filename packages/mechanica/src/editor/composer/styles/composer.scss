@@ -261,6 +261,7 @@
   z-index: 4;
 }
 $sel: #3b82f6;
+$space: #e5227f; // Figma-style spacing pink for gap + padding editing (distinct from the blue selection)
 .mech-composer__hover {
   position: absolute;
   outline: 1px solid rgba($sel, 0.55);
@@ -321,13 +322,15 @@ $sel: #3b82f6;
   border: 1px solid rgba($sel, 0.8);
   border-radius: 1px;
 }
-// Gap-drag strips: an invisible grab zone showing an accent line on hover/drag.
+// Gap-drag strips: the actual gap region fills pink on hover/drag (Figma-style).
 .mech-composer__gap {
   position: absolute;
   pointer-events: auto;
-  border: none;
-  background: none;
-  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  transition: background 0.1s ease;
 
   &.is-col {
     cursor: col-resize;
@@ -335,31 +338,38 @@ $sel: #3b82f6;
   &.is-row {
     cursor: row-resize;
   }
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    margin: auto;
-    background: $sel;
-    border-radius: 2px;
-    opacity: 0;
-    transition: opacity 0.1s ease;
-  }
-  &.is-col::after {
-    width: 3px;
-  }
-  &.is-row::after {
-    height: 3px;
-  }
-  &:hover::after,
-  &.is-active::after {
-    opacity: 0.85;
+  &:hover,
+  &.is-active {
+    background: rgba($space, 0.25);
   }
 }
-// Padding-drag strips: a translucent accent region on hover / while dragging.
+// A value pill shown centred in a spacing region (gap / padding) on hover / drag.
+.mech-composer__space-label {
+  padding: 1px 6px;
+  background: $space;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
+  border-radius: var(--mech-radius-pill);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+.mech-composer__gap:hover .mech-composer__space-label,
+.mech-composer__gap.is-active .mech-composer__space-label,
+.mech-composer__pad-strip:hover .mech-composer__space-label,
+.mech-composer__pad-strip.is-active .mech-composer__space-label {
+  opacity: 1;
+}
+// Padding-drag strips: the inset region fills pink on hover / while dragging.
 .mech-composer__pad-strip {
   position: absolute;
   pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   transition: background 0.1s ease;
 
@@ -373,7 +383,7 @@ $sel: #3b82f6;
   }
   &:hover,
   &.is-active {
-    background: rgba($sel, 0.18);
+    background: rgba($space, 0.22);
   }
 }
 

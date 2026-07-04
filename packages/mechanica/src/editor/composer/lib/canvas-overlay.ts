@@ -54,26 +54,42 @@ export function resizeSize(
 }
 
 /**
- * Interactive strips centered in the gaps between consecutive flow children of a
+ * Interactive strips filling the gaps between consecutive flow children of a
  * frame — drag one to change the frame's `gap`. `axis` is the layout axis (`'x'`
- * for a row, `'y'` for a column); `hit` is the strip's thickness (screen px).
- * Each strip spans the cross-axis union of the two children it sits between.
+ * for a row, `'y'` for a column). Each strip covers the actual gap along the
+ * axis (so the fill reads at the real gap size, Figma-style) and the cross-axis
+ * union of its two children; a gap thinner than `minHit` expands to `minHit`,
+ * centered, so it stays grabbable.
  */
-export function gapStrips(boxes: Box[], axis: 'x' | 'y', hit: number): Box[] {
+export function gapStrips(boxes: Box[], axis: 'x' | 'y', minHit: number): Box[] {
   const strips: Box[] = []
   for (let i = 0; i < boxes.length - 1; i++) {
     const a = boxes[i]!
     const b = boxes[i + 1]!
     if (axis === 'x') {
-      const mid = (a.left + a.width + b.left) / 2
+      const start = a.left + a.width
+      const end = b.left
+      let left = start
+      let width = end - start
+      if (width < minHit) {
+        left = (start + end) / 2 - minHit / 2
+        width = minHit
+      }
       const top = Math.min(a.top, b.top)
       const bottom = Math.max(a.top + a.height, b.top + b.height)
-      strips.push({ left: mid - hit / 2, top, width: hit, height: bottom - top })
+      strips.push({ left, top, width, height: bottom - top })
     } else {
-      const mid = (a.top + a.height + b.top) / 2
+      const start = a.top + a.height
+      const end = b.top
+      let top = start
+      let height = end - start
+      if (height < minHit) {
+        top = (start + end) / 2 - minHit / 2
+        height = minHit
+      }
       const left = Math.min(a.left, b.left)
       const right = Math.max(a.left + a.width, b.left + b.width)
-      strips.push({ left, top: mid - hit / 2, width: right - left, height: hit })
+      strips.push({ left, top, width: right - left, height })
     }
   }
   return strips
