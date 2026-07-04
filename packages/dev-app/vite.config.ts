@@ -23,6 +23,7 @@ export default defineConfig({
     alias: [
       { find: /^mechanica$/, replacement: src('../mechanica/src/index.ts') },
       { find: /^mechanica\/editor$/, replacement: src('../mechanica/src/editor/editor.ts') },
+      { find: /^mechanica\/composer$/, replacement: src('../mechanica/src/editor/composer/composer.ts') },
       { find: /^mechanica\/widgets$/, replacement: src('../mechanica/src/editor/widget-api.ts') },
       { find: /^@mechanica\/shared$/, replacement: src('../shared/src/index.ts') },
       { find: /^@mechanica\/shared\/page-format$/, replacement: src('../shared/src/page-format.ts') },

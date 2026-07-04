@@ -46,6 +46,10 @@
       "import": "./dist/editor.js"
     },
     "./editor.css": "./dist/editor.css",
+    "./composer": {
+      "types": "./dist/types/editor/composer/composer.d.ts",
+      "import": "./dist/composer.js"
+    },
     "./widgets": {
       "types": "./dist/types/editor/widget-api.d.ts",
       "import": "./dist/widgets.js"

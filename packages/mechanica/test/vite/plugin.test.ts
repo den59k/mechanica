@@ -39,6 +39,22 @@ describe('mechanica plugin', () => {
     expect(callHook(dev.transform, block, '/abs/Headline.vue').code).toContain('blockSchema')
   })
 
+  it('pins plugin-vue scope ids to the file path so client CSS matches SSR HTML', () => {
+    // Production plugin-vue hashes the SFC source into `data-v-*` ids, and
+    // block sources differ between the client build (metadata stripped) and
+    // the SSR build — path-only ids keep the static HTML styled at first paint.
+    const vue = { name: 'vite:vue', api: { options: { features: {} } } }
+    callHook(mechanica().configResolved, { root: '/r', command: 'build', build: {}, plugins: [vue] })
+    expect((vue.api.options.features as any).componentIdGenerator).toBe('filepath')
+  })
+
+  it('respects a user-configured componentIdGenerator', () => {
+    const custom = () => 'x'
+    const vue = { name: 'vite:vue', api: { options: { features: { componentIdGenerator: custom } } } }
+    callHook(mechanica().configResolved, { root: '/r', command: 'build', build: {}, plugins: [vue] })
+    expect(vue.api.options.features.componentIdGenerator).toBe(custom)
+  })
+
   it('ignores plugin-vue sub-requests', () => {
     const out = callHook(
       mechanica().transform,

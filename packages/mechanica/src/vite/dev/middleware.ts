@@ -214,9 +214,13 @@ export function createDevMiddleware(
         const def = JSON.parse((await readBody(req)).toString('utf-8')) as ComposedBlockDefinition
         const invalid = validateComposed(def)
         if (invalid) return json({ error: invalid }, 400)
-        // Reject an id already used by a compiled or composed block.
-        const existing = (await options.blocks?.()) ?? []
-        if (existing.some((block) => block.id === def.id)) {
+        // Reject an id already used by a compiled or composed block. Listing
+        // blocks can fail (SSR load hiccup) — don't block the create over it;
+        // `createComposedBlock` still guards against an existing file.
+        const existing = await Promise.resolve()
+          .then(() => options.blocks?.())
+          .catch(() => [] as BlockListing[])
+        if ((existing ?? []).some((block) => block.id === def.id)) {
           return json({ error: { id: 'A block with this id already exists' } }, 400)
         }
         try {

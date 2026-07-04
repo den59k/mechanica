@@ -1,0 +1,160 @@
+<template>
+  <div class="mech-composer" data-mech-ui>
+    <header class="mech-composer__bar">
+      <button type="button" class="mech-icon-button" title="Back" @click="goBack">
+        <VIcon name="chevron-down" class="mech-composer__back" />
+      </button>
+
+      <input
+        class="mech-composer__name"
+        :value="store.def.name"
+        placeholder="Block name"
+        aria-label="Block name"
+        @input="store.setMeta({ name: ($event.target as HTMLInputElement).value })"
+      />
+
+      <div class="mech-composer__bar-gap" />
+
+      <div class="mech-composer__breakpoints" role="group" aria-label="Breakpoint">
+        <button
+          v-for="bp in breakpoints"
+          :key="bp.id"
+          type="button"
+          class="mech-composer__bp"
+          :class="{ 'is-active': store.breakpoint === bp.id }"
+          :title="`${bp.label} (${bp.width}px)`"
+          @click="store.breakpoint = bp.id"
+        >
+          {{ bp.width }}
+        </button>
+      </div>
+
+      <div class="mech-composer__zoom">
+        <button type="button" class="mech-icon-button" title="Zoom out" @click="zoomBy(-0.1)">−</button>
+        <span class="mech-composer__zoom-value">{{ Math.round(store.zoom * 100) }}%</span>
+        <button type="button" class="mech-icon-button" title="Zoom in" @click="zoomBy(0.1)">+</button>
+      </div>
+
+      <div class="mech-composer__bar-gap" />
+
+      <button type="button" class="mech-icon-button" :disabled="!canUndo" title="Undo (Ctrl+Z)" @click="history.undo()">
+        <VIcon name="undo" />
+      </button>
+      <button type="button" class="mech-icon-button" :disabled="!canRedo" title="Redo (Ctrl+Shift+Z)" @click="history.redo()">
+        <VIcon name="redo" />
+      </button>
+
+      <span class="mech-composer__save" :class="`is-${saveStatus}`">{{ saveLabel }}</span>
+    </header>
+
+    <div class="mech-composer__body">
+      <aside class="mech-composer__panel mech-composer__panel--left">
+        <InsertPalette />
+        <ComposerLayers />
+      </aside>
+
+      <main class="mech-composer__stage">
+        <ComposerCanvas />
+      </main>
+
+      <aside v-if="store.selected" class="mech-composer__panel mech-composer__panel--right">
+        <ComposerInspector />
+      </aside>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, provide, watch, onScopeDispose } from 'vue'
+import type { ComposedBlockDefinition } from 'mechanica-shared'
+import type { BlocksMap } from '../../core/state'
+import type { SaveController } from '../lib/types'
+import { createComposerStore, type ComposerSnapshot } from './lib/composer-store'
+import { createComposerHistory } from './lib/composer-history'
+import { composerStoreKey, composerHistoryKey } from './lib/keys'
+import type { CanvasBreakpoint } from './lib/canvas'
+import VIcon from '../components/VIcon.vue'
+import InsertPalette from './components/InsertPalette.vue'
+import ComposerLayers from './components/ComposerLayers.vue'
+import ComposerCanvas from './components/ComposerCanvas.vue'
+import ComposerInspector from './components/ComposerInspector.vue'
+
+const props = defineProps<{
+  def: ComposedBlockDefinition
+  blocks: BlocksMap
+  save?: SaveController
+  onChange?: (snapshot: ComposerSnapshot) => void
+}>()
+
+const store = createComposerStore(props.def)
+provide(composerStoreKey, store)
+provide('composerBlocks', props.blocks)
+
+const history = createComposerHistory(store)
+const { canUndo, canRedo } = history
+provide(composerHistoryKey, history)
+
+const breakpoints: { id: CanvasBreakpoint; label: string; width: number }[] = [
+  { id: 'base', label: 'Desktop', width: 1440 },
+  { id: 'md', label: 'Tablet', width: 768 },
+  { id: 'sm', label: 'Mobile', width: 390 },
+]
+provide('composerBreakpointWidth', computed(() => breakpoints.find((b) => b.id === store.breakpoint)!.width))
+
+const zoomBy = (delta: number) => {
+  store.zoom = Math.min(2, Math.max(0.25, Math.round((store.zoom + delta) * 100) / 100))
+}
+
+const saveStatus = computed(() => props.save?.status ?? 'saved')
+const saveLabel = computed(() => {
+  switch (saveStatus.value) {
+    case 'saving':
+    case 'pending':
+      return 'Saving…'
+    case 'error':
+      return 'Save failed'
+    case 'conflict':
+      return 'Changed on disk'
+    default:
+      return 'Saved'
+  }
+})
+
+// Report every edit to the host (debounced save queue), like the page editor.
+watch(
+  () => store.def,
+  () => props.onChange?.(store.snapshot()),
+  { deep: true },
+)
+
+const goBack = () => {
+  if (window.history.length > 1) window.history.back()
+  else window.location.href = '/'
+}
+
+const onKeyDown = (event: KeyboardEvent) => {
+  const target = event.target as HTMLElement | null
+  const typing =
+    !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+  const mod = event.metaKey || event.ctrlKey
+  if (mod && event.key.toLowerCase() === 'z') {
+    event.preventDefault()
+    event.shiftKey ? history.redo() : history.undo()
+    return
+  }
+  if (typing) return
+  if (event.key === 'Escape') store.select(null)
+  else if ((event.key === 'Delete' || event.key === 'Backspace') && store.selectedId) {
+    event.preventDefault()
+    store.remove(store.selectedId)
+  } else if (mod && event.key.toLowerCase() === 'd' && store.selectedId) {
+    event.preventDefault()
+    store.duplicate(store.selectedId)
+  }
+}
+document.addEventListener('keydown', onKeyDown)
+onScopeDispose(() => {
+  document.removeEventListener('keydown', onKeyDown)
+  history.dispose()
+})
+</script>

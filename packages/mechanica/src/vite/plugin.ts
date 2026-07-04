@@ -6,9 +6,15 @@ import { compileBlock } from '../compiler/compile-block'
 import { collectBlocks, collectBlocksLazy } from './collect-blocks'
 import { collectWidgets } from './collect-widgets'
 import { collectComposed, loadComposedDefinitions, COMPOSED_EXT } from './collect-composed'
-import { generateClientEntry, generatePreviewEntry, generateSsrEntry } from './entries'
+import {
+  generateClientEntry,
+  generateComposerEntry,
+  generatePreviewEntry,
+  generateSsrEntry,
+} from './entries'
 import { createDevMiddleware } from './dev/middleware'
 import { createPreviewMiddleware } from './dev/preview'
+import { createComposerMiddleware } from './dev/composer'
 import { setPageCodec, setPageBlocks, pageUrlOf } from './dev/pages-store'
 import { toBlockMeta, composedBlockMeta } from '../editor/lib/block-meta'
 import { buildPageState } from './dev/page-state'
@@ -28,6 +34,8 @@ export const PREVIEW_MODULE_ID = 'virtual:mechanica/preview'
 export const WIDGETS_MODULE_ID = 'virtual:mechanica/widgets'
 /** Virtual module exposing composed-block definitions (from `.mech/blocks`). */
 export const COMPOSED_MODULE_ID = 'virtual:mechanica/composed'
+/** Virtual module mounting the Block Composer (the composer dev route). */
+export const COMPOSER_MODULE_ID = 'virtual:mechanica/composer'
 
 const RESOLVED_BLOCKS_ID = '\0' + BLOCKS_MODULE_ID
 const RESOLVED_CLIENT_ID = '\0' + CLIENT_MODULE_ID
@@ -35,6 +43,7 @@ const RESOLVED_SSR_ID = '\0' + SSR_MODULE_ID
 const RESOLVED_PREVIEW_ID = '\0' + PREVIEW_MODULE_ID
 const RESOLVED_WIDGETS_ID = '\0' + WIDGETS_MODULE_ID
 const RESOLVED_COMPOSED_ID = '\0' + COMPOSED_MODULE_ID
+const RESOLVED_COMPOSER_ID = '\0' + COMPOSER_MODULE_ID
 
 export interface MechanicaPluginOptions {
   /** The user's `defineMechanicaApp` entry module, relative to the Vite root. */
@@ -269,6 +278,23 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       root = config.root
       isDev = config.command === 'serve'
       isClientBuild = config.command === 'build' && !config.build?.ssr
+
+      // Scoped-CSS ids must agree between the client build (which emits the
+      // CSS) and the SSR build (which emits the `data-v-*` attributes into the
+      // static HTML). plugin-vue hashes the SFC *source* into the id in
+      // production, and block sources differ per build (the client strips the
+      // metadata) — mismatched ids leave every block unstyled until hydration
+      // replaces the DOM. Hash by file path instead; both builds then agree.
+      const vuePlugin = config.plugins?.find((plugin) => plugin.name === 'vite:vue')
+      const vueApi = vuePlugin?.api as
+        | { options?: { features?: { componentIdGenerator?: unknown } } }
+        | undefined
+      if (vueApi?.options && !vueApi.options.features?.componentIdGenerator) {
+        vueApi.options = {
+          ...vueApi.options,
+          features: { ...vueApi.options.features, componentIdGenerator: 'filepath' },
+        }
+      }
     },
 
     transform(code, id) {
@@ -299,6 +325,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       if (id === PREVIEW_MODULE_ID) return RESOLVED_PREVIEW_ID
       if (id === WIDGETS_MODULE_ID) return RESOLVED_WIDGETS_ID
       if (id === COMPOSED_MODULE_ID) return RESOLVED_COMPOSED_ID
+      if (id === COMPOSER_MODULE_ID) return RESOLVED_COMPOSER_ID
     },
 
     async load(id) {
@@ -326,6 +353,9 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         return collectComposed(composedDir, (file, error) =>
           this.warn(`[mechanica] skipped composed block ${slash(file)}: ${error}`),
         )
+      }
+      if (id === RESOLVED_COMPOSER_ID) {
+        return generateComposerEntry({ userEntry })
       }
     },
 
@@ -355,9 +385,10 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
     },
 
     configureServer(server) {
-      // Registered before the general middleware so `/preview/…` never falls
-      // through to the page-CRUD handler.
+      // Registered before the general middleware so `/preview/…` and
+      // `/composer/…` never fall through to the page-CRUD handler.
       server.middlewares.use('/@mechanica/preview', createPreviewMiddleware())
+      server.middlewares.use('/@mechanica/composer', createComposerMiddleware())
       server.middlewares.use(
         '/@mechanica',
         createDevMiddleware(mechDir, {

@@ -23,8 +23,12 @@ export default defineConfig({
       // make the compiled editor entry import the extracted stylesheet.
       name: 'mechanica:editor-css-import',
       generateBundle(_options, bundle) {
-        const editor = bundle['editor.js']
-        if (editor && editor.type === 'chunk') editor.code = `import './editor.css';\n` + editor.code
+        // All entries' CSS is extracted into the single editor.css; the entries
+        // that render UI import it so a consumer loading just that entry is styled.
+        for (const name of ['editor.js', 'composer.js']) {
+          const chunk = bundle[name]
+          if (chunk && chunk.type === 'chunk') chunk.code = `import './editor.css';\n` + chunk.code
+        }
       },
     },
   ],
@@ -36,6 +40,7 @@ export default defineConfig({
       entry: {
         index: 'src/index.ts',
         editor: 'src/editor/editor.ts',
+        composer: 'src/editor/composer/composer.ts',
         widgets: 'src/editor/widget-api.ts',
       },
       formats: ['es'],

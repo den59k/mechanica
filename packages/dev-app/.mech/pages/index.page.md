@@ -9,6 +9,15 @@ data:
     description: Build Vue sites with a visual block editor. Vite 8, Vue 3.5, Bun.
 ---
 
+::: banner #5807eef5-b60c-457e-b0d4-a07f7facf810
+image:
+  src: /@mechanica/assets/ComfyUI_temp_lkavh_00049_.png
+  width: 1024
+  height: 1024
+heading: Banner heading
+caption: So new banner!
+:::
+
 ::: landing-hero #hero
 eyebrow: Vite 8 · Vue 3.5 · Bun
 title: Build Vue sites with a visual block editor

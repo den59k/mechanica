@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { generateClientEntry, generatePreviewEntry, generateSsrEntry } from '@/vite/entries'
+import {
+  generateClientEntry,
+  generateComposerEntry,
+  generatePreviewEntry,
+  generateSsrEntry,
+} from '@/vite/entries'
 
 describe('generateClientEntry', () => {
   it('mounts the user app from the factory', () => {
@@ -56,6 +61,16 @@ describe('generatePreviewEntry', () => {
     expect(code).toContain('for (const def of composedList) blocks.set(def.id, createComposedComponent(def))')
     expect(code).toContain("mountPreviewApp({ blocks, target: '#app'")
     expect(code).toContain("fetch('/@mechanica/state?path=/')")
+  })
+})
+
+describe('generateComposerEntry', () => {
+  it('imports the user app, registers composed blocks, and mounts the composer', () => {
+    const code = generateComposerEntry({ userEntry: '/src/main.ts' })
+    expect(code).toContain('import "/src/main.ts"')
+    expect(code).toContain("import { mountComposerApp } from 'mechanica/composer'")
+    expect(code).toContain('for (const def of composedList) blocks.set(def.id, createComposedComponent(def))')
+    expect(code).toContain("mountComposerApp({ blocks, target: '#app' })")
   })
 })
 

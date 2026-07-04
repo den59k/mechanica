@@ -67,6 +67,33 @@ export function generateClientEntry(options: ClientEntryOptions): string {
   ].join('\n')
 }
 
+export interface ComposerEntryOptions {
+  /** Import specifier for the user's `defineMechanicaApp` module. */
+  userEntry: string
+}
+
+/**
+ * Generate the Block Composer entry (`virtual:mechanica/composer`, served by the
+ * `/@mechanica/composer/<blockId>` dev route). Imports the user's app module for
+ * its side effects (global CSS, fonts, registered data) — same trick as the
+ * preview entry — then mounts the composer over the real block set, composed
+ * blocks included, so the canvas renders exactly what a page would.
+ */
+export function generateComposerEntry(options: ComposerEntryOptions): string {
+  return [
+    `import ${JSON.stringify(options.userEntry)}`,
+    `import { blocksMap } from 'virtual:mechanica/blocks'`,
+    `import { composedList } from 'virtual:mechanica/composed'`,
+    `import { createComposedComponent } from 'mechanica'`,
+    `import { mountComposerApp } from 'mechanica/composer'`,
+    ``,
+    `const blocks = new Map(blocksMap)`,
+    `for (const def of composedList) blocks.set(def.id, createComposedComponent(def))`,
+    `mountComposerApp({ blocks, target: '#app' })`,
+    ``,
+  ].join('\n')
+}
+
 export interface PreviewEntryOptions {
   /** Import specifier for the user's `defineMechanicaApp` module. */
   userEntry: string

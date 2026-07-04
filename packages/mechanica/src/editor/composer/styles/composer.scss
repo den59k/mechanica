@@ -1,0 +1,396 @@
+// Block Composer — a full-screen dev-only editor (not an overlay). Consumes the
+// shared editor tokens (`--mech-*`) and primitives (`.mech-button`, VIcon);
+// composer-specific layout lives here.
+
+.mech-composer {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--mech-font);
+  color: var(--mech-fg);
+  background: var(--mech-app-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+// ── Top bar ──────────────────────────────────────────────────────────────────
+.mech-composer__bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 12px;
+  background: var(--mech-bg);
+  border-bottom: 1px solid var(--mech-border);
+}
+.mech-composer__back {
+  transform: rotate(90deg);
+}
+.mech-composer__name {
+  min-width: 140px;
+  max-width: 260px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--mech-fg);
+  padding: 6px 8px;
+  border-radius: var(--mech-radius-sm);
+
+  &:hover {
+    background: var(--mech-hover);
+  }
+  &:focus {
+    outline: none;
+    background: var(--mech-field-bg);
+  }
+}
+.mech-composer__bar-gap {
+  flex: 1;
+}
+.mech-composer__breakpoints {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--mech-field-bg);
+  border-radius: var(--mech-radius-sm);
+}
+.mech-composer__bp {
+  border: none;
+  background: none;
+  padding: 4px 10px;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--mech-muted);
+  cursor: pointer;
+
+  &.is-active {
+    background: var(--mech-bg);
+    color: var(--mech-fg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+}
+.mech-composer__zoom {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.mech-composer__zoom-value {
+  width: 42px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--mech-muted);
+}
+.mech-composer__save {
+  min-width: 70px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--mech-muted);
+
+  &.is-error,
+  &.is-conflict {
+    color: var(--mech-error);
+  }
+}
+
+// ── Body ─────────────────────────────────────────────────────────────────────
+.mech-composer__body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.mech-composer__panel {
+  flex: 0 0 auto;
+  overflow-y: auto;
+  background: var(--mech-bg);
+}
+.mech-composer__panel--left {
+  width: 264px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--mech-border);
+}
+.mech-composer__panel--right {
+  width: var(--mech-settings-width);
+  border-left: 1px solid var(--mech-border);
+}
+
+// ── Canvas ───────────────────────────────────────────────────────────────────
+.mech-composer__stage {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+.mech-composer__canvas-frame {
+  flex: 0 0 auto;
+  align-self: flex-start;
+}
+.mech-composer__canvas {
+  position: relative;
+  min-height: 200px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+.mech-composer__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--mech-placeholder);
+  font-size: 14px;
+  pointer-events: none;
+
+  p {
+    margin: 0;
+  }
+}
+
+// ── Sections shared ──────────────────────────────────────────────────────────
+.mech-composer__section-title {
+  padding: 12px 14px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mech-muted);
+}
+
+// ── Insert palette ───────────────────────────────────────────────────────────
+.mech-composer__insert-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 0 10px 12px;
+}
+.mech-composer__insert-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px;
+  border: none;
+  border-radius: var(--mech-radius-sm);
+  background: var(--mech-field-bg);
+  color: var(--mech-fg);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--mech-field-bg-hover);
+  }
+  .vicon {
+    font-size: 20px;
+    color: var(--mech-fg-alt);
+  }
+}
+
+// ── Layers ───────────────────────────────────────────────────────────────────
+.mech-composer__layers {
+  flex: 1;
+  overflow-y: auto;
+  border-top: 1px solid var(--mech-border);
+  padding-bottom: 8px;
+}
+.mech-composer__layers-empty {
+  padding: 4px 14px;
+  color: var(--mech-placeholder);
+  font-size: 13px;
+}
+.mech-composer__layer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 13px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--mech-hover);
+  }
+  &.is-selected {
+    background: var(--mech-accent-soft);
+    color: var(--mech-accent);
+  }
+}
+.mech-composer__layer-icon {
+  font-size: 15px;
+  opacity: 0.75;
+}
+.mech-composer__layer-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mech-composer__layer-remove {
+  border: none;
+  background: none;
+  padding: 2px;
+  color: inherit;
+  opacity: 0;
+  cursor: pointer;
+
+  .mech-composer__layer:hover & {
+    opacity: 0.55;
+  }
+  &:hover {
+    opacity: 1;
+    color: var(--mech-error);
+  }
+}
+
+// ── Inspector ────────────────────────────────────────────────────────────────
+.mech-composer__inspector-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--mech-border);
+
+  > span {
+    flex: 1;
+  }
+}
+.mech-composer__bp-note {
+  margin: 0;
+  padding: 10px 14px 0;
+  font-size: 12px;
+  color: var(--mech-accent);
+}
+.mech-composer__hint {
+  margin: 0;
+  color: var(--mech-muted);
+  font-size: 13px;
+}
+.mech-composer__section {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 8px 14px 14px;
+  border-bottom: 1px solid var(--mech-border);
+}
+.mech-composer__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+
+  > span:first-child {
+    flex: 0 0 auto;
+    min-width: 62px;
+    color: var(--mech-muted);
+  }
+}
+.mech-composer__input {
+  width: 100%;
+  border: none;
+  border-radius: var(--mech-radius-sm);
+  background: var(--mech-field-bg);
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--mech-fg);
+
+  &:focus {
+    outline: 2px solid var(--mech-ring);
+  }
+  &::placeholder {
+    color: var(--mech-placeholder);
+  }
+}
+.mech-composer__textarea {
+  resize: vertical;
+  line-height: 1.4;
+}
+.mech-composer__num {
+  width: 68px;
+  border: none;
+  border-radius: var(--mech-radius-sm);
+  background: var(--mech-field-bg);
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  text-align: right;
+  color: var(--mech-fg);
+
+  &:focus {
+    outline: 2px solid var(--mech-ring);
+  }
+}
+.mech-composer__pair,
+.mech-composer__size {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mech-composer__color {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+
+  input[type='color'] {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+  }
+}
+.mech-composer__seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--mech-radius-sm);
+  background: var(--mech-field-bg);
+}
+.mech-composer__seg-btn {
+  border: none;
+  background: none;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--mech-muted);
+  cursor: pointer;
+
+  &.is-active {
+    background: var(--mech-bg);
+    color: var(--mech-fg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+  .vicon {
+    display: block;
+    font-size: 15px;
+  }
+}
+.mech-composer__image {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mech-composer__image-preview {
+  width: 100%;
+  height: 120px;
+  border-radius: var(--mech-radius-sm);
+  background: var(--mech-field-bg) center / cover no-repeat;
+}
+.mech-composer__image-actions {
+  display: flex;
+  gap: 6px;
+}
