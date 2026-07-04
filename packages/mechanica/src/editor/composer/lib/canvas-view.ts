@@ -13,6 +13,25 @@ export function clampZoom(zoom: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom))
 }
 
+// Wheel-zoom tuning: a mouse notch reports ~±100px deltaY, so without taming it
+// a single notch would leap ~2.7×. We clamp the per-event delta and apply a
+// gentle exponent, which keeps a notch near the ±20% button step while leaving
+// a touchpad pinch (many tiny deltas) smooth.
+const WHEEL_CLAMP = 40
+const WHEEL_ZOOM_SPEED = 0.0045
+
+/**
+ * The zoom factor for one wheel event. A negative `deltaY` (scroll up / pinch
+ * out) zooms in (factor > 1); positive zooms out. Line-mode deltas (Firefox)
+ * are normalized to roughly pixels first, then clamped so large mouse notches
+ * step gently instead of leaping.
+ */
+export function wheelZoomFactor(deltaY: number, deltaMode = 0): number {
+  let delta = deltaMode === 1 ? deltaY * 16 : deltaY
+  delta = Math.max(-WHEEL_CLAMP, Math.min(WHEEL_CLAMP, delta))
+  return Math.exp(-delta * WHEEL_ZOOM_SPEED)
+}
+
 export interface View {
   zoom: number
   panX: number

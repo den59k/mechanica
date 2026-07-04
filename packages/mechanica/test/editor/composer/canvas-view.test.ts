@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { clampZoom, zoomAround, fitView, MIN_ZOOM, MAX_ZOOM } from '@/editor/composer/lib/canvas-view'
+import { clampZoom, zoomAround, fitView, wheelZoomFactor, MIN_ZOOM, MAX_ZOOM } from '@/editor/composer/lib/canvas-view'
 
 describe('clampZoom', () => {
   it('clamps into the supported range', () => {
@@ -24,6 +24,34 @@ describe('zoomAround', () => {
   it('respects the zoom clamp', () => {
     const next = zoomAround({ zoom: MAX_ZOOM, panX: 0, panY: 0 }, 4, 100, 100)
     expect(next.zoom).toBe(MAX_ZOOM)
+  })
+})
+
+describe('wheelZoomFactor', () => {
+  it('zooms in on a negative delta, out on a positive one', () => {
+    expect(wheelZoomFactor(-100)).toBeGreaterThan(1)
+    expect(wheelZoomFactor(100)).toBeLessThan(1)
+  })
+
+  it('keeps a single mouse notch gentle (near the button step, not a leap)', () => {
+    // A ~100px notch used to leap ~2.7×; now it should be a modest step.
+    const factor = wheelZoomFactor(-100)
+    expect(factor).toBeGreaterThan(1.1)
+    expect(factor).toBeLessThan(1.3)
+  })
+
+  it('clamps large deltas so faster wheels do not leap further', () => {
+    expect(wheelZoomFactor(-500)).toBe(wheelZoomFactor(-100))
+  })
+
+  it('stays smooth for small touchpad-pinch deltas', () => {
+    expect(wheelZoomFactor(-5)).toBeGreaterThan(1)
+    expect(wheelZoomFactor(-5)).toBeLessThan(1.05)
+  })
+
+  it('normalizes line-mode deltas to roughly pixels', () => {
+    // deltaMode 1 (lines): 3 lines ≈ 48px → clamped like a pixel notch.
+    expect(wheelZoomFactor(-3, 1)).toBe(wheelZoomFactor(-48))
   })
 })
 

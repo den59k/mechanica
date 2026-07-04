@@ -49,7 +49,7 @@ import { renderBlocks } from '../../../core/render-blocks'
 import type { BlocksMap } from '../../../core/state'
 import { composerStoreKey, composerInsertDndKey } from '../lib/keys'
 import { resolveForCanvas } from '../lib/canvas'
-import { zoomAround, fitView, type View } from '../lib/canvas-view'
+import { zoomAround, fitView, wheelZoomFactor, type View } from '../lib/canvas-view'
 
 const store = inject(composerStoreKey)!
 const insert = inject(composerInsertDndKey)!
@@ -101,7 +101,7 @@ function onWheel(event: WheelEvent) {
   const cy = event.clientY - rect.top
   // Pinch on a touchpad and Ctrl/⌘+wheel both arrive as a wheel with ctrlKey.
   if (event.ctrlKey || event.metaKey) {
-    applyView(zoomAround(view(), Math.exp(-event.deltaY * 0.01), cx, cy))
+    applyView(zoomAround(view(), wheelZoomFactor(event.deltaY, event.deltaMode), cx, cy))
   } else {
     // Two-finger scroll / shift-wheel pans the canvas.
     store.panX -= event.deltaX
