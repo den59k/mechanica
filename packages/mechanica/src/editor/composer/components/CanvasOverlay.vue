@@ -15,6 +15,16 @@
 
     <!-- Single select: frame label, size badge, and resize handles on the primary. -->
     <template v-if="single && primaryBox">
+      <!-- Padding-drag strips (under the handles). -->
+      <div
+        v-for="p in padStrips"
+        :key="'pad' + p.side"
+        class="mech-composer__pad-strip"
+        :class="[`is-${p.side}`, { 'is-active': padDragging === p.side }]"
+        :style="boxStyle(p.box)"
+        :title="`Padding ${padSideValue(p.side)}`"
+        @pointerdown.stop.prevent="startPadDrag(p.side, $event)"
+      />
       <div
         v-if="isFrame"
         class="mech-composer__frame-label"
@@ -58,7 +68,8 @@
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch, nextTick } from 'vue'
 import { composerStoreKey, composerHistoryKey } from '../lib/keys'
 import { elementKind, blockLabel } from '../lib/elements-meta'
-import { HANDLES, handlePoint, handleAxes, handleCursor, resizeSize, gapStrips, type Box, type Handle } from '../lib/canvas-overlay'
+import { HANDLES, handlePoint, handleAxes, handleCursor, resizeSize, gapStrips, paddingStrips, type Box, type Handle, type Side } from '../lib/canvas-overlay'
+import { parsePadding, setSide } from '../lib/padding'
 
 const props = defineProps<{ hoverId: string | null }>()
 const store = inject(composerStoreKey)!
@@ -75,6 +86,21 @@ const gapValue = computed(() => {
   const f = store.selected
   return f ? Number(store.effective(f, 'gap')) || 0 : 0
 })
+
+const padStrips = ref<{ side: Side; box: Box }[]>([])
+const padDragging = ref<Side | null>(null)
+const PAD_MIN = 6 // minimum grab thickness (screen px) so 0 padding is draggable
+// Each side's drag axis + which pointer direction grows the padding.
+const PAD_AXIS: Record<Side, { axis: 'x' | 'y'; sign: 1 | -1 }> = {
+  t: { axis: 'y', sign: 1 },
+  b: { axis: 'y', sign: -1 },
+  l: { axis: 'x', sign: 1 },
+  r: { axis: 'x', sign: -1 },
+}
+const padSideValue = (side: Side) => {
+  const f = store.selected
+  return f ? parsePadding(store.effective(f, 'padding'))[side] : 0
+}
 
 const single = computed(() => store.selectedIds.length === 1)
 const primaryBox = computed(() => selBoxes.value[selBoxes.value.length - 1] ?? null)
@@ -158,6 +184,23 @@ function measure(): void {
       gapBoxes.value = gapStrips(boxes, axis, GAP_HIT)
     }
   }
+
+  // Padding strips: the four inset regions of a selected frame.
+  padStrips.value = []
+  if (frame && elementKind(frame.blockId) === 'frame') {
+    const el = blockEl(frame.id)
+    if (el) {
+      const cs = getComputedStyle(el)
+      const z = store.zoom
+      const pad = {
+        t: parseFloat(cs.paddingTop) * z,
+        r: parseFloat(cs.paddingRight) * z,
+        b: parseFloat(cs.paddingBottom) * z,
+        l: parseFloat(cs.paddingLeft) * z,
+      }
+      padStrips.value = paddingStrips(toBox(el), pad, PAD_MIN).filter((s) => s.box.width > 0 && s.box.height > 0)
+    }
+  }
 }
 const remeasure = () => nextTick(measure)
 
@@ -239,6 +282,41 @@ function startGapDrag(event: PointerEvent) {
   window.addEventListener('pointerup', onUp)
 }
 
+// ── Padding drag (drag a side's inset region to change that side's padding) ─────
+let padRaf = 0
+function startPadDrag(side: Side, event: PointerEvent) {
+  const id = store.selectedId
+  const frame = store.selected
+  if (!id || !frame) return
+  const { axis, sign } = PAD_AXIS[side]
+  const start = parsePadding(store.effective(frame, 'padding'))[side]
+  const startPos = axis === 'x' ? event.clientX : event.clientY
+  padDragging.value = side
+
+  const loop = () => {
+    measure()
+    padRaf = requestAnimationFrame(loop)
+  }
+  padRaf = requestAnimationFrame(loop)
+
+  const onMove = (e: PointerEvent) => {
+    const pos = axis === 'x' ? e.clientX : e.clientY
+    const next = Math.max(0, Math.round(start + (sign * (pos - startPos)) / store.zoom))
+    store.setData(id, { padding: setSide(store.effective(frame, 'padding'), side, next) }, { responsive: true })
+  }
+  const onUp = () => {
+    cancelAnimationFrame(padRaf)
+    padRaf = 0
+    padDragging.value = null
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    history.commit()
+    remeasure()
+  }
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+}
+
 /** Double-click a handle → reset the axis it drives back to Hug. */
 function resetAxis(handle: Handle) {
   const id = store.selectedId
@@ -280,6 +358,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (raf) cancelAnimationFrame(raf)
   if (gapRaf) cancelAnimationFrame(gapRaf)
+  if (padRaf) cancelAnimationFrame(padRaf)
   ro?.disconnect()
   store.measured = null
 })

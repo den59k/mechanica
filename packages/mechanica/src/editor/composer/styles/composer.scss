@@ -356,6 +356,26 @@ $sel: #3b82f6;
     opacity: 0.85;
   }
 }
+// Padding-drag strips: a translucent accent region on hover / while dragging.
+.mech-composer__pad-strip {
+  position: absolute;
+  pointer-events: auto;
+  background: transparent;
+  transition: background 0.1s ease;
+
+  &.is-t,
+  &.is-b {
+    cursor: ns-resize;
+  }
+  &.is-l,
+  &.is-r {
+    cursor: ew-resize;
+  }
+  &:hover,
+  &.is-active {
+    background: rgba($sel, 0.18);
+  }
+}
 
 // Floating zoom controls (Figma-style, bottom-left of the canvas).
 .mech-composer__zoombar {

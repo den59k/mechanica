@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { handlePoint, handleAxes, resizeSize, handleCursor, HANDLES, gapStrips } from '@/editor/composer/lib/canvas-overlay'
+import { handlePoint, handleAxes, resizeSize, handleCursor, HANDLES, gapStrips, paddingStrips } from '@/editor/composer/lib/canvas-overlay'
 
 const box = { left: 100, top: 50, width: 200, height: 80 }
 
@@ -79,5 +79,21 @@ describe('gapStrips', () => {
     ]
     expect(gapStrips(boxes, 'x', 8)).toHaveLength(2)
     expect(gapStrips([boxes[0]!], 'x', 8)).toEqual([])
+  })
+})
+
+describe('paddingStrips', () => {
+  const outer = { left: 0, top: 0, width: 200, height: 100 }
+  it('lays out four side regions, insetting sides by top/bottom thickness', () => {
+    const strips = paddingStrips(outer, { t: 20, r: 10, b: 0, l: 0 }, 6)
+    const by = Object.fromEntries(strips.map((s) => [s.side, s.box]))
+    expect(by.t).toEqual({ left: 0, top: 0, width: 200, height: 20 })
+    expect(by.b).toEqual({ left: 0, top: 94, width: 200, height: 6 }) // b=0 → minHit 6
+    expect(by.l).toEqual({ left: 0, top: 20, width: 6, height: 74 }) // inset by t(20)+b(6)
+    expect(by.r).toEqual({ left: 190, top: 20, width: 10, height: 74 })
+  })
+  it('keeps a minimum grab thickness even at zero padding', () => {
+    const strips = paddingStrips(outer, { t: 0, r: 0, b: 0, l: 0 }, 8)
+    expect(strips.every((s) => s.box.width >= 8 && s.box.height >= 0)).toBe(true)
   })
 })

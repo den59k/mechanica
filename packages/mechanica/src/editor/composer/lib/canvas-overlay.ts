@@ -79,6 +79,35 @@ export function gapStrips(boxes: Box[], axis: 'x' | 'y', hit: number): Box[] {
   return strips
 }
 
+/** A frame side, for padding strips. */
+export type Side = 't' | 'r' | 'b' | 'l'
+
+/**
+ * The four padding regions of a frame — drag one to change that side's padding.
+ * `outer` is the frame's screen box; `pad` is each side's rendered thickness
+ * (already scaled to screen px). Each strip is at least `minHit` thick so a zero
+ * padding is still grabbable; the left/right strips inset by the top/bottom
+ * thickness so the corners belong to the top/bottom strips.
+ */
+export function paddingStrips(
+  outer: Box,
+  pad: { t: number; r: number; b: number; l: number },
+  minHit: number,
+): { side: Side; box: Box }[] {
+  const t = Math.max(pad.t, minHit)
+  const r = Math.max(pad.r, minHit)
+  const b = Math.max(pad.b, minHit)
+  const l = Math.max(pad.l, minHit)
+  const { left, top, width, height } = outer
+  const midH = Math.max(0, height - t - b)
+  return [
+    { side: 't', box: { left, top, width, height: t } },
+    { side: 'b', box: { left, top: top + height - b, width, height: b } },
+    { side: 'l', box: { left, top: top + t, width: l, height: midH } },
+    { side: 'r', box: { left: left + width - r, top: top + t, width: r, height: midH } },
+  ]
+}
+
 const CURSORS: Record<Handle, string> = {
   n: 'ns-resize',
   s: 'ns-resize',
