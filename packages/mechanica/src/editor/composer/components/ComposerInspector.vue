@@ -20,7 +20,11 @@
           placeholder="None"
           :aria-label="`${g.label} style`"
           @update:model-value="applyGroup(g, $event)"
-        />
+        >
+          <template #option-hint="{ option }">
+            <ClassStylePreview :option="option" />
+          </template>
+        </VSelect>
       </div>
     </section>
 
@@ -273,6 +277,7 @@ import type { Block, ComposerClassDef } from 'mechanica-shared'
 import VIcon from '../../components/VIcon.vue'
 import VSelect, { type SelectOption } from '../../components/VSelect.vue'
 import ComponentFields from './ComponentFields.vue'
+import ClassStylePreview from './ClassStylePreview.vue'
 import SegControl, { type SegOption } from './SegControl.vue'
 import BindField from './BindField.vue'
 import OverrideLabel from './OverrideLabel.vue'

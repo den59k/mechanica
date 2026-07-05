@@ -128,6 +128,12 @@ orthogonal (each group's classes touch different properties). This is the Figma 
   optional props stay Margin + Position only.
 - The canvas is instantly WYSIWYG: the composer page already loads the site CSS, so picking
   "Heading 1" shows the real `h1` style, and the measured size badge / SizeInput reflect it.
+- **The dropdown previews what a class does.** Hovering (or arrowing to) an option shows a
+  side pane with that class's CSS declarations, read live from the CSSOM
+  (`editor/composer/lib/class-css.ts` → the `#option-hint` slot on `VSelect`): the base
+  `.class` rule's authored declarations (shorthands kept), with `var(--token)` resolved
+  against `:root` shown alongside (`max-width: var(--container) → 1140px`). Editor-only;
+  cross-origin sheets and pseudo/descendant/`@media` rules are skipped.
 
 Data model: `cls?: string` (space-separated) on element data, persisted in the `.block.yml`
 template like any other key. Pure grouping/replace logic lives in

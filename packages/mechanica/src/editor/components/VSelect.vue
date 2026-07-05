@@ -17,22 +17,29 @@
       <VIcon name="chevron-down" class="mech-select__chevron" />
     </button>
 
-    <VPopover :open="open" :anchor="rootEl" :match-width="!compact" panel-class="mech-select__menu" @update:open="open = $event">
-      <div role="listbox">
-        <button
-          v-for="(option, index) in options"
-          :key="index"
-          type="button"
-          class="mech-select__option"
-          :class="{ 'is-selected': isSelected(option), 'is-active': index === active }"
-          role="option"
-          :aria-selected="isSelected(option)"
-          @click="choose(option)"
-          @pointermove="active = index"
-        >
-          <span class="mech-select__option-label">{{ option.label }}</span>
-          <VIcon v-if="isSelected(option)" name="check" class="mech-select__check" />
-        </button>
+    <VPopover :open="open" :anchor="rootEl" :match-width="!compact && !$slots['option-hint']" panel-class="mech-select__menu" @update:open="open = $event">
+      <div class="mech-select__body" :class="{ 'has-hint': !!$slots['option-hint'] }">
+        <div role="listbox" class="mech-select__list">
+          <button
+            v-for="(option, index) in options"
+            :key="index"
+            type="button"
+            class="mech-select__option"
+            :class="{ 'is-selected': isSelected(option), 'is-active': index === active }"
+            role="option"
+            :aria-selected="isSelected(option)"
+            @click="choose(option)"
+            @pointermove="active = index"
+          >
+            <span class="mech-select__option-label">{{ option.label }}</span>
+            <VIcon v-if="isSelected(option)" name="check" class="mech-select__check" />
+          </button>
+        </div>
+        <!-- Optional per-option preview column (e.g. a class's CSS declarations),
+             rendered once for the active option — so a hover previews it. -->
+        <div v-if="$slots['option-hint']" class="mech-select__hint">
+          <slot name="option-hint" :option="active >= 0 ? options[active] ?? null : null" />
+        </div>
       </div>
     </VPopover>
   </div>
@@ -157,6 +164,19 @@ const choose = (option: SelectOption) => {
   color: var(--mech-fg);
 }
 
+// Two-column layout when an option-hint preview is provided: the list, then a
+// preview pane (VPopover clamps the wider panel back into the viewport).
+.mech-select__body {
+  display: flex;
+  align-items: stretch;
+}
+.mech-select__body.has-hint .mech-select__list {
+  border-right: 1px solid var(--mech-border);
+  padding-right: 4px;
+}
+.mech-select__body.has-hint .mech-select__hint {
+  padding-left: 4px;
+}
 .mech-select__option {
   display: flex;
   align-items: center;
