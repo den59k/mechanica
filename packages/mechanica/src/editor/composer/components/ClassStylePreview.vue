@@ -2,6 +2,8 @@
   <div class="mech-stylehint">
     <template v-if="decls.length">
       <div class="mech-stylehint__title">{{ option?.label }}</div>
+      <!-- The real CSS class name, as written in code — greppable, the dev↔designer bridge. -->
+      <code class="mech-stylehint__selector">.{{ cls }}</code>
       <div v-for="d in decls" :key="d.prop" class="mech-stylehint__row">
         <span class="mech-stylehint__prop">{{ d.prop }}</span>
         <span class="mech-stylehint__val">
@@ -40,10 +42,17 @@ const emptyLabel = computed(() => {
   line-height: 1.5;
 }
 .mech-stylehint__title {
-  margin-bottom: 6px;
+  margin-bottom: 2px;
   font-weight: 600;
   font-size: 12.5px;
   color: var(--mech-fg);
+}
+.mech-stylehint__selector {
+  display: block;
+  margin-bottom: 7px;
+  font-family: var(--mech-font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--mech-muted);
 }
 .mech-stylehint__row {
   display: flex;

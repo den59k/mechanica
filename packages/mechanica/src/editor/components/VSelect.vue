@@ -19,6 +19,13 @@
 
     <VPopover :open="open" :anchor="rootEl" :match-width="!compact && !$slots['option-hint']" panel-class="mech-select__menu" @update:open="open = $event">
       <div class="mech-select__body" :class="{ 'has-hint': !!$slots['option-hint'] }">
+        <!-- Optional per-option preview column (e.g. a class's CSS declarations),
+             rendered once for the active option — so a hover previews it. Sits to
+             the LEFT of the list, so the list stays under the trigger and the
+             preview extends toward the canvas. -->
+        <div v-if="$slots['option-hint']" class="mech-select__hint">
+          <slot name="option-hint" :option="active >= 0 ? options[active] ?? null : null" />
+        </div>
         <div role="listbox" class="mech-select__list">
           <button
             v-for="(option, index) in options"
@@ -34,11 +41,6 @@
             <span class="mech-select__option-label">{{ option.label }}</span>
             <VIcon v-if="isSelected(option)" name="check" class="mech-select__check" />
           </button>
-        </div>
-        <!-- Optional per-option preview column (e.g. a class's CSS declarations),
-             rendered once for the active option — so a hover previews it. -->
-        <div v-if="$slots['option-hint']" class="mech-select__hint">
-          <slot name="option-hint" :option="active >= 0 ? options[active] ?? null : null" />
         </div>
       </div>
     </VPopover>
@@ -170,11 +172,11 @@ const choose = (option: SelectOption) => {
   display: flex;
   align-items: stretch;
 }
-.mech-select__body.has-hint .mech-select__list {
+.mech-select__body.has-hint .mech-select__hint {
   border-right: 1px solid var(--mech-border);
   padding-right: 4px;
 }
-.mech-select__body.has-hint .mech-select__hint {
+.mech-select__body.has-hint .mech-select__list {
   padding-left: 4px;
 }
 .mech-select__option {
