@@ -20,13 +20,20 @@
         v-for="p in padStrips"
         :key="'pad' + p.side"
         class="mech-composer__pad-strip"
-        :class="[`is-${p.side}`, { 'is-active': padDragging === p.side, 'is-mirror': padMirrorSide === p.side }]"
+        :class="[`is-${p.side}`, { 'is-active': padDragging === p.side, 'is-mirror': padMirrorSide === p.side, 'is-echo': padEchoSide === p.side }]"
         :style="boxStyle(p.box)"
         :title="`Padding ${padSideValue(p.side)}`"
         @pointerdown.stop.prevent="startPadDrag(p.side, $event)"
       >
         <span class="mech-composer__space-label">{{ padSideValue(p.side) }}</span>
       </div>
+
+      <!-- Margin echo: a translucent-orange region outside the element, shown while
+           the inspector's margin box is hovered/edited. -->
+      <div v-if="marginStrip" class="mech-composer__margin-strip" :style="boxStyle(marginStrip)">
+        <span class="mech-composer__space-label">{{ marginValue }}</span>
+      </div>
+
       <div
         v-if="isFrame"
         class="mech-composer__frame-label"
@@ -72,7 +79,7 @@
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch, nextTick } from 'vue'
 import { composerStoreKey, composerHistoryKey } from '../lib/keys'
 import { elementKind, blockLabel } from '../lib/elements-meta'
-import { HANDLES, handlePoint, handleAxes, handleCursor, resizeSize, gapStrips, paddingStrips, snapTo, type Box, type Handle, type Side } from '../lib/canvas-overlay'
+import { HANDLES, handlePoint, handleAxes, handleCursor, resizeSize, gapStrips, paddingStrips, marginRegion, snapTo, type Box, type Handle, type Side } from '../lib/canvas-overlay'
 import { parsePadding, collapsePadding, computePaddingDrag } from '../lib/padding'
 
 const props = defineProps<{ hoverId: string | null }>()
@@ -117,6 +124,24 @@ const padSideValue = (side: Side) => {
 
 const single = computed(() => store.selectedIds.length === 1)
 const primaryBox = computed(() => selBoxes.value[selBoxes.value.length - 1] ?? null)
+
+// ── Inspector spacing echo ─────────────────────────────────────────────────────
+// The sidebar padding/margin box reports the side it's touching (`store.spacing`);
+// echo it on the element — padding lights the existing strip (blue), margin gets
+// its own translucent-orange outset region.
+const padEchoSide = computed<Side | null>(() => (store.spacing?.prop === 'padding' ? store.spacing.side : null))
+const MARGIN_MIN = 4 // a visible sliver when the margin is 0 or negative (screen px)
+const marginValue = computed(() => {
+  const sp = store.spacing
+  const node = store.selected
+  return sp && sp.prop === 'margin' && node ? parsePadding(store.effective(node, 'margin'))[sp.side] : 0
+})
+const marginStrip = computed<Box | null>(() => {
+  const sp = store.spacing
+  const box = primaryBox.value
+  if (!sp || sp.prop !== 'margin' || !box) return null
+  return marginRegion(box, sp.side, marginValue.value * store.zoom, MARGIN_MIN)
+})
 const unionBox = computed(() => (store.selectedIds.length > 1 ? union(selBoxes.value) : null))
 
 const selectedNode = computed(() => store.selected)

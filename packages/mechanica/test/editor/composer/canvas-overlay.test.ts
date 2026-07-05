@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { handlePoint, handleAxes, resizeSize, handleCursor, HANDLES, gapStrips, paddingStrips, snapTo } from '@/editor/composer/lib/canvas-overlay'
+import { handlePoint, handleAxes, resizeSize, handleCursor, HANDLES, gapStrips, paddingStrips, marginRegion, snapTo } from '@/editor/composer/lib/canvas-overlay'
 
 const box = { left: 100, top: 50, width: 200, height: 80 }
 
@@ -102,6 +102,20 @@ describe('paddingStrips', () => {
   it('keeps a minimum grab thickness even at zero padding', () => {
     const strips = paddingStrips(outer, { t: 0, r: 0, b: 0, l: 0 }, 8)
     expect(strips.every((s) => s.box.width >= 8 && s.box.height >= 0)).toBe(true)
+  })
+})
+
+describe('marginRegion', () => {
+  const box = { left: 100, top: 50, width: 200, height: 80 }
+  it('outsets each side beyond the element border box', () => {
+    expect(marginRegion(box, 't', 16, 4)).toEqual({ left: 100, top: 34, width: 200, height: 16 })
+    expect(marginRegion(box, 'b', 16, 4)).toEqual({ left: 100, top: 130, width: 200, height: 16 })
+    expect(marginRegion(box, 'l', 24, 4)).toEqual({ left: 76, top: 50, width: 24, height: 80 })
+    expect(marginRegion(box, 'r', 24, 4)).toEqual({ left: 300, top: 50, width: 24, height: 80 })
+  })
+  it('floors thickness to minHit so a zero or negative margin still shows', () => {
+    expect(marginRegion(box, 't', 0, 4)).toEqual({ left: 100, top: 46, width: 200, height: 4 })
+    expect(marginRegion(box, 'l', -30, 4)).toEqual({ left: 96, top: 50, width: 4, height: 80 })
   })
 })
 

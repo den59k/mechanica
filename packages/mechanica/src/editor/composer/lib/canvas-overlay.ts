@@ -129,6 +129,28 @@ export function paddingStrips(
   ]
 }
 
+/**
+ * The outset region for one margin side — the space *outside* an element's
+ * border box where that margin sits. `box` is the element's screen box; `m` is
+ * the side's rendered thickness (screen px), floored to `minHit` so a zero (or
+ * negative) margin still shows a hint sliver at the edge. Used to echo the
+ * inspector's margin editing on the canvas (it isn't draggable).
+ */
+export function marginRegion(box: Box, side: Side, m: number, minHit: number): Box {
+  const thick = Math.max(m, minHit)
+  const { left, top, width, height } = box
+  switch (side) {
+    case 't':
+      return { left, top: top - thick, width, height: thick }
+    case 'b':
+      return { left, top: top + height, width, height: thick }
+    case 'l':
+      return { left: left - thick, top, width: thick, height }
+    case 'r':
+      return { left: left + width, top, width: thick, height }
+  }
+}
+
 const CURSORS: Record<Handle, string> = {
   n: 'ns-resize',
   s: 'ns-resize',

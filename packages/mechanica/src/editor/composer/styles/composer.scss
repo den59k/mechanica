@@ -262,6 +262,7 @@
 }
 $sel: #3b82f6;
 $space: #e5227f; // Figma-style spacing pink for gap + padding editing (distinct from the blue selection)
+$margin: #f97316; // translucent orange for margin editing (distinct from padding blue)
 .mech-composer__hover {
   position: absolute;
   outline: 1px solid rgba($sel, 0.55);
@@ -361,7 +362,8 @@ $space: #e5227f; // Figma-style spacing pink for gap + padding editing (distinct
 .mech-composer__gap.is-active .mech-composer__space-label,
 .mech-composer__pad-strip:hover .mech-composer__space-label,
 .mech-composer__pad-strip.is-active .mech-composer__space-label,
-.mech-composer__pad-strip.is-mirror .mech-composer__space-label {
+.mech-composer__pad-strip.is-mirror .mech-composer__space-label,
+.mech-composer__pad-strip.is-echo .mech-composer__space-label {
   opacity: 1;
 }
 // Padding-drag strips: the inset region fills pink on hover / while dragging.
@@ -385,12 +387,29 @@ $space: #e5227f; // Figma-style spacing pink for gap + padding editing (distinct
   &:hover,
   &.is-active,
   // Alt-mirror: the opposite side is changing too, so it lights up like the active one.
-  &.is-mirror {
+  &.is-mirror,
+  // Echo: the inspector's padding box is touching this side.
+  &.is-echo {
     background: rgba($sel, 0.18);
   }
   // Padding stays on the blue selection colour; only gaps are pink.
   .mech-composer__space-label {
     background: $sel;
+  }
+}
+// Margin echo region — the space outside the element, translucent orange so it
+// reads as margin (not padding). Non-interactive: it just mirrors the inspector.
+.mech-composer__margin-strip {
+  position: absolute;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba($margin, 0.22);
+
+  .mech-composer__space-label {
+    background: $margin;
+    opacity: 1;
   }
 }
 

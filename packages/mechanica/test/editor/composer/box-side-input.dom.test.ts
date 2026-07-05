@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createApp, h, ref } from 'vue'
 import BoxSideInput from '@/editor/composer/components/BoxSideInput.vue'
+import { composerStoreKey } from '@/editor/composer/lib/keys'
 
 beforeEach(() => {
   document.body.innerHTML = ''
@@ -77,6 +78,24 @@ describe('BoxSideInput', () => {
     window.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
     await flush()
     expect(state.value).toEqual([28, 16, 16, 16]) // 16 + 12px of drag
+  })
+
+  it('signals the touched side to the store, for the canvas echo', async () => {
+    const store: { spacing: unknown } = { spacing: null }
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const app = createApp({ render: () => h(BoxSideInput, { modelValue: 10, label: 'margin' }) })
+    app.provide(composerStoreKey, store as never)
+    app.mount(host)
+
+    const input = host.querySelector<HTMLInputElement>('input[aria-label="Top margin"]')!
+    input.dispatchEvent(new MouseEvent('pointermove', { bubbles: true }))
+    await flush()
+    expect(store.spacing).toEqual({ prop: 'margin', side: 't' })
+
+    host.querySelector('.mech-composer__box')!.dispatchEvent(new MouseEvent('pointerleave', { bubbles: true }))
+    await flush()
+    expect(store.spacing).toBeNull()
   })
 
   it('mirrors an edit to the opposite side while Alt is held', async () => {
