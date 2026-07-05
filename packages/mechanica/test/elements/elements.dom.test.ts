@@ -83,6 +83,24 @@ describe('element blocks', () => {
     expect(frame.style.getPropertyValue('--el-minh-sm')).toBe('160px')
   })
 
+  it('appends a sanitized design-system class from `cls`, dropping bad tokens', () => {
+    const el = mount({
+      content: [
+        { id: 'f', blockId: 'mech:frame', data: { cls: 'ds-container is-wide' } },
+        { id: 't', blockId: 'mech:text', data: { content: 'x', cls: 'bad token! ok-2' } },
+      ],
+      data: {},
+    })
+    const frame = el.querySelector('.mxel-frame') as HTMLElement
+    expect(frame.classList.contains('ds-container')).toBe(true)
+    expect(frame.classList.contains('is-wide')).toBe(true)
+    const text = el.querySelector('.mxel-text') as HTMLElement
+    // "token!" is dropped (invalid); "ok-2" and "bad" survive.
+    expect(text.classList.contains('ok-2')).toBe(true)
+    expect(text.classList.contains('bad')).toBe(true)
+    expect(text.className).not.toContain('token!')
+  })
+
   it('image renders a placeholder when src is empty, an <img> otherwise', () => {
     const empty = mount({ content: [{ id: 'i', blockId: 'mech:image', data: {} }], data: {} })
     expect(empty.querySelector('.mxel-image--empty')?.textContent).toBe('Image')

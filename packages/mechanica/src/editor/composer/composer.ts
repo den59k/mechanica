@@ -1,6 +1,11 @@
 import { createApp } from 'vue'
 import { unfoldSchema } from 'compact-json-schema'
-import { registerFieldSchemas, type Block, type ComposedBlockDefinition } from 'mechanica-shared'
+import {
+  registerFieldSchemas,
+  type Block,
+  type ComposedBlockDefinition,
+  type ComposerClassDef,
+} from 'mechanica-shared'
 import { createMechanica } from '../../core/create-mechanica'
 import type { BlocksMap } from '../../core/state'
 import { registerBuiltinFieldEditors } from '../fields/builtin'
@@ -33,6 +38,10 @@ export interface MountComposerOptions {
   blocks: BlocksMap
   /** The site's design-system components (from the manifest) offered in the palette. */
   components?: ComposerComponentDef[]
+  /** The site's design-system CSS classes, offered as element Style (normalized). */
+  classDefs?: ComposerClassDef[]
+  /** The site's element breakpoints (max-widths, px) for the device switcher. */
+  breakpoints?: { md: number; sm: number }
   /** Mount target selector or element. */
   target: string | Element
 }
@@ -191,6 +200,8 @@ export async function mountComposerApp(options: MountComposerOptions): Promise<v
     def,
     blocks: options.blocks,
     codeBlocks,
+    classDefs: options.classDefs ?? [],
+    breakpoints: options.breakpoints,
     save: saveController,
     onChange: (snapshot: ComposerSnapshot) => saveQueue.push(snapshot),
   })

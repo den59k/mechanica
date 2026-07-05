@@ -70,13 +70,16 @@ describe('generatePreviewEntry', () => {
 
 describe('generateComposerEntry', () => {
   it('imports the user app, registers composed blocks + components, and mounts the composer', () => {
-    const code = generateComposerEntry({ userEntry: '/src/main.ts' })
+    const code = generateComposerEntry({ userEntry: '/src/main.ts', breakpoints: { md: 900, sm: 560 } })
     expect(code).toContain('import "/src/main.ts"')
-    expect(code).toContain("import { registerComponents, componentDefs } from 'virtual:mechanica/components'")
+    // The generated element CSS rides along so the canvas matches a real page.
+    expect(code).toContain("import 'virtual:mechanica/elements.css'")
+    expect(code).toContain("import { registerComponents, componentDefs, classDefs } from 'virtual:mechanica/components'")
     expect(code).toContain("import { mountComposerApp } from 'mechanica/composer'")
     expect(code).toContain('registerComponents(blocks)')
     expect(code).toContain('for (const def of composedList) blocks.set(def.id, createComposedComponent(def))')
-    expect(code).toContain("mountComposerApp({ blocks, components: componentDefs, target: '#app' })")
+    // Class defs + the statically-read breakpoints are threaded to the composer.
+    expect(code).toContain('mountComposerApp({ blocks, components: componentDefs, classDefs, breakpoints: {"md":900,"sm":560}, target: \'#app\' })')
   })
 })
 

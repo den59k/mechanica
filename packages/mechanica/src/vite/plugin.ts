@@ -1,9 +1,11 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import type { Plugin } from 'vite'
 import { parseVueRequest } from '@vitejs/plugin-vue'
 import { passDataToHTML, serializeState } from 'mechanica-shared'
 import { compileBlock } from '../compiler/compile-block'
+import { emitElementsCss } from '../elements/emit-css'
+import { parseComposerBreakpoints } from './read-breakpoints'
 import { collectBlocks, collectBlocksLazy } from './collect-blocks'
 import { collectWidgets } from './collect-widgets'
 import { collectComposed, loadComposedDefinitions, COMPOSED_EXT } from './collect-composed'
@@ -40,6 +42,12 @@ export const COMPOSED_MODULE_ID = 'virtual:mechanica/composed'
 export const COMPOSER_MODULE_ID = 'virtual:mechanica/composer'
 /** Virtual module exposing the site's design-system components manifest. */
 export const COMPONENTS_MODULE_ID = 'virtual:mechanica/components'
+/**
+ * Virtual stylesheet with the composer elements' responsive rules — generated
+ * per site because the breakpoint widths are configurable. Deliberately NOT
+ * `\0`-prefixed and ending in `.css` so Vite's CSS pipeline processes it.
+ */
+export const ELEMENTS_CSS_MODULE_ID = 'virtual:mechanica/elements.css'
 
 const RESOLVED_BLOCKS_ID = '\0' + BLOCKS_MODULE_ID
 const RESOLVED_CLIENT_ID = '\0' + CLIENT_MODULE_ID
@@ -60,10 +68,11 @@ export interface MechanicaPluginOptions {
   /** Directory scanned for `defineWidget` modules, relative to the Vite root. */
   widgetsDir?: string
   /**
-   * The Block Composer's components manifest (`defineComposerComponents`),
-   * relative to the Vite root. Its components — the site's design system —
-   * become building material in the composer and are registered into every
-   * runtime block set. Defaults to `src/composer.ts`; absent = no components.
+   * The Block Composer manifest (`defineComposer`), relative to the Vite root.
+   * Declares the site's design system — components (registered into every
+   * runtime block set), CSS `classes` (offered as element Style) and
+   * `breakpoints` (sizing the generated element CSS + device switcher).
+   * Defaults to `src/composer.ts`; absent = no manifest.
    */
   composerFile?: string
   /** Directory holding local editor state, relative to the Vite root. */
@@ -178,6 +187,24 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       path.delete(id)
     }
   }
+  // The element breakpoints (max-widths) from the manifest's `breakpoints`,
+  // read statically from source (the plugin can't evaluate the SFC-importing
+  // manifest). Feeds the generated element CSS + the composer entry. Warns once
+  // per bad value so a typo doesn't spam every reload.
+  let warnedBreakpoints = ''
+  const resolveBreakpoints = (
+    warn?: (message: string) => void,
+  ): { md: number; sm: number } => {
+    const source = existsSync(composerFilePath) ? readFileSync(composerFilePath, 'utf8') : null
+    const result = parseComposerBreakpoints(source)
+    if (result.warning && result.warning !== warnedBreakpoints) {
+      warnedBreakpoints = result.warning
+      warn?.(`[mechanica] ${result.warning}`)
+    }
+    if (!result.warning) warnedBreakpoints = ''
+    return { md: result.md, sm: result.sm }
+  }
+
   const isBlockFile = (file: string): boolean =>
     file.endsWith('.vue') && slash(file).startsWith(slash(blocksDir) + '/')
   const isWidgetFile = (file: string): boolean =>
@@ -245,12 +272,17 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
     void ensurePageCodec(server)
   }
 
-  // Regenerate `virtual:mechanica/components` when the manifest file appears or
-  // disappears (the inert ↔ real module toggle). Edits to an existing manifest
-  // propagate through the module graph on their own.
-  const invalidateComponents = (server: import('vite').ViteDevServer): void => {
-    const mod = server.moduleGraph.getModuleById(RESOLVED_COMPONENTS_ID)
-    if (mod) server.moduleGraph.invalidateModule(mod)
+  // Regenerate the manifest-derived modules when the composer file appears,
+  // changes or disappears: `virtual:mechanica/components` (the inert ↔ real
+  // toggle, plus class/component edits), the generated element CSS and the
+  // composer entry (both read `breakpoints` statically, so they don't refresh on
+  // their own). A full reload is the honest refresh — the composer/editor take
+  // no HMR.
+  const invalidateManifest = (server: import('vite').ViteDevServer): void => {
+    for (const id of [RESOLVED_COMPONENTS_ID, ELEMENTS_CSS_MODULE_ID, RESOLVED_COMPOSER_ID]) {
+      const mod = server.moduleGraph.getModuleById(id)
+      if (mod) server.moduleGraph.invalidateModule(mod)
+    }
     server.ws.send({ type: 'full-reload' })
   }
 
@@ -354,6 +386,8 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       if (id === COMPOSED_MODULE_ID) return RESOLVED_COMPOSED_ID
       if (id === COMPOSER_MODULE_ID) return RESOLVED_COMPOSER_ID
       if (id === COMPONENTS_MODULE_ID) return RESOLVED_COMPONENTS_ID
+      // Unprefixed + `.css` so Vite treats the generated stylesheet as CSS.
+      if (id === ELEMENTS_CSS_MODULE_ID) return ELEMENTS_CSS_MODULE_ID
     },
 
     async load(id) {
@@ -383,12 +417,15 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         )
       }
       if (id === RESOLVED_COMPOSER_ID) {
-        return generateComposerEntry({ userEntry })
+        return generateComposerEntry({ userEntry, breakpoints: resolveBreakpoints((m) => this.warn(m)) })
       }
       if (id === RESOLVED_COMPONENTS_ID) {
         // Existence is checked at load time so adding/removing the manifest
         // toggles between the real and the inert module on the next reload.
         return generateComponentsModule(existsSync(composerFilePath) ? composerSpecifier : null)
+      }
+      if (id === ELEMENTS_CSS_MODULE_ID) {
+        return emitElementsCss(resolveBreakpoints((m) => this.warn(m)))
       }
     },
 
@@ -455,16 +492,17 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
 
       // Adding or removing a block file re-collects the blocks module and
       // reloads, so new blocks appear in the palette without a server restart.
+      const isComposerFile = (file: string): boolean => slash(file) === slash(composerFilePath)
       server.watcher.on('add', (file) => {
         if (isBlockFile(file)) invalidateBlocks(server)
         else if (isWidgetFile(file)) invalidateWidgets(server)
         else if (isComposedFile(file) && !wasRecentlyMutated(file)) invalidateComposed(server)
-        else if (slash(file) === slash(composerFilePath)) invalidateComponents(server)
+        else if (isComposerFile(file)) invalidateManifest(server)
       })
       server.watcher.on('unlink', (file) => {
         if (isWidgetFile(file)) invalidateWidgets(server)
         else if (isComposedFile(file) && !wasRecentlyMutated(file)) invalidateComposed(server)
-        else if (slash(file) === slash(composerFilePath)) invalidateComponents(server)
+        else if (isComposerFile(file)) invalidateManifest(server)
         if (!isBlockFile(file)) return
         blockSchemas.delete(slash(file))
         invalidateBlocks(server)
@@ -472,9 +510,11 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       // Composed definitions are baked into the virtual module as JSON, so an
       // *edit* to an existing `.block.yml` (unlike a widget/block edit, which
       // propagates through the module graph) needs a re-collect. Our own writes
-      // (the composer's saves) are skipped — they refresh through the store.
+      // (the composer's saves) are skipped — they refresh through the store. A
+      // manifest edit re-reads `breakpoints` for the generated CSS + composer.
       server.watcher.on('change', (file) => {
         if (isComposedFile(file) && !wasRecentlyMutated(file)) invalidateComposed(server)
+        else if (isComposerFile(file)) invalidateManifest(server)
       })
 
       // External edits to the `.mech` store (Claude editing a .page.md, manual

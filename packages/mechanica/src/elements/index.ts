@@ -12,7 +12,7 @@ import './elements.scss'
  * runtime `BlocksMap` by {@link registerElements}.
  *
  * Deliberately *no* Button element: a button's look is a design-system decision,
- * so a site ships its own via the components manifest (`defineComposerComponents`)
+ * so a site ships its own via the composer manifest (`defineComposer`)
  * instead of inheriting a generic one. Kept as render functions (not SFCs) so
  * they never go through the block compiler. See PLAN.md § 4.1 / COMPOSER-REDESIGN §6.1.
  */
@@ -21,6 +21,22 @@ type Data = Record<string, unknown>
 
 /** The content-node id `renderBlocks` stamps on each block, for editor mapping. */
 const blockId = (data: Data): unknown => data['data-block-id']
+
+// A valid CSS class token: a letter/underscore start, then word chars / hyphens.
+const CLASS_TOKEN = /^[a-zA-Z_][\w-]*$/
+
+/**
+ * The element's class attribute: the base classes plus the design-system
+ * `cls` the composer's Style select assigns (a space-separated string of class
+ * names). Sanitized token-by-token so a bad value can never inject markup or a
+ * malformed selector. `cls` is base-only (not responsive) — a class is
+ * responsive inside its own CSS. See COMPOSER-MANIFEST.md.
+ */
+function classAttr(base: string, cls: unknown): string {
+  if (typeof cls !== 'string' || !cls) return base
+  const tokens = cls.split(/\s+/).filter((token) => CLASS_TOKEN.test(token))
+  return tokens.length ? `${base} ${tokens.join(' ')}` : base
+}
 
 // Visual style (background/radius/size/color/…) rides the same CSS-variable
 // indirection as layout — see FRAME_VARS/TEXT_VARS/IMAGE_VARS — so every knob
@@ -46,7 +62,7 @@ const Frame = defineComponent({
       const style = compactStyle(responsiveVars(data, FRAME_VARS), frameStyle(data), absStyle(data.$abs))
       return h(
         'div',
-        { class: 'mxel mxel-frame', style, 'data-block-id': blockId(data) },
+        { class: classAttr('mxel mxel-frame', data.cls), style, 'data-block-id': blockId(data) },
         slots.default ? slots.default() : undefined,
       )
     }
@@ -66,7 +82,7 @@ const Text = defineComponent({
       const style = compactStyle(responsiveVars(data, TEXT_VARS), absStyle(data.$abs))
       return h(
         tag,
-        { class: 'mxel mxel-text', style, 'data-block-id': blockId(data) },
+        { class: classAttr('mxel mxel-text', data.cls), style, 'data-block-id': blockId(data) },
         String(data.content ?? ''),
       )
     }
@@ -85,12 +101,12 @@ const Image = defineComponent({
       if (!src) {
         return h(
           'div',
-          { class: 'mxel mxel-image mxel-image--empty', style, 'data-block-id': blockId(data) },
+          { class: classAttr('mxel mxel-image mxel-image--empty', data.cls), style, 'data-block-id': blockId(data) },
           'Image',
         )
       }
       return h('img', {
-        class: 'mxel mxel-image',
+        class: classAttr('mxel mxel-image', data.cls),
         src,
         alt: typeof data.alt === 'string' ? data.alt : '',
         style,

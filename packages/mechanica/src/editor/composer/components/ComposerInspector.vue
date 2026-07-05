@@ -9,6 +9,21 @@
       </button>
     </div>
 
+    <!-- ── Style (site design-system class) ───────────────────────── -->
+    <section v-if="classOptions.length > 1" class="mech-composer__section">
+      <div class="mech-composer__row">
+        <span>Style</span>
+        <VSelect
+          compact
+          :model-value="clsValue"
+          :options="classOptions"
+          placeholder="None"
+          aria-label="Design-system style"
+          @update:model-value="setClass"
+        />
+      </div>
+    </section>
+
     <!-- ── Content (text) ─────────────────────────────────────────── -->
     <section v-if="kind === 'text'" class="mech-composer__section">
       <div class="mech-composer__section-title">Content</div>
@@ -253,8 +268,9 @@ import { composerStoreKey } from '../lib/keys'
 import { elementKind, blockLabel, blockIcon } from '../lib/elements-meta'
 import { availableProps } from '../lib/inspector-props'
 import { absAxisLabels, reanchorOffset } from '../lib/abs'
-import type { Block } from 'mechanica-shared'
+import type { Block, ComposerClassDef } from 'mechanica-shared'
 import VIcon from '../../components/VIcon.vue'
+import VSelect, { type SelectOption } from '../../components/VSelect.vue'
 import ComponentFields from './ComponentFields.vue'
 import SegControl, { type SegOption } from './SegControl.vue'
 import BindField from './BindField.vue'
@@ -270,6 +286,7 @@ import BoxSideInput from './BoxSideInput.vue'
 const store = inject(composerStoreKey)!
 const uploader = inject<((file: File) => Promise<{ src: string }>) | null>('mechFileUploader', null)
 const codeBlocksList = inject<Block[]>('composerCodeBlocks', [])
+const classDefs = inject<ComposerClassDef[]>('composerClassDefs', [])
 
 const node = computed(() => store.selected!)
 const meta = computed(() => elementKind(node.value.blockId))
@@ -281,6 +298,21 @@ const codeBlock = computed(() => codeBlocksList.find((block) => block.id === nod
 
 // A heading's text reads best as a `title` prop; body text as `text`.
 const contentName = computed(() => (val('tag') === 'h1' ? 'title' : 'text'))
+
+// ── Style (site design-system class) ──────────────────────────────────
+// `cls` is base-only — a class carries its own responsiveness in the site CSS —
+// so it's read from base data and written to base even in breakpoint mode.
+const clsValue = computed(() => (typeof node.value.data.cls === 'string' ? (node.value.data.cls as string) : ''))
+const classOptions = computed<SelectOption[]>(() => {
+  if (!kind.value) return [] // placed components style themselves — no class row
+  const forKind = classDefs.filter((def) => def.kinds.includes(kind.value!))
+  const options: SelectOption[] = [{ value: '', label: 'None' }, ...forKind.map((def) => ({ value: def.cls, label: def.title }))]
+  // A stale value (class no longer in the manifest) still shows, marked missing.
+  const current = clsValue.value
+  if (current && !forKind.some((def) => def.cls === current)) options.push({ value: current, label: `${current} (missing)` })
+  return options
+})
+const setClass = (value: unknown) => store.setData(node.value.id, { cls: value ? String(value) : undefined })
 
 const target = (e: Event) => e.target as HTMLInputElement
 

@@ -104,6 +104,64 @@ export interface ComposerComponentDefinition {
 /** A components-manifest entry: a definition, or a string id re-exposing a compiled block. */
 export type ComposerComponentEntry = ComposerComponentDefinition | string
 
+/** The built-in composer element kinds a design-system class can attach to. */
+export type ComposerElementKind = 'frame' | 'text' | 'image'
+
+/**
+ * One design-system CSS class the site offers to the Block Composer (via
+ * `defineComposer`'s `classes`). The manifest key IS the CSS class name — the
+ * developer writes `.container` in their stylesheet, declares it here, and the
+ * composer offers it as a **Style** on matching elements. See COMPOSER-MANIFEST.md.
+ */
+export interface ComposerClassDefinition {
+  /** Label shown in the Style select; defaults to the class name. */
+  title?: string
+  /** Which element kinds may pick this class. */
+  on: ComposerElementKind | ComposerElementKind[]
+}
+
+/**
+ * A `classes` entry: the full definition, or a shorthand — a bare kind (`'text'`)
+ * or an array of kinds (`['frame', 'image']`), with the title defaulting to the
+ * class name.
+ */
+export type ComposerClassEntry = ComposerClassDefinition | ComposerElementKind | ComposerElementKind[]
+
+/** A class entry normalized for the composer (shorthands unfolded). */
+export interface ComposerClassDef {
+  /** The CSS class name (the manifest key). */
+  cls: string
+  /** Label for the Style select. */
+  title: string
+  /** Element kinds that may pick it. */
+  kinds: ComposerElementKind[]
+}
+
+/**
+ * The site's element-system breakpoints (max-widths in px). Two fixed tiers;
+ * only the widths are configurable. Consumed by the generated element CSS and
+ * the composer's device switcher. Defaults: `{ md: 1024, sm: 640 }`.
+ */
+export interface ComposerBreakpoints {
+  md: number
+  sm: number
+}
+
+/**
+ * The Block Composer manifest (`src/composer.ts`, declared with `defineComposer`).
+ * A single home for the site's design system as seen by the composer: its
+ * components, its CSS classes, and its breakpoints. All sections are optional —
+ * a site that declares only `components` behaves exactly as before the split.
+ */
+export interface ComposerManifest {
+  /** The site's design-system components (was `defineComposerComponents`). */
+  components?: Record<string, ComposerComponentEntry>
+  /** Design-system CSS classes offered as element **Style** in the composer. */
+  classes?: Record<string, ComposerClassEntry>
+  /** Element-system breakpoints (max-widths, px). Numeric literals only. */
+  breakpoints?: Partial<ComposerBreakpoints>
+}
+
 /**
  * A designer-assembled block ("composed block"): a named, parameterized
  * {@link ContentBlock} subtree saved as data. It is not compiled — at render

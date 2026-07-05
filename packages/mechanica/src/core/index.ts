@@ -19,7 +19,11 @@ export { Content } from './content'
 export { renderBlocks } from './render-blocks'
 export { loadBlocks, usedBlockIds, type BlockLoader, type BlockLoaders } from './load-blocks'
 export { createComposedComponent } from './composed'
-export { defineComposerComponents, type ComposerComponentInput } from './composer-components'
+export { defineComposer, type ComposerComponentInput, type ComposerInput } from './composer-components'
+// Re-exported so the generated `virtual:mechanica/components` module can normalize
+// the manifest's classes without a bare `mechanica-shared` import (which a virtual
+// module can't resolve in the source-aliased dev app).
+export { normalizeClassManifest } from 'mechanica-shared'
 export { registerElements, elements, isElementBlock } from '../elements'
 export { Link, type LinkTarget } from './link'
 export { Image, imagePosition, type ImageValue } from './image'

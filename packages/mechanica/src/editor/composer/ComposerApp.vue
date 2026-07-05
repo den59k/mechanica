@@ -59,7 +59,7 @@
           <VIcon :name="store.breakpoint === 'md' ? 'tablet' : 'mobile'" />
           <span>
             Editing <strong>{{ store.breakpoint === 'md' ? 'Tablet' : 'Mobile' }}</strong> styles
-            <em>{{ store.breakpoint === 'md' ? 'apply at ≤ 1024px — tablet & mobile' : 'apply at ≤ 640px — mobile only' }}</em>
+            <em>{{ store.breakpoint === 'md' ? `apply at ≤ ${bpPx.md}px — tablet & mobile` : `apply at ≤ ${bpPx.sm}px — mobile only` }}</em>
           </span>
           <button type="button" class="mech-icon-button" title="Back to Desktop" @click="store.breakpoint = 'base'">
             <VIcon name="close" />
@@ -98,6 +98,10 @@ const props = defineProps<{
   blocks: BlocksMap
   /** The site's design-system components — offered in the insert palette. */
   codeBlocks?: import('mechanica-shared').Block[]
+  /** The site's design-system CSS classes — offered as element Style. */
+  classDefs?: import('mechanica-shared').ComposerClassDef[]
+  /** The site's element breakpoints (max-widths, px). Defaults to 1024 / 640. */
+  breakpoints?: { md: number; sm: number }
   save?: SaveController
   onChange?: (snapshot: ComposerSnapshot) => void
 }>()
@@ -106,6 +110,7 @@ const store = createComposerStore(props.def)
 provide(composerStoreKey, store)
 provide('composerBlocks', props.blocks)
 provide('composerCodeBlocks', props.codeBlocks ?? [])
+provide('composerClassDefs', props.classDefs ?? [])
 
 const history = createComposerHistory(store)
 const { canUndo, canRedo } = history
@@ -113,12 +118,15 @@ provide(composerHistoryKey, history)
 
 provide(composerInsertDndKey, createInsertDnd(store))
 
-const breakpoints: { id: CanvasBreakpoint; label: string; icon: string; width: number; title: string }[] = [
+// The site's breakpoints (max-widths). The canvas device width for a tier is
+// clamped to its breakpoint, so the canvas always sits inside the width it edits.
+const bpPx = computed(() => props.breakpoints ?? { md: 1024, sm: 640 })
+const breakpoints = computed<{ id: CanvasBreakpoint; label: string; icon: string; width: number; title: string }[]>(() => [
   { id: 'base', label: 'Desktop', icon: 'desktop', width: 1440, title: 'Desktop — base styles' },
-  { id: 'md', label: 'Tablet', icon: 'tablet', width: 768, title: 'Tablet — style overrides at ≤ 1024px' },
-  { id: 'sm', label: 'Mobile', icon: 'mobile', width: 390, title: 'Mobile — style overrides at ≤ 640px' },
-]
-provide('composerBreakpointWidth', computed(() => breakpoints.find((b) => b.id === store.breakpoint)!.width))
+  { id: 'md', label: 'Tablet', icon: 'tablet', width: Math.min(768, bpPx.value.md), title: `Tablet — style overrides at ≤ ${bpPx.value.md}px` },
+  { id: 'sm', label: 'Mobile', icon: 'mobile', width: Math.min(390, bpPx.value.sm), title: `Mobile — style overrides at ≤ ${bpPx.value.sm}px` },
+])
+provide('composerBreakpointWidth', computed(() => breakpoints.value.find((b) => b.id === store.breakpoint)!.width))
 
 // A dot on the Tablet/Mobile buttons when any element carries overrides there —
 // so a block's responsive variants are discoverable from the bar.

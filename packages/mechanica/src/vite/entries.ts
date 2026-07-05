@@ -22,6 +22,7 @@ export interface ClientEntryOptions {
 export function generateClientEntry(options: ClientEntryOptions): string {
   if (options.lazy) {
     return [
+      `import 'virtual:mechanica/elements.css'`,
       `import definition from ${JSON.stringify(options.userEntry)}`,
       `import { blockLoaders } from 'virtual:mechanica/blocks'`,
       `import { composedList } from 'virtual:mechanica/composed'`,
@@ -56,6 +57,7 @@ export function generateClientEntry(options: ClientEntryOptions): string {
       : []
 
   return [
+    `import 'virtual:mechanica/elements.css'`,
     `import definition from ${JSON.stringify(options.userEntry)}`,
     `import { blocksMap } from 'virtual:mechanica/blocks'`,
     `import { composedList } from 'virtual:mechanica/composed'`,
@@ -74,6 +76,9 @@ export function generateClientEntry(options: ClientEntryOptions): string {
 export interface ComposerEntryOptions {
   /** Import specifier for the user's `defineMechanicaApp` module. */
   userEntry: string
+  /** The site's element breakpoints — statically read from the manifest, injected
+   *  as literals so the composer's device switcher matches the generated CSS. */
+  breakpoints: { md: number; sm: number }
 }
 
 /**
@@ -81,21 +86,24 @@ export interface ComposerEntryOptions {
  * `/@mechanica/composer/<blockId>` dev route). Imports the user's app module for
  * its side effects (global CSS, fonts, registered data) — same trick as the
  * preview entry — then mounts the composer over the real block set, composed
- * blocks included, so the canvas renders exactly what a page would.
+ * blocks included, so the canvas renders exactly what a page would. The site's
+ * design-system classes (`classDefs`) feed the Style select; the breakpoints size
+ * the device switcher to match the generated element CSS.
  */
 export function generateComposerEntry(options: ComposerEntryOptions): string {
   return [
+    `import 'virtual:mechanica/elements.css'`,
     `import ${JSON.stringify(options.userEntry)}`,
     `import { blocksMap } from 'virtual:mechanica/blocks'`,
     `import { composedList } from 'virtual:mechanica/composed'`,
-    `import { registerComponents, componentDefs } from 'virtual:mechanica/components'`,
+    `import { registerComponents, componentDefs, classDefs } from 'virtual:mechanica/components'`,
     `import { createComposedComponent } from 'mechanica'`,
     `import { mountComposerApp } from 'mechanica/composer'`,
     ``,
     `const blocks = new Map(blocksMap)`,
     `registerComponents(blocks)`,
     `for (const def of composedList) blocks.set(def.id, createComposedComponent(def))`,
-    `mountComposerApp({ blocks, components: componentDefs, target: '#app' })`,
+    `mountComposerApp({ blocks, components: componentDefs, classDefs, breakpoints: ${JSON.stringify(options.breakpoints)}, target: '#app' })`,
     ``,
   ].join('\n')
 }
@@ -113,6 +121,7 @@ export interface PreviewEntryOptions {
  */
 export function generatePreviewEntry(options: PreviewEntryOptions): string {
   return [
+    `import 'virtual:mechanica/elements.css'`,
     `import ${JSON.stringify(options.userEntry)}`,
     `import { blocksMap } from 'virtual:mechanica/blocks'`,
     `import { composedList } from 'virtual:mechanica/composed'`,

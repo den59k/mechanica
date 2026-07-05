@@ -82,6 +82,27 @@ ul {
   padding-inline: 24px;
 }
 
+// ── Design-system classes offered in the Block Composer (defineComposer.classes).
+// The manifest key IS the class name; the composer's Style select applies these
+// to elements, so a composed block shares the site's container width + type scale.
+.ds-container {
+  width: 100%;
+  max-width: var(--container);
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+.ds-display {
+  font-size: clamp(40px, 6vw, 68px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+.ds-lead {
+  font-size: 20px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
 .mc-section {
   padding: 92px 0;
 }

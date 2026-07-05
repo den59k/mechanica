@@ -4,6 +4,12 @@ export type {
   ComposedBlockDefinition,
   ComposerComponentDefinition,
   ComposerComponentEntry,
+  ComposerManifest,
+  ComposerClassDefinition,
+  ComposerClassEntry,
+  ComposerClassDef,
+  ComposerElementKind,
+  ComposerBreakpoints,
   PropBinding,
   DataEntry,
   DataScope,
@@ -11,6 +17,8 @@ export type {
   State,
   PageLink,
 } from './types'
+
+export { normalizeClassManifest } from './composer-manifest'
 
 export {
   resolveComposedTemplate,
