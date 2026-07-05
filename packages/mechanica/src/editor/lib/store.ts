@@ -46,6 +46,10 @@ export interface EditorStore {
   folder: string | null
   /** Whether the current page lives in a folder (so folder scope is offered). */
   canFolder: boolean
+  /** The locale the current page is being edited in (null when i18n is off). */
+  locale: string | null
+  /** The site's default locale (null when i18n is off) — for the Data window's context. */
+  defaultLocale: string | null
   selectedId: string | null
   /** The block currently hovered on *either* surface (page or tree), kept in sync. */
   hoverId: string | null
@@ -178,6 +182,8 @@ export function createEditorStore(
     dataEntries,
     folder: initial.folder ?? null,
     canFolder: initial.folder != null,
+    locale: initial.page?.locale ?? null,
+    defaultLocale: initial.locales?.default ?? null,
     get effective() {
       return effective.value
     },

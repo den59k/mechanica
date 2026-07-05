@@ -11,6 +11,12 @@ export interface DataDefinition<Id extends string, T extends SchemaItem> {
   title?: string
   /** Data shape (compact-json-schema). */
   props: T
+  /**
+   * Store this entry's site/folder value per locale on a multi-language site
+   * (with fallback to the default locale), so shared strings can be translated.
+   * Ignored when i18n is off.
+   */
+  localized?: boolean
 }
 
 export interface DataHook<Id extends string, T extends SchemaItem> {

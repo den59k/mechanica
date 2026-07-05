@@ -2,7 +2,16 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import { dirname, join } from 'node:path'
-import { readSiteData, mergeSiteData, folderOf, readFolderData, mergeFolderData } from '@/vite/dev/data-store'
+import {
+  readSiteData,
+  mergeSiteData,
+  folderOf,
+  readFolderData,
+  mergeFolderData,
+  mergeLocaleSiteData,
+  mergeLocaleFolderData,
+  readSiteLocaleOverride,
+} from '@/vite/dev/data-store'
 
 let mechDir: string
 
@@ -68,5 +77,51 @@ describe('site data file', () => {
   it('tolerates a corrupt file', () => {
     fs.writeFileSync(join(mechDir, 'data.json'), '{ not json')
     expect(readSiteData(mechDir)).toEqual({})
+  })
+})
+
+describe('localized site data (per-locale overrides)', () => {
+  it('merges a locale override over the base, falling back per entry', () => {
+    mergeSiteData(mechDir, { nav: { home: 'Home' }, footer: { note: 'shared' } })
+    mergeLocaleSiteData(mechDir, 'ru', { nav: { home: 'Главная' } })
+
+    // Default locale reads the base only.
+    expect(readSiteData(mechDir)).toEqual({ nav: { home: 'Home' }, footer: { note: 'shared' } })
+    // ru overrides nav, falls back to base for footer.
+    expect(readSiteData(mechDir, 'ru')).toEqual({ nav: { home: 'Главная' }, footer: { note: 'shared' } })
+    // The override file holds only the differing entry.
+    expect(readSiteLocaleOverride(mechDir, 'ru')).toEqual({ nav: { home: 'Главная' } })
+  })
+
+  it('drops an override equal to the default, and removes the file when empty', () => {
+    mergeSiteData(mechDir, { nav: { home: 'Home' } })
+    mergeLocaleSiteData(mechDir, 'ru', { nav: { home: 'Главная' } })
+    expect(fs.existsSync(join(mechDir, 'data.ru.json'))).toBe(true)
+
+    // Setting it back to the default value removes the override entirely.
+    mergeLocaleSiteData(mechDir, 'ru', { nav: { home: 'Home' } })
+    expect(readSiteLocaleOverride(mechDir, 'ru')).toEqual({})
+    expect(fs.existsSync(join(mechDir, 'data.ru.json'))).toBe(false)
+    expect(readSiteData(mechDir, 'ru')).toEqual({ nav: { home: 'Home' } })
+  })
+})
+
+describe('localized folder data (per-locale overrides)', () => {
+  it('merges per-folder locale overrides over the base folder data', () => {
+    mergeFolderData(mechDir, 'blog', { label: 'Blog', tag: 'shared' })
+    mergeLocaleFolderData(mechDir, 'ru', 'blog', { label: 'Блог' })
+
+    expect(readFolderData(mechDir, 'blog')).toEqual({ label: 'Blog', tag: 'shared' })
+    expect(readFolderData(mechDir, 'blog', 'ru')).toEqual({ label: 'Блог', tag: 'shared' })
+    // A different folder is untouched, and the root is ignored.
+    expect(readFolderData(mechDir, 'shop', 'ru')).toEqual({})
+  })
+
+  it('prunes a folder override that matches the default and cleans up the folder key', () => {
+    mergeFolderData(mechDir, 'blog', { label: 'Blog' })
+    mergeLocaleFolderData(mechDir, 'ru', 'blog', { label: 'Блог' })
+    mergeLocaleFolderData(mechDir, 'ru', 'blog', { label: 'Blog' })
+    expect(readFolderData(mechDir, 'blog', 'ru')).toEqual({ label: 'Blog' })
+    expect(fs.existsSync(join(mechDir, 'folders.ru.json'))).toBe(false)
   })
 })

@@ -19,7 +19,13 @@ import {
 import type { LocalesConfig } from 'mechanica-shared'
 import { saveUpload, saveDerivedAsset, listImages } from './assets-store'
 import { resolveDevQuery } from './query-dev'
-import { mergeSiteData, mergeFolderData, folderOf } from './data-store'
+import {
+  mergeSiteData,
+  mergeFolderData,
+  mergeLocaleSiteData,
+  mergeLocaleFolderData,
+  folderOf,
+} from './data-store'
 import { buildPageState } from './page-state'
 import {
   listComposedBlocks,
@@ -245,12 +251,23 @@ export function createDevMiddleware(
           }
         }
         // The editor pre-splits data into scope buckets; persist each to its store.
-        // Page overrides replace the page's data; site/folder merge into shared files.
-        // (Site/folder data stay shared across locales in v1 — localized shared
-        // data is a later phase.)
+        // Page overrides replace the page's data. Shared (non-`localized`) site/
+        // folder data goes to the base files; `localized` entries (siteDataI18n /
+        // folderDataI18n) go to the current locale's override file — or the base
+        // when editing the default locale.
+        const folder = folderOf(mechDir, pathParam)
         const version = savePage(mechDir, pathParam, { content: body.content, data: body.pageData ?? {} }, locale)
-        mergeSiteData(mechDir, body.siteData ?? {})
-        mergeFolderData(mechDir, folderOf(mechDir, pathParam), body.folderData ?? {})
+        const siteI18n = (body.siteDataI18n ?? {}) as Record<string, unknown>
+        const folderI18n = (body.folderDataI18n ?? {}) as Record<string, unknown>
+        if (locale) {
+          mergeSiteData(mechDir, body.siteData ?? {})
+          mergeFolderData(mechDir, folder, body.folderData ?? {})
+          mergeLocaleSiteData(mechDir, locale, siteI18n)
+          mergeLocaleFolderData(mechDir, locale, folder, folderI18n)
+        } else {
+          mergeSiteData(mechDir, { ...(body.siteData ?? {}), ...siteI18n })
+          mergeFolderData(mechDir, folder, { ...(body.folderData ?? {}), ...folderI18n })
+        }
         return json({ success: true, version })
       }
 

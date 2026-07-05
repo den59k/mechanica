@@ -704,4 +704,27 @@ describe('mechanica export (i18n)', () => {
     const solo = await readFile(join(dir, 'export/solo/index.html'), 'utf-8')
     expect(solo).not.toContain('hreflang')
   })
+
+  it('renders localized site data (data.<locale>.json) into the translation', async () => {
+    // A block that echoes the site name so we can see which locale's data won.
+    await writeFile(
+      join(dir, '.mech/pages/about.page.md'),
+      serializePage({ content: [{ id: 'a', blockId: 'hero', data: { title: 'About' } }], data: {} }),
+    )
+    await writeFile(
+      join(dir, '.mech/pages/about@ru.page.md'),
+      serializePage({ content: [{ id: 'a', blockId: 'hero', data: { title: 'About' } }], data: {} }),
+    )
+    // Base site data + a ru override of the localized `site.name`.
+    await writeFile(join(dir, '.mech/data.json'), JSON.stringify({ site: { name: 'Acme' } }))
+    await writeFile(join(dir, '.mech/data.ru.json'), JSON.stringify({ site: { name: 'Акме' } }))
+
+    await exportProject(dir, i18nSsr)
+
+    // The render stub puts state.data.site.name into a data-site attribute.
+    const en = await readFile(join(dir, 'export/about/index.html'), 'utf-8')
+    expect(en).toContain('data-site="Acme"')
+    const ru = await readFile(join(dir, 'export/ru/about/index.html'), 'utf-8')
+    expect(ru).toContain('data-site="Акме"')
+  })
 })

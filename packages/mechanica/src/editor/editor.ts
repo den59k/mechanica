@@ -46,6 +46,36 @@ const savePath = () => {
 let pageVersion: string | null = (state as { version?: string | null }).version ?? null
 let forceNextSave = false
 
+// `localized` data entries: their site/folder value is translated per locale, so
+// the save payload routes them to separate buckets the dev server writes to the
+// locale's override file (empty set → nothing to split, single-language sites
+// are unaffected).
+const localizedIds = new Set(dataEntries.filter((entry) => entry.localized).map((entry) => entry.id))
+
+/**
+ * Split the editable snapshot for the wire: shared site/folder data stays in
+ * `siteData`/`folderData`; `localized` entries move to `siteDataI18n`/
+ * `folderDataI18n` so the server can persist them per locale.
+ */
+function saveBody(snapshot: EditorSnapshot): Record<string, unknown> {
+  const split = (bucket: Record<string, unknown> = {}) => {
+    const shared: Record<string, unknown> = {}
+    const i18n: Record<string, unknown> = {}
+    for (const [id, value] of Object.entries(bucket)) (localizedIds.has(id) ? i18n : shared)[id] = value
+    return { shared, i18n }
+  }
+  const site = split(snapshot.siteData as Record<string, unknown>)
+  const folder = split(snapshot.folderData as Record<string, unknown>)
+  return {
+    content: snapshot.content,
+    pageData: snapshot.pageData,
+    siteData: site.shared,
+    folderData: folder.shared,
+    siteDataI18n: site.i18n,
+    folderDataI18n: folder.i18n,
+  }
+}
+
 // The snapshot already carries the scope buckets (site/folder/page); the dev
 // server persists each to its store. The queue debounces, tracks status for
 // the toolbar indicator, and keeps a failed snapshot around for retry.
@@ -56,7 +86,7 @@ const saveQueue = createSaveQueue<EditorSnapshot>({
     const response = await fetch(savePath(), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...snapshot, version: pageVersion, force }),
+      body: JSON.stringify({ ...saveBody(snapshot), version: pageVersion, force }),
     })
     if (response.status === 409) throw new SaveConflictError()
     if (!response.ok) throw new Error(`Save failed (${response.status})`)
@@ -66,7 +96,7 @@ const saveQueue = createSaveQueue<EditorSnapshot>({
   beacon: (snapshot) =>
     navigator.sendBeacon(
       savePath(),
-      new Blob([JSON.stringify({ ...snapshot, version: pageVersion })], { type: 'application/json' }),
+      new Blob([JSON.stringify({ ...saveBody(snapshot), version: pageVersion })], { type: 'application/json' }),
     ),
 })
 

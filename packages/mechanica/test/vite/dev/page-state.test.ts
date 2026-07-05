@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 import { type Block, type LocalesConfig } from 'mechanica-shared'
 import { serializePage } from 'mechanica-shared/page-format'
 import { setPageBlocks, createTranslation, savePage } from '@/vite/dev/pages-store'
+import { mergeSiteData, mergeLocaleSiteData } from '@/vite/dev/data-store'
 import { buildPageState } from '@/vite/dev/page-state'
 
 let mechDir: string
@@ -112,5 +113,19 @@ describe('buildPageState locale routing', () => {
     const state = buildPageState(mechDir, '/about')
     expect(state.page.locale).toBeUndefined()
     expect(state.locales).toBeUndefined()
+  })
+
+  it('resolves localized site data per locale (with fallback)', () => {
+    writePage('about.page.md', { name: 'About' })
+    createTranslation(mechDir, '/about', 'ru')
+    mergeSiteData(mechDir, { nav: { home: 'Home' }, footer: { note: 'shared' } })
+    mergeLocaleSiteData(mechDir, 'ru', { nav: { home: 'Главная' } })
+
+    const en = buildPageState(mechDir, '/about', config)
+    expect(en.siteData).toEqual({ nav: { home: 'Home' }, footer: { note: 'shared' } })
+
+    const ru = buildPageState(mechDir, '/ru/about', config)
+    expect(ru.siteData).toEqual({ nav: { home: 'Главная' }, footer: { note: 'shared' } })
+    expect(ru.data).toMatchObject({ nav: { home: 'Главная' }, footer: { note: 'shared' } })
   })
 })

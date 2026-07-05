@@ -5,6 +5,8 @@ export interface DataEntryInput {
   id: string
   title?: string
   props: unknown
+  /** Translate this entry's site/folder value per locale (multi-language sites). */
+  localized?: boolean
 }
 
 const entries: DataEntryInput[] = []
@@ -25,6 +27,7 @@ export function getDataEntries(): DataEntry[] {
     id: entry.id,
     title: entry.title,
     props: unfoldSchema(entry.props as never),
+    ...(entry.localized ? { localized: true } : {}),
   }))
 }
 

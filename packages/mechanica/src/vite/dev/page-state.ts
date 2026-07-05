@@ -76,8 +76,10 @@ export function buildPageState(
   // `.mech/images.json` — page files don't carry the preview blobs.
   fillImageMeta(mechDir, content)
   const folder = folderOf(mechDir, pagePath)
-  const siteData = readSiteData(mechDir)
-  const folderData = readFolderData(mechDir, folder)
+  // `localized` site/folder data resolves to the current locale (falling back to
+  // the default per entry); non-localized entries come from the shared files.
+  const siteData = readSiteData(mechDir, localeCode)
+  const folderData = readFolderData(mechDir, folder, localeCode)
   const pageData = page.data ?? {}
   const pageMeta: PageMeta = { path: pagePath, meta: page.meta ?? {} }
   if (variant) pageMeta.pagination = { page: variant.page }

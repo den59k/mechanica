@@ -246,6 +246,14 @@ export interface DataEntry {
   title?: string
   /** compact-json-schema describing the data shape. */
   props?: Record<string, unknown>
+  /**
+   * Translate this entry per locale (multi-language sites). Its site/folder
+   * value is stored per locale (with fallback to the default locale) instead of
+   * once, so shared strings (nav labels, footer) can differ by language. Ignored
+   * when i18n is off. Page-scoped values are already per-locale (they live in
+   * the translation file), so this only affects site/folder scope.
+   */
+  localized?: boolean
 }
 
 /**

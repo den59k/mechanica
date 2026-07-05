@@ -1,11 +1,23 @@
 # PLAN.md — Multi-language pages (i18n)
 
-Status: **phases 1–2 implemented & verified** (2026-07-05); phases 3–4 deferred. This replaces
-the completed Block Composer plan that previously lived here (see
+Status: **phases 1–3 implemented & verified** (2026-07-05); phase 4 (polish) deferred. This
+replaces the completed Block Composer plan that previously lived here (see
 [COMPOSER-REDESIGN.md](./COMPOSER-REDESIGN.md) and [COMPOSER-MANIFEST.md](./COMPOSER-MANIFEST.md)
 for that work).
 
 ## Implementation status (2026-07-05)
+
+**Done — phase 3 (localized site/folder data):** a `defineData` entry declares **`localized: true`**;
+its site/folder value is stored per locale in `data.<locale>.json` / `folders.<locale>.json`
+holding **only the entries that differ from the default** (`data-store.ts` `mergeLocaleSiteData` /
+`mergeLocaleFolderData` diff-against-base + prune, so unset entries fall back and an entry reset to
+the default drops its override). Read merges the locale override over the base in `buildPageState`
+and the export (`readTranslation` folds site + folder overrides in). The editor **splits** the save
+by `localized` flag (`editor.ts` `saveBody` → `siteDataI18n` / `folderDataI18n`) and the middleware
+routes them to the locale file (or the base when editing the default locale). The Data window marks
+localized entries with a globe glyph and a note naming the language being edited. There is **no
+separate locale tab** — you edit the language you're viewing the page in (switch it with the
+`LocaleSwitcher`).
 
 **Done — phase 1 (core loop) + phase 2 (export & SEO):**
 - `locales` plugin option → `normalizeLocales` (`mechanica-shared/locale.ts`: `parseLocalePath`,
@@ -27,8 +39,6 @@ for that work).
   907 repo tests green; typecheck clean; dist build ok.
 
 **Deferred:**
-- **Phase 3** — localized site/folder data (`data.json`/`folders.json` stay shared across locales;
-  editing shared data in any locale writes the one shared file).
 - **Phase 4** — locale-aware `usePages`/`usePagination` (queries resolve against default-locale
   data, so a translated listing shows default-locale item data), staleness indicator, per-locale
   thumbnails.

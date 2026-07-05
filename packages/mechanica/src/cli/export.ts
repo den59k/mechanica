@@ -36,7 +36,7 @@ import {
   type ImageManifest,
   type ImageManifestEntry,
 } from '../vite/dev/assets-store'
-import { readSiteData, readFoldersData } from '../vite/dev/data-store'
+import { readSiteData, readFoldersData, readFolderData, readSiteLocaleOverride } from '../vite/dev/data-store'
 import { analyzeImageBuffer, hasSharp } from '../vite/dev/image-preview'
 import { getPagePath, listPages, setPageCodec } from '../vite/dev/pages-store'
 import { buildRichTextCodec } from '../vite/rich-text-codec'
@@ -130,7 +130,6 @@ async function readTranslation(
   base: ExportPage,
   locale: string,
   config: LocalesConfig,
-  foldersData: Record<string, Record<string, any>>,
   richText?: RichTextCodec,
 ): Promise<ExportPage | null> {
   const file = getPagePath(mechDir, base.logicalPath, locale)
@@ -144,7 +143,12 @@ async function readTranslation(
   if (doc.draft) return null
   const rel = relative(join(mechDir, 'pages'), file).replace(/\\/g, '/')
   const dir = dirname(rel) === '.' ? '' : dirname(rel)
-  const data = { ...(dir ? foldersData[dir] : undefined), ...(doc.data ?? {}) }
+  // `localized` shared data: fold this locale's folder override (over the base
+  // folder data) and site override in, so translated nav/footer strings render.
+  // Precedence stays site < folder < page (base site rides `projectData`).
+  const folderData = readFolderData(mechDir, dir || null, locale)
+  const siteOverride = readSiteLocaleOverride(mechDir, locale)
+  const data = { ...siteOverride, ...folderData, ...(doc.data ?? {}) }
   const lastmod =
     typeof doc.meta?.lastmod === 'string'
       ? doc.meta.lastmod
@@ -358,7 +362,7 @@ export async function exportProject(
       const present = [config.default]
       for (const locale of config.all) {
         if (locale === config.default) continue
-        const translation = await readTranslation(mechDir, base, locale, config, foldersData, richText)
+        const translation = await readTranslation(mechDir, base, locale, config, richText)
         if (translation) {
           present.push(locale)
           pages.push(translation)

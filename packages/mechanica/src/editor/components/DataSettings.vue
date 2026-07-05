@@ -11,6 +11,12 @@
         @click="activeId = entry.id"
       >
         <span class="mech-data__entry-name">{{ entry.title ?? entry.id }}</span>
+        <span
+          v-if="entry.localized && store.defaultLocale"
+          class="mech-data__entry-i18n"
+          title="Translated per language"
+          ><VIcon name="globe"
+        /></span>
         <span class="mech-data__entry-scope" :class="`is-${store.scopeOf(entry.id)}`">
           {{ scopeLabel(store.scopeOf(entry.id)) }}
         </span>
@@ -39,6 +45,11 @@
         <template v-else>This value overrides the site/folder data for the current page only.</template>
       </p>
 
+      <!-- Localized shared data: which language this site/folder value is edited in. -->
+      <p v-if="localeNote" class="mech-data__note mech-data__note--i18n">
+        <VIcon name="globe" /> {{ localeNote }}
+      </p>
+
       <SchemaForm
         v-if="active.props"
         :key="`${active.id}:${currentScope}`"
@@ -52,12 +63,17 @@
 
 <script setup lang="ts">
 import { computed, inject, ref } from 'vue'
-import type { DataScope } from 'mechanica-shared'
+import { localeLabel, type DataScope, type LocalesConfig, type State } from 'mechanica-shared'
 import { editorStoreKey } from '../lib/store'
 import SchemaForm from '../props-panel/SchemaForm.vue'
 import VSegmented, { type SegmentedOption } from './VSegmented.vue'
+import VIcon from './VIcon.vue'
 
 const store = inject(editorStoreKey)!
+
+// Locale labels for the i18n context note (config is static for the session).
+const localeConfig = ((window as { state?: State }).state?.locales ?? null) as LocalesConfig | null
+const localeName = (code: string | null) => (code ? localeLabel(localeConfig, code) : '')
 
 const activeId = ref<string | null>(store.dataEntries[0]?.id ?? null)
 const active = computed(
@@ -73,6 +89,18 @@ const scopeOptions = computed<SegmentedOption[]>(() => [
 ])
 
 const scopeLabel = (scope: DataScope) => (scope === 'site' ? 'Site' : scope === 'folder' ? 'Folder' : 'Page')
+
+// For a `localized` entry at a shared scope (site/folder), which language this
+// value belongs to — page scope already lives in the translation file, so it
+// needs no note.
+const localeNote = computed<string | null>(() => {
+  if (!active.value?.localized || !store.defaultLocale || currentScope.value === 'page') return null
+  const current = store.locale ?? store.defaultLocale
+  if (current === store.defaultLocale) {
+    return `Translated per language. This is the default (${localeName(store.defaultLocale)}) — switch the page's language to edit another.`
+  }
+  return `Editing the ${localeName(current)} value. Languages without their own value fall back to ${localeName(store.defaultLocale)}.`
+})
 </script>
 
 <style lang="scss" scoped>
@@ -125,6 +153,18 @@ const scopeLabel = (scope: DataScope) => (scope === 'site' ? 'Site' : scope === 
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.mech-data__entry-i18n {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  color: var(--mech-muted);
+
+  .vicon {
+    width: 12px;
+    height: 12px;
+  }
+}
 .mech-data__entry-scope {
   flex: none;
   font-size: 9.5px;
@@ -132,6 +172,11 @@ const scopeLabel = (scope: DataScope) => (scope === 'site' ? 'Site' : scope === 
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--mech-muted);
+
+  // The i18n glyph takes the auto margin; keep the scope tag snug beside it.
+  .mech-data__entry-i18n + & {
+    margin-left: 6px;
+  }
 
   &.is-page {
     color: var(--mech-accent);
@@ -177,6 +222,19 @@ const scopeLabel = (scope: DataScope) => (scope === 'site' ? 'Site' : scope === 
     strong {
       color: #7a4708;
     }
+  }
+}
+.mech-data__note--i18n {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: -6px;
+  color: var(--mech-accent);
+
+  .vicon {
+    flex: none;
+    width: 13px;
+    height: 13px;
   }
 }
 </style>
