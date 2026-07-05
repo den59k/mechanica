@@ -1,5 +1,5 @@
 <template>
-  <div class="mech-composer__num2" :class="{ 'is-focus': focused, 'is-scrubbing': scrubbing }">
+  <div class="mech-composer__num2" :class="{ 'is-focus': focused, 'is-scrubbing': scrubbing, 'is-scrubfield': scrub }">
     <VIcon
       v-if="icon"
       :name="icon"
@@ -21,6 +21,7 @@
       @blur="focused = false"
       @input="onInput"
       @keydown="onKey"
+      @pointerdown="onFieldPointerDown"
     />
   </div>
 </template>
@@ -39,6 +40,8 @@ const props = defineProps<{
   /** Shown when the value is empty (e.g. a measured/inherited size in grey). */
   placeholder?: string
   min?: number
+  /** Make the field itself a drag-to-scrub surface (for fields with no icon/label handle). */
+  scrub?: boolean
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: number | undefined] }>()
 
@@ -78,6 +81,13 @@ function scrubBase(): number {
   if (typeof props.modelValue === 'number') return props.modelValue
   const p = Number(props.placeholder)
   return props.placeholder && Number.isFinite(p) ? p : 0
+}
+// Field-scrub: when there's no icon/label handle, dragging the field itself
+// scrubs. A plain click (no drag) still focuses it for typing; once focused,
+// pointer events pass through so caret placement / text selection work normally.
+function onFieldPointerDown(event: PointerEvent) {
+  if (!props.scrub || focused.value) return
+  onScrubDown(event)
 }
 function onScrubDown(event: PointerEvent) {
   if (event.button !== 0) return

@@ -801,6 +801,10 @@ $space: #e5227f; // Figma-style spacing pink for gap + padding editing (distinct
 .mech-composer__num2.is-scrubbing {
   box-shadow: inset 0 0 0 1px var(--mech-accent);
 }
+// Field-scrub fields hint draggability until focused, then read as text inputs.
+.mech-composer__num2.is-scrubfield:not(.is-focus) .mech-composer__num2-field {
+  cursor: ew-resize;
+}
 .mech-composer__num2-field {
   flex: 1;
   min-width: 0;

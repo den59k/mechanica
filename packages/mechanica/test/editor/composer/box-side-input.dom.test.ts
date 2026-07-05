@@ -66,4 +66,14 @@ describe('BoxSideInput', () => {
     await flush()
     expect(state.value).toBe(0) // clamped to 0 → collapses back to a single 0
   })
+
+  it('scrubs a side by dragging the field horizontally', async () => {
+    const { host, state } = mount(16)
+    const input = field(host, 'Top padding')
+    input.dispatchEvent(new MouseEvent('pointerdown', { clientX: 100, button: 0, bubbles: true }))
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 112, bubbles: true }))
+    window.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+    await flush()
+    expect(state.value).toEqual([28, 16, 16, 16]) // 16 + 12px of drag
+  })
 })

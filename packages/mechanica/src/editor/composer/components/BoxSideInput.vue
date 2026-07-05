@@ -5,6 +5,7 @@
   <div class="mech-composer__box">
     <NumInput
       class="mech-composer__box-t"
+      scrub
       :model-value="sides.t"
       :min="min"
       :aria-label="`Top ${label}`"
@@ -12,6 +13,7 @@
     />
     <NumInput
       class="mech-composer__box-l"
+      scrub
       :model-value="sides.l"
       :min="min"
       :aria-label="`Left ${label}`"
@@ -20,6 +22,7 @@
     <div class="mech-composer__box-frame"><span class="mech-composer__box-glyph" /></div>
     <NumInput
       class="mech-composer__box-r"
+      scrub
       :model-value="sides.r"
       :min="min"
       :aria-label="`Right ${label}`"
@@ -27,6 +30,7 @@
     />
     <NumInput
       class="mech-composer__box-b"
+      scrub
       :model-value="sides.b"
       :min="min"
       :aria-label="`Bottom ${label}`"
