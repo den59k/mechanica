@@ -1,5 +1,8 @@
 <template>
-  <div class="mech-composer__num2" :class="{ 'is-focus': focused, 'is-scrubbing': scrubbing, 'is-scrubfield': scrub }">
+  <div
+    class="mech-composer__num2"
+    :class="{ 'is-focus': focused, 'is-scrubbing': scrubbing, 'is-scrubfield': scrub, 'is-overridden': overridden }"
+  >
     <VIcon
       v-if="icon"
       :name="icon"
@@ -42,6 +45,8 @@ const props = defineProps<{
   min?: number
   /** Make the field itself a drag-to-scrub surface (for fields with no icon/label handle). */
   scrub?: boolean
+  /** The current (non-base) breakpoint overrides this value — tints the field accent. */
+  overridden?: boolean
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: number | undefined] }>()
 

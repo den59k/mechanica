@@ -910,6 +910,16 @@ $margin: #f97316; // translucent orange for margin editing (distinct from paddin
 .mech-composer__num2.is-scrubbing {
   box-shadow: inset 0 0 0 1px var(--mech-accent);
 }
+// This breakpoint overrides the value — accent it (matches OverrideLabel) so a
+// grid of fields shows *which* one carries the override, not just the section.
+.mech-composer__num2.is-overridden {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mech-accent) 45%, transparent);
+
+  .mech-composer__num2-field {
+    color: var(--mech-accent);
+    font-weight: 500;
+  }
+}
 // Field-scrub fields hint draggability until focused, then read as text inputs.
 .mech-composer__num2.is-scrubfield:not(.is-focus) .mech-composer__num2-field {
   cursor: ew-resize;

@@ -187,12 +187,12 @@
           <span class="mech-composer__limits-col">Max</span>
 
           <span class="mech-composer__limits-dim" title="Width"><VIcon name="width" /> W</span>
-          <NumInput scrub :model-value="num('minWidth')" placeholder="—" :min="0" aria-label="Min width" @update:model-value="set('minWidth', $event, true)" />
-          <NumInput scrub :model-value="num('maxWidth')" placeholder="—" :min="0" aria-label="Max width" @update:model-value="set('maxWidth', $event, true)" />
+          <NumInput scrub :model-value="num('minWidth')" placeholder="0" :min="0" :overridden="overridden('minWidth')" aria-label="Min width" @update:model-value="set('minWidth', $event, true)" />
+          <NumInput scrub :model-value="num('maxWidth')" placeholder="None" :min="0" :overridden="overridden('maxWidth')" aria-label="Max width" @update:model-value="set('maxWidth', $event, true)" />
 
           <span class="mech-composer__limits-dim" title="Height"><VIcon name="height" /> H</span>
-          <NumInput scrub :model-value="num('minHeight')" placeholder="—" :min="0" aria-label="Min height" @update:model-value="set('minHeight', $event, true)" />
-          <NumInput scrub :model-value="num('maxHeight')" placeholder="—" :min="0" aria-label="Max height" @update:model-value="set('maxHeight', $event, true)" />
+          <NumInput scrub :model-value="num('minHeight')" placeholder="0" :min="0" :overridden="overridden('minHeight')" aria-label="Min height" @update:model-value="set('minHeight', $event, true)" />
+          <NumInput scrub :model-value="num('maxHeight')" placeholder="None" :min="0" :overridden="overridden('maxHeight')" aria-label="Max height" @update:model-value="set('maxHeight', $event, true)" />
         </div>
       </PropToggle>
 
