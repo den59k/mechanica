@@ -66,6 +66,7 @@ import { blockLabel, elementKind } from '../lib/elements-meta'
 import { resolveForCanvas } from '../lib/canvas'
 import { zoomAround, fitView, wheelZoomFactor, type View } from '../lib/canvas-view'
 import { marqueeRect, rectsIntersect } from '../lib/marquee'
+import { anchorSigns } from '../lib/abs'
 import type { Box } from '../lib/canvas-overlay'
 import CanvasOverlay from './CanvasOverlay.vue'
 
@@ -307,6 +308,8 @@ function startAbsDrag(id: string, node: ContentBlock, event: PointerEvent) {
   const abs = (node.data.$abs ?? {}) as Record<string, unknown>
   const startX = typeof abs.x === 'number' ? abs.x : 0
   const startY = typeof abs.y === 'number' ? abs.y : 0
+  // A right-/bottom-pinned offset grows away from the pointer, so invert that axis.
+  const { sx, sy } = anchorSigns(typeof abs.anchor === 'string' ? abs.anchor : 'top-left')
   const originX = event.clientX
   const originY = event.clientY
   let moved = false
@@ -314,8 +317,8 @@ function startAbsDrag(id: string, node: ContentBlock, event: PointerEvent) {
     if (!moved && Math.hypot(e.clientX - originX, e.clientY - originY) < 4) return
     moved = true
     store.setAbs(id, {
-      x: Math.round(startX + (e.clientX - originX) / store.zoom),
-      y: Math.round(startY + (e.clientY - originY) / store.zoom),
+      x: Math.round(startX + (sx * (e.clientX - originX)) / store.zoom),
+      y: Math.round(startY + (sy * (e.clientY - originY)) / store.zoom),
     })
   }
   const onUp = () => {
@@ -333,7 +336,8 @@ function startGroupAbsDrag(event: PointerEvent) {
     .filter((n) => n.data.$abs)
     .map((n) => {
       const abs = n.data.$abs as Record<string, unknown>
-      return { id: n.id, x: typeof abs.x === 'number' ? abs.x : 0, y: typeof abs.y === 'number' ? abs.y : 0 }
+      const { sx, sy } = anchorSigns(typeof abs.anchor === 'string' ? abs.anchor : 'top-left')
+      return { id: n.id, x: typeof abs.x === 'number' ? abs.x : 0, y: typeof abs.y === 'number' ? abs.y : 0, sx, sy }
     })
   const originX = event.clientX
   const originY = event.clientY
@@ -341,9 +345,10 @@ function startGroupAbsDrag(event: PointerEvent) {
   const onMove = (e: PointerEvent) => {
     if (!moved && Math.hypot(e.clientX - originX, e.clientY - originY) < 4) return
     moved = true
-    const dx = Math.round((e.clientX - originX) / store.zoom)
-    const dy = Math.round((e.clientY - originY) / store.zoom)
-    for (const s of starts) store.setAbs(s.id, { x: s.x + dx, y: s.y + dy })
+    const dx = (e.clientX - originX) / store.zoom
+    const dy = (e.clientY - originY) / store.zoom
+    // Each element inverts per its own anchor (a mixed selection can differ).
+    for (const s of starts) store.setAbs(s.id, { x: Math.round(s.x + s.sx * dx), y: Math.round(s.y + s.sy * dy) })
   }
   const onUp = () => {
     window.removeEventListener('pointermove', onMove)

@@ -110,13 +110,14 @@ export function responsiveVars(data: Record<string, unknown>, specs: Record<stri
 
 // The 9 anchor points decompose into an independent horizontal + vertical edge
 // (corners, the four edge-centres, and the middle). Edge-centres and the middle
-// pull the element back over the anchor line with a translate.
-const ANCHOR_H: Record<string, 'left' | 'center' | 'right'> = {
+// pull the element back over the anchor line with a translate. Exported so the
+// composer shares one source of truth for anchor semantics (drag / labels).
+export const ANCHOR_H: Record<string, 'left' | 'center' | 'right'> = {
   'top-left': 'left', left: 'left', 'bottom-left': 'left',
   top: 'center', center: 'center', bottom: 'center',
   'top-right': 'right', right: 'right', 'bottom-right': 'right',
 }
-const ANCHOR_V: Record<string, 'top' | 'center' | 'bottom'> = {
+export const ANCHOR_V: Record<string, 'top' | 'center' | 'bottom'> = {
   'top-left': 'top', top: 'top', 'top-right': 'top',
   left: 'center', center: 'center', right: 'center',
   'bottom-left': 'bottom', bottom: 'bottom', 'bottom-right': 'bottom',

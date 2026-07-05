@@ -206,10 +206,10 @@
       <!-- Position (absolute) -->
       <PropToggle v-if="avail('position')" title="Position" icon="position" :active="active('position')" @toggle="toggle('position')">
         <div class="mech-composer__abs">
-          <AnchorGrid :model-value="absAnchor" @update:model-value="store.setAbs(node.id, { anchor: $event })" />
+          <AnchorGrid :model-value="absAnchor" @update:model-value="setAnchor" />
           <div class="mech-composer__abs-offsets">
-            <NumInput label="X" :model-value="absNum('x')" :aria-label="absXLabel" @update:model-value="store.setAbs(node.id, { x: $event ?? 0 })" />
-            <NumInput label="Y" :model-value="absNum('y')" :aria-label="absYLabel" @update:model-value="store.setAbs(node.id, { y: $event ?? 0 })" />
+            <NumInput :label="axisLabels.x" :model-value="absNum('x')" :aria-label="absXLabel" @update:model-value="store.setAbs(node.id, { x: $event ?? 0 })" />
+            <NumInput :label="axisLabels.y" :model-value="absNum('y')" :aria-label="absYLabel" @update:model-value="store.setAbs(node.id, { y: $event ?? 0 })" />
           </div>
         </div>
       </PropToggle>
@@ -223,6 +223,7 @@ import { isBinding, resolveBindings } from 'mechanica-shared'
 import { composerStoreKey } from '../lib/keys'
 import { elementKind, blockLabel, blockIcon } from '../lib/elements-meta'
 import { availableProps } from '../lib/inspector-props'
+import { absAxisLabels, reanchorOffset } from '../lib/abs'
 import type { Block } from 'mechanica-shared'
 import VIcon from '../../components/VIcon.vue'
 import ComponentFields from './ComponentFields.vue'
@@ -332,6 +333,30 @@ const absYLabel = computed(() => {
   if (a === 'left' || a === 'right' || a === 'center') return 'Vertical offset from center'
   return 'Offset from top edge'
 })
+// Short field labels naming the pinned edge (Left/Right/Top/Bottom).
+const axisLabels = computed(() => absAxisLabels(absAnchor.value))
+
+/**
+ * Switch the anchor without moving the element: measure its current position
+ * relative to its parent (containing block) and re-express it for the new anchor.
+ */
+function setAnchor(anchor: string) {
+  const id = node.value.id
+  const el = document.querySelector<HTMLElement>(`.mech-composer__viewport [data-block-id="${id}"]`)
+  const parent = el?.offsetParent // the positioned parent frame = the containing block
+  if (el && parent instanceof HTMLElement) {
+    const er = el.getBoundingClientRect()
+    const pr = parent.getBoundingClientRect()
+    const z = store.zoom || 1
+    const { x, y } = reanchorOffset(
+      { L: (er.left - pr.left) / z, T: (er.top - pr.top) / z, w: er.width / z, h: er.height / z, W: pr.width / z, H: pr.height / z },
+      anchor,
+    )
+    store.setAbs(id, { anchor, x, y })
+  } else {
+    store.setAbs(id, { anchor })
+  }
+}
 
 // ── Image ────────────────────────────────────────────────────────────
 const previewBg = computed(() => {
