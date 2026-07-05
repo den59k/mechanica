@@ -52,6 +52,18 @@ export function parseDeclarations(cssText: string): { prop: string; value: strin
   return out
 }
 
+/**
+ * Rewrite bare `rgb(r, g, b)` back to `#rrggbb` — the CSSOM canonicalizes an
+ * authored hex/named color to `rgb(…)` when it serializes a declaration, so this
+ * restores the hex the developer wrote. `rgba(…)` is left alone (it's normally
+ * authored as `rgba` on purpose, and the alpha has no plain-hex form here).
+ */
+export function rgbToHex(value: string): string {
+  return value.replace(/rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)/gi, (_m, r: string, g: string, b: string) =>
+    '#' + [r, g, b].map((n) => Math.min(255, Number(n)).toString(16).padStart(2, '0')).join(''),
+  )
+}
+
 /** Substitute `var(--token[, fallback])` occurrences from a root style declaration. */
 export function resolveVars(value: string, rootStyle: Pick<CSSStyleDeclaration, 'getPropertyValue'>): string {
   if (!value.includes('var(')) return value
@@ -81,8 +93,11 @@ export function readClassDeclarations(className: string): ClassDeclaration[] {
   }
 
   const rootStyle = getComputedStyle(document.documentElement)
-  return Array.from(merged, ([prop, value]) => {
-    const resolved = resolveVars(value, rootStyle)
+  return Array.from(merged, ([prop, raw]) => {
+    // Show hex, not the CSSOM's `rgb(…)`, for both the authored value and any
+    // var-resolved one (a token may itself resolve to an rgb color).
+    const value = rgbToHex(raw)
+    const resolved = rgbToHex(resolveVars(raw, rootStyle))
     return resolved !== value ? { prop, value, resolved } : { prop, value }
   })
 }
