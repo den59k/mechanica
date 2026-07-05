@@ -415,6 +415,41 @@ $margin: #f97316; // translucent orange for margin editing (distinct from paddin
     opacity: 1;
   }
 }
+// Position guides: the align point (ring, on the parent) the offset is measured
+// from, an offset L to the element's anchor point (dot). Non-interactive.
+.mech-composer__pos-guide {
+  position: absolute;
+  pointer-events: none;
+
+  &.is-h {
+    height: 0;
+    border-top: 1px dashed $sel;
+  }
+  &.is-v {
+    width: 0;
+    border-left: 1px dashed $sel;
+  }
+}
+.mech-composer__pos-origin {
+  position: absolute;
+  pointer-events: none;
+  width: 11px;
+  height: 11px;
+  translate: -50% -50%;
+  border: 1.5px solid $sel;
+  border-radius: 50%;
+  background: rgba($sel, 0.18);
+  box-shadow: 0 0 0 3px rgba($sel, 0.12);
+}
+.mech-composer__pos-anchor {
+  position: absolute;
+  pointer-events: none;
+  width: 6px;
+  height: 6px;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: $sel;
+}
 
 // Floating zoom controls (Figma-style, bottom-left of the canvas).
 .mech-composer__zoombar {

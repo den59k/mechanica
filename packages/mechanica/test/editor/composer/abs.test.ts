@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { anchorSigns, reanchorOffset, absAxisLabels } from '@/editor/composer/lib/abs'
+import { anchorSigns, reanchorOffset, absAxisLabels, anchorPoint } from '@/editor/composer/lib/abs'
 import { ANCHOR_H, ANCHOR_V } from '@/elements/style-vars'
 
 const ALL_ANCHORS = [
@@ -62,6 +62,17 @@ describe('reanchorOffset', () => {
       expect(visualL(anchor, x, r.w, r.W)).toBeCloseTo(r.L, 0)
       expect(visualT(anchor, y, r.h, r.H)).toBeCloseTo(r.T, 0)
     }
+  })
+})
+
+describe('anchorPoint', () => {
+  it('maps each anchor to its 0..1 reference fractions', () => {
+    expect(anchorPoint('top-left')).toEqual({ fx: 0, fy: 0 })
+    expect(anchorPoint('center')).toEqual({ fx: 0.5, fy: 0.5 })
+    expect(anchorPoint('bottom-right')).toEqual({ fx: 1, fy: 1 })
+    expect(anchorPoint('top')).toEqual({ fx: 0.5, fy: 0 })
+    expect(anchorPoint('right')).toEqual({ fx: 1, fy: 0.5 })
+    expect(anchorPoint('bottom-left')).toEqual({ fx: 0, fy: 1 })
   })
 })
 

@@ -39,6 +39,15 @@
         <span class="mech-composer__space-label">{{ ms.value }}</span>
       </div>
 
+      <!-- Position echo: the align point (ring, on the parent) the offset is measured
+           from, dashed L-guides to the element's anchor point (dot). -->
+      <template v-if="positionGuide">
+        <div class="mech-composer__pos-guide is-h" :style="posHGuide" />
+        <div class="mech-composer__pos-guide is-v" :style="posVGuide" />
+        <div class="mech-composer__pos-anchor" :style="{ left: positionGuide.ex + 'px', top: positionGuide.ey + 'px' }" />
+        <div class="mech-composer__pos-origin" :style="{ left: positionGuide.px + 'px', top: positionGuide.py + 'px' }" />
+      </template>
+
       <div
         v-if="isFrame"
         class="mech-composer__frame-label"
@@ -86,6 +95,7 @@ import { composerStoreKey, composerHistoryKey } from '../lib/keys'
 import { elementKind, blockLabel } from '../lib/elements-meta'
 import { HANDLES, handlePoint, handleAxes, handleCursor, resizeSize, gapStrips, paddingStrips, marginRegion, snapTo, type Box, type Handle, type Side } from '../lib/canvas-overlay'
 import { parsePadding, collapsePadding, computePaddingDrag } from '../lib/padding'
+import { anchorPoint } from '../lib/abs'
 
 const props = defineProps<{ hoverId: string | null }>()
 const store = inject(composerStoreKey)!
@@ -142,6 +152,39 @@ const spacingSides = computed<Side[]>(() => {
 })
 const padEchoSides = computed<Side[]>(() => (store.spacing?.prop === 'padding' ? spacingSides.value : []))
 const gapEcho = computed(() => store.spacing?.prop === 'gap')
+
+// Position: the `$abs` align point — the anchor's reference point on the parent
+// (px, py), from which the offset is measured, and the same point on the element
+// (ex, ey). Shown while the inspector's Position control is touched.
+const positionGuide = computed(() => {
+  if (store.spacing?.prop !== 'position') return null
+  const box = primaryBox.value
+  const el = blockEl(store.selectedId)
+  const vp = viewport()
+  const abs = store.selected?.data.$abs
+  if (!box || !el || !vp || !abs || typeof abs !== 'object') return null
+  const parentEl = el.offsetParent // positioned parent frame = the containing block
+  if (!(parentEl instanceof HTMLElement)) return null
+  const anchor = typeof (abs as Record<string, unknown>).anchor === 'string' ? ((abs as Record<string, unknown>).anchor as string) : 'top-left'
+  const { fx, fy } = anchorPoint(anchor)
+  const vpr = vp.getBoundingClientRect()
+  const pr = parentEl.getBoundingClientRect()
+  return {
+    px: pr.left - vpr.left + fx * pr.width,
+    py: pr.top - vpr.top + fy * pr.height,
+    ex: box.left + fx * box.width,
+    ey: box.top + fy * box.height,
+  }
+})
+// The offset guides: an L from the align point to the element's anchor point.
+const posHGuide = computed(() => {
+  const g = positionGuide.value
+  return g ? { left: `${Math.min(g.px, g.ex)}px`, top: `${g.py}px`, width: `${Math.abs(g.ex - g.px)}px` } : {}
+})
+const posVGuide = computed(() => {
+  const g = positionGuide.value
+  return g ? { left: `${g.ex}px`, top: `${Math.min(g.py, g.ey)}px`, height: `${Math.abs(g.ey - g.py)}px` } : {}
+})
 const MARGIN_MIN = 4 // a visible sliver when the margin is 0 or negative (screen px)
 const marginStrips = computed<{ side: Side; box: Box; value: number }[]>(() => {
   const box = primaryBox.value

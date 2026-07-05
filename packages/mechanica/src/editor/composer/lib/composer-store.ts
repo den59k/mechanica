@@ -48,10 +48,11 @@ export interface ComposerStore {
   panY: number
   /** Measured on-canvas size of the selected node (from the overlay). View state. */
   measured: { w: number; h: number } | null
-  /** The spacing control the inspector is touching (hover/edit), for the canvas to
-   *  echo as a highlight: a padding/margin `side`, or `gap` (frame-wide, no side).
-   *  `symmetric` (Alt held) also lights the opposite side. View state — not saved. */
-  spacing: { prop: 'padding' | 'margin' | 'gap'; side?: 't' | 'r' | 'b' | 'l'; symmetric?: boolean } | null
+  /** The spacing/placement control the inspector is touching (hover/edit), for the
+   *  canvas to echo: a padding/margin `side`, `gap` (frame-wide), or `position` (the
+   *  `$abs` align-point guide). `symmetric` (Alt) also lights the opposite side.
+   *  View state — not saved. */
+  spacing: { prop: 'padding' | 'margin' | 'gap' | 'position'; side?: 't' | 'r' | 'b' | 'l'; symmetric?: boolean } | null
   readonly template: ContentBlock[]
   /** The canonical root frame (the block itself) — always present. */
   readonly rootFrame: ContentBlock
@@ -184,7 +185,7 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
     panX: 0,
     panY: 0,
     measured: null as { w: number; h: number } | null,
-    spacing: null as { prop: 'padding' | 'margin' | 'gap'; side?: 't' | 'r' | 'b' | 'l'; symmetric?: boolean } | null,
+    spacing: null as { prop: 'padding' | 'margin' | 'gap' | 'position'; side?: 't' | 'r' | 'b' | 'l'; symmetric?: boolean } | null,
     /** Optional-property rows added this session with no data yet (view state,
      *  keyed by node id) — union'd with data presence by `hasProp`. */
     addedProps: {} as Record<string, string[]>,

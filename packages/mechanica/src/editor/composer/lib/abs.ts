@@ -62,3 +62,17 @@ export function absAxisLabels(anchor: string): { x: string; y: string } {
     y: v === 'bottom' ? 'Bottom' : v === 'center' ? 'Y' : 'Top',
   }
 }
+
+/**
+ * The anchor's reference point as 0..1 fractions of a box — the same point on the
+ * element and on its parent (the align point the offset is measured from). Left/
+ * top = 0, centre = 0.5, right/bottom = 1.
+ */
+export function anchorPoint(anchor: string): { fx: number; fy: number } {
+  const h = hOf(anchor)
+  const v = vOf(anchor)
+  return {
+    fx: h === 'right' ? 1 : h === 'center' ? 0.5 : 0,
+    fy: v === 'bottom' ? 1 : v === 'center' ? 0.5 : 0,
+  }
+}

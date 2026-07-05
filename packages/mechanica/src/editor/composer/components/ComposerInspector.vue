@@ -205,7 +205,14 @@
 
       <!-- Position (absolute) -->
       <PropToggle v-if="avail('position')" title="Position" icon="position" :active="active('position')" @toggle="toggle('position')">
-        <div class="mech-composer__abs">
+        <div
+          class="mech-composer__abs"
+          @pointerenter="posHover = true"
+          @pointerleave="posHover = false"
+          @focusin="posFocus = true"
+          @focusout="posFocus = false"
+          @pointerdown="onPosDown"
+        >
           <AnchorGrid :model-value="absAnchor" @update:model-value="setAnchor" />
           <div class="mech-composer__abs-offsets">
             <NumInput :label="axisLabels.x" :model-value="absNum('x')" :aria-label="absXLabel" @update:model-value="store.setAbs(node.id, { x: $event ?? 0 })" />
@@ -293,8 +300,29 @@ function onGapDown() {
   }
   window.addEventListener('pointerup', up)
 }
+
+// ── Position echo: mark the `$abs` align point on the canvas while the Position
+// controls are touched (hover / focus / offset scrub). ────────────────────────
+const posHover = ref(false)
+const posFocus = ref(false)
+const posScrub = ref(false)
+const posTouched = computed(() => posScrub.value || posFocus.value || posHover.value)
+watch(posTouched, (on) => {
+  if (on) store.spacing = { prop: 'position' }
+  else if (store.spacing?.prop === 'position') store.spacing = null
+})
+function onPosDown() {
+  posScrub.value = true
+  const up = () => {
+    posScrub.value = false
+    window.removeEventListener('pointerup', up)
+  }
+  window.addEventListener('pointerup', up)
+}
+
+// Clear whichever inspector-owned echo (gap / position) is ours on unmount.
 onBeforeUnmount(() => {
-  if (store.spacing?.prop === 'gap') store.spacing = null
+  if (store.spacing?.prop === 'gap' || store.spacing?.prop === 'position') store.spacing = null
 })
 
 // ── Optional properties (each a switch that expands when activated) ───
