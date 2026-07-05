@@ -4,6 +4,8 @@
  * framework-free so the render side can import it cleanly.
  */
 
+import type { LocalesConfig } from './locale'
+
 /** Scope at which a {@link DataEntry} lives. */
 export type DataScope = 'site' | 'folder' | 'page'
 
@@ -17,6 +19,16 @@ export interface PageMeta {
    * paginated query this URL shows. Page 1 is the base path and carries none.
    */
   pagination?: { page: number; pageCount?: number }
+  /** The locale this page renders in (multi-language sites). Omitted when i18n is off. */
+  locale?: string
+  /** Which locales this logical page has a translation for (the default included). */
+  locales?: string[]
+  /**
+   * True when the requested locale has no translation file and the page is
+   * rendering the default-locale content as a fallback (dev only — the editor
+   * shows a "translate this page" banner). Never set at export.
+   */
+  localeFallback?: boolean
 }
 
 /**
@@ -258,6 +270,12 @@ export interface State {
   baseUrl?: string
   /** Current page metadata. */
   page?: PageMeta
+  /**
+   * The site's locale configuration (multi-language sites). Present in the
+   * serialized state so the runtime can prefix internal links for the current
+   * locale and build language switchers. Absent when i18n is off.
+   */
+  locales?: LocalesConfig
 }
 
 /** A link target produced by the `smartLink` field type. */

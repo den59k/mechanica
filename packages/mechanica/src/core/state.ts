@@ -1,5 +1,5 @@
 import type { Component, InjectionKey, ShallowRef } from 'vue'
-import type { ContentBlock, PageMeta } from 'mechanica-shared'
+import type { ContentBlock, LocalesConfig, PageMeta } from 'mechanica-shared'
 import type { MechanicaRouter } from './router'
 
 /** Block components keyed by their `blockId`. */
@@ -29,6 +29,8 @@ export interface MechanicaContext {
   resolveQuery?: QueryResolver
   /** Current page metadata. */
   page: PageMeta
+  /** The site's locale config (multi-language sites); absent when i18n is off. */
+  locales?: LocalesConfig
 }
 
 /** Vue injection key for the {@link MechanicaContext}. */

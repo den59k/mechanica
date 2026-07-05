@@ -1,12 +1,13 @@
 import fs from 'node:fs'
 import { createHash } from 'node:crypto'
-import { dirname, join, parse, relative } from 'node:path'
+import { basename, dirname, join, parse, relative } from 'node:path'
 import {
   migrateContent,
   passDefaultValue,
   walkTree,
   type Block,
   type ContentBlock,
+  type LocalesConfig,
 } from 'mechanica-shared'
 import { parsePage, serializePage, type PageDoc, type RichTextCodec } from 'mechanica-shared/page-format'
 import { applyImageManifest, harvestImageMeta, readImageManifest, updateImageManifest } from './assets-store'
@@ -17,6 +18,53 @@ export type PageFile = PageDoc
 
 /** File extension for page documents under `<mech>/pages`. */
 const EXT = '.page.md'
+
+/**
+ * A page filename's `@locale` variant suffix. A translation of `about.page.md`
+ * for locale `ru` is stored as `about@ru.page.md` (and `blog/index@ru.page.md`
+ * for a folder index). The `@` can't appear in a page slug, so the split is
+ * unambiguous. Matched against a filename *stem* (no extension).
+ */
+const VARIANT_RE = /^(.*)@([A-Za-z][A-Za-z0-9_-]*)$/
+
+/** Apply a locale variant suffix to a page *file* path (undefined = the base file). */
+function localizeFile(file: string, locale?: string): string {
+  if (!locale) return file
+  return file.slice(0, -EXT.length) + `@${locale}` + EXT
+}
+
+/**
+ * Every translation file of a logical page — `[{ locale, file }]` for each
+ * `<stem>@<locale>.page.md` sibling of the base file. Empty when the page has
+ * no translations (or its folder doesn't exist yet).
+ */
+export function variantFilesOf(mechDir: string, urlPath: string): { locale: string; file: string }[] {
+  const baseFile = getPagePath(mechDir, urlPath)
+  const dir = dirname(baseFile)
+  const stem = basename(baseFile).slice(0, -EXT.length) // 'about' | 'index'
+  if (!fs.existsSync(dir)) return []
+  const out: { locale: string; file: string }[] = []
+  for (const entry of fs.readdirSync(dir)) {
+    if (!entry.endsWith(EXT)) continue
+    const middle = entry.slice(0, -EXT.length) // 'about@ru'
+    const variant = middle.match(VARIANT_RE)
+    if (variant && variant[1] === stem) out.push({ locale: variant[2]!, file: join(dir, entry) })
+  }
+  return out
+}
+
+/**
+ * The locales a logical page is available in — the default (its base file, when
+ * present) plus every translation whose code the config knows, in config order.
+ */
+export function translationsOf(mechDir: string, urlPath: string, config: LocalesConfig): string[] {
+  const present = new Set<string>()
+  if (pageVersion(mechDir, urlPath) != null) present.add(config.default)
+  for (const { locale } of variantFilesOf(mechDir, urlPath)) {
+    if (config.all.includes(locale)) present.add(locale)
+  }
+  return config.all.filter((code) => present.has(code))
+}
 
 // The rich-text adapter is process-global: the dev server configures it once
 // (from the project's block schemas) so every read/write converts richText
@@ -73,6 +121,12 @@ export interface PageListItem {
   orderAfter: string | null
   /** A work-in-progress page — hidden from queries and the static export. */
   draft: boolean
+  /**
+   * The locales this logical page is available in (multi-language sites only) —
+   * the default plus every translation present, in config order. Absent when
+   * i18n is off. Translation files never get their own list row.
+   */
+  locales?: string[]
   [key: string]: unknown
 }
 
@@ -92,18 +146,22 @@ const writeFile = (file: string, page: PageFile): void => {
   writeFileAtomic(file, serializePage(page, codecOptions()))
 }
 
-/** Resolve a URL path to its page file under `<mechDir>/pages`. */
-export function getPagePath(mechDir: string, urlPath: string): string {
+/**
+ * Resolve a URL path to its page file under `<mechDir>/pages`. A `locale`
+ * (a non-default locale code) targets the `@<locale>` translation file;
+ * undefined targets the base (default-locale) file.
+ */
+export function getPagePath(mechDir: string, urlPath: string, locale?: string): string {
   const pagesDir = join(mechDir, 'pages')
   const normalized = urlPath.trim().replace(/\/+$/, '').replace(/^\/+/, '')
   const asDirectory = fs.statSync(join(pagesDir, normalized), { throwIfNoEntry: false })?.isDirectory()
-  const relative = asDirectory ? join(normalized, `index${EXT}`) : `${normalized}${EXT}`
-  return join(pagesDir, relative)
+  const relativePath = asDirectory ? join(normalized, `index${EXT}`) : `${normalized}${EXT}`
+  return localizeFile(join(pagesDir, relativePath), locale)
 }
 
-/** Read a page file, returning an empty page when it does not exist. */
-export function readPage(mechDir: string, urlPath: string): PageFile {
-  const file = getPagePath(mechDir, urlPath)
+/** Read a page file (a locale's translation, or the base), returning empty when missing. */
+export function readPage(mechDir: string, urlPath: string, locale?: string): PageFile {
+  const file = getPagePath(mechDir, urlPath, locale)
   if (!fs.existsSync(file)) return emptyPage()
   const page = readFile(file)
   // Upgrade data written with an older block schema; the change persists with
@@ -115,22 +173,30 @@ export function readPage(mechDir: string, urlPath: string): PageFile {
 /**
  * A page's current on-disk version — a hash of its file content, `null` when
  * the file does not exist. The editor sends the version it loaded back with
- * each save so the dev server can reject saves over external edits.
+ * each save so the dev server can reject saves over external edits. Per-locale:
+ * a translation's version is that variant file's hash.
  */
-export function pageVersion(mechDir: string, urlPath: string): string | null {
-  const file = getPagePath(mechDir, urlPath)
+export function pageVersion(mechDir: string, urlPath: string, locale?: string): string | null {
+  const file = getPagePath(mechDir, urlPath, locale)
   if (!fs.existsSync(file)) return null
   return createHash('sha1').update(fs.readFileSync(file)).digest('hex').slice(0, 16)
 }
 
 /**
- * The inverse of {@link getPagePath}: the URL path a page file is served at,
- * or `null` when the file is not a page document under `<mechDir>/pages`.
+ * The inverse of {@link getPagePath}: the *logical* URL path a page file is
+ * served at (a translation maps to the same logical path as its base), or
+ * `null` when the file is not a page document under `<mechDir>/pages`.
  */
 export function pageUrlOf(mechDir: string, file: string): string | null {
   const rel = relative(join(mechDir, 'pages'), file).replace(/\\/g, '/')
   if (rel.startsWith('..') || !rel.endsWith(EXT)) return null
   let path = rel.slice(0, -EXT.length)
+  // Drop a translation's `@<locale>` suffix so it resolves to its logical page.
+  const slash = path.lastIndexOf('/')
+  const dir = slash === -1 ? '' : path.slice(0, slash + 1)
+  const stem = slash === -1 ? path : path.slice(slash + 1)
+  const variant = stem.match(VARIANT_RE)
+  path = dir + (variant ? variant[1]! : stem)
   if (path === 'index') path = ''
   else if (path.endsWith('/index')) path = path.slice(0, -'/index'.length)
   return '/' + path
@@ -151,7 +217,7 @@ export function createPage(
   return { ...page, path: folderPrefix + input.path.trim() }
 }
 
-/** Copy a page's content/data to a new path, throwing if the target exists. */
+/** Copy a page (and all its translations) to a new path, throwing if the target exists. */
 export function duplicatePage(
   mechDir: string,
   sourcePath: string,
@@ -159,7 +225,8 @@ export function duplicatePage(
 ): PageFile {
   const source = readPage(mechDir, sourcePath)
   const folderPrefix = typeof input.folderId === 'string' ? `/${input.folderId}` : ''
-  const file = getPagePath(mechDir, folderPrefix + input.path.trim())
+  const targetPath = folderPrefix + input.path.trim()
+  const file = getPagePath(mechDir, targetPath)
   if (fs.existsSync(file)) throw new PageExistsError(input.path)
 
   const page: PageFile = {
@@ -173,21 +240,72 @@ export function duplicatePage(
   }
   writeFile(file, page)
 
-  return { ...page, path: folderPrefix + input.path.trim() }
+  // A duplicate is the same logical page in every locale — copy the translations too.
+  for (const { locale, file: variantFile } of variantFilesOf(mechDir, sourcePath)) {
+    const variant = readFile(variantFile)
+    writeFile(getPagePath(mechDir, targetPath, locale), {
+      content: variant.content ?? [],
+      data: variant.data ?? {},
+      meta: variant.meta,
+      name: input.name,
+      path: input.path,
+      ...(variant.draft ? { draft: true } : {}),
+    })
+  }
+
+  return { ...page, path: targetPath }
 }
 
-/** Delete a page; also removes a now-empty folder directory. Returns whether it existed. */
+/**
+ * Delete a page and all its translations; also removes a now-empty folder
+ * directory. Returns whether anything existed.
+ */
 export function deletePage(mechDir: string, urlPath: string): boolean {
   const file = getPagePath(mechDir, urlPath)
-  if (!fs.existsSync(file)) return false
-  fs.rmSync(file)
-  markMutated(file)
+  const variants = variantFilesOf(mechDir, urlPath)
+  const existed = fs.existsSync(file)
+  if (!existed && variants.length === 0) return false
+
+  for (const { file: variantFile } of variants) {
+    fs.rmSync(variantFile)
+    markMutated(variantFile)
+  }
+  if (existed) {
+    fs.rmSync(file)
+    markMutated(file)
+  }
 
   const dir = dirname(file)
   const pagesDir = join(mechDir, 'pages')
   if (dir !== pagesDir && fs.existsSync(dir) && fs.readdirSync(dir).length === 0) {
     fs.rmSync(dir, { recursive: true })
   }
+  return true
+}
+
+/** Create a translation of a page, seeded from its default-locale content. */
+export function createTranslation(mechDir: string, urlPath: string, locale: string): PageFile {
+  const target = getPagePath(mechDir, urlPath, locale)
+  if (fs.existsSync(target)) throw new PageExistsError(urlPath)
+  const source = readPage(mechDir, urlPath)
+  const page: PageFile = {
+    content: source.content ?? [],
+    data: source.data ?? {},
+    meta: source.meta,
+    name: source.name,
+    path: source.path,
+    ...(source.draft ? { draft: true } : {}),
+  }
+  writeFile(target, page)
+  return page
+}
+
+/** Delete a single translation of a page. Returns whether it existed. */
+export function deleteTranslation(mechDir: string, urlPath: string, locale: string): boolean {
+  const target = getPagePath(mechDir, urlPath, locale)
+  if (!fs.existsSync(target)) return false
+  fs.rmSync(target)
+  markMutated(target)
   return true
 }
 
@@ -204,13 +322,25 @@ export function movePage(mechDir: string, fromPath: string, toPath: string): { p
   const target = getPagePath(mechDir, cleaned)
   if (target !== file && fs.existsSync(target)) throw new PageExistsError(cleaned)
 
+  // The translations move with the base — same logical page, new path.
+  const variants = variantFilesOf(mechDir, fromPath)
+
   const page = readFile(file)
   page.path = cleaned
   writeFile(target, page)
+  for (const { locale, file: variantFile } of variants) {
+    const variant = readFile(variantFile)
+    variant.path = cleaned
+    writeFile(getPagePath(mechDir, cleaned, locale), variant)
+  }
 
   if (target !== file) {
     fs.rmSync(file)
     markMutated(file)
+    for (const { file: variantFile } of variants) {
+      fs.rmSync(variantFile)
+      markMutated(variantFile)
+    }
     const dir = dirname(file)
     const pagesDir = join(mechDir, 'pages')
     if (dir !== pagesDir && fs.existsSync(dir) && fs.readdirSync(dir).length === 0) {
@@ -220,13 +350,18 @@ export function movePage(mechDir: string, fromPath: string, toPath: string): { p
   return { path: cleaned }
 }
 
-/** Merge content/data into a page and persist it. Returns the new on-disk version. */
+/**
+ * Merge content/data into a page and persist it. A `locale` (a non-default
+ * code) writes to that translation's variant file — creating it if this is the
+ * page's first edit in that locale. Returns the new on-disk version.
+ */
 export function savePage(
   mechDir: string,
   urlPath: string,
   patch: { content?: unknown[]; data?: Record<string, unknown> },
+  locale?: string,
 ): string | null {
-  const file = getPagePath(mechDir, urlPath)
+  const file = getPagePath(mechDir, urlPath, locale)
   const page = fs.existsSync(file) ? readFile(file) : emptyPage()
   if (patch.content !== undefined) page.content = patch.content as ContentBlock[]
   if (patch.data !== undefined) page.data = patch.data
@@ -238,27 +373,36 @@ export function savePage(
     updateImageManifest(mechDir, harvestImageMeta(page.content, blocksMeta))
   }
   writeFile(file, page)
-  return pageVersion(mechDir, urlPath)
+  return pageVersion(mechDir, urlPath, locale)
 }
 
 /**
- * Update a page's display name (its label in the editor's page list). Per-page
- * <head> metadata (title, description, …) is no longer stored here — it lives in
- * a page-scoped `defineData` entry templated into the HTML.
+ * Update a page's display name (its label in the editor's page list) across the
+ * base file and every translation, so the label stays consistent per locale.
+ * Per-page <head> metadata (title, description, …) is not stored here — it lives
+ * in a page-scoped `defineData` entry templated into the HTML.
  */
 export function renamePage(mechDir: string, urlPath: string, name: string): void {
   const file = getPagePath(mechDir, urlPath)
-  const page = fs.existsSync(file) ? readFile(file) : emptyPage()
-  page.name = name
-  writeFile(file, page)
+  const files = [file, ...variantFilesOf(mechDir, urlPath).map((v) => v.file)]
+  let wrote = false
+  for (const target of files) {
+    if (!fs.existsSync(target)) continue
+    const page = readFile(target)
+    page.name = name
+    writeFile(target, page)
+    wrote = true
+  }
+  // Preserve the historical behavior of materializing a missing base page.
+  if (!wrote) writeFile(file, { ...emptyPage(), name })
 }
 
 /**
  * Mark a page as draft (work-in-progress) or published. Drafts stay editable in
  * dev but drop out of queries and the static export. A no-op on a missing page.
  */
-export function setPageDraft(mechDir: string, urlPath: string, draft: boolean): void {
-  const file = getPagePath(mechDir, urlPath)
+export function setPageDraft(mechDir: string, urlPath: string, draft: boolean, locale?: string): void {
+  const file = getPagePath(mechDir, urlPath, locale)
   if (!fs.existsSync(file)) return
   const page = readFile(file)
   if (draft) page.draft = true
@@ -276,36 +420,60 @@ export function listFolders(mechDir: string): { id: string; path: string; name: 
     .map((entry) => ({ id: entry.name, path: `/${entry.name}`, name: entry.name }))
 }
 
-/** List all pages, sorted, optionally embedding selected data entries. */
+/**
+ * List all logical pages, sorted, optionally embedding selected data entries.
+ * Translation files (`<stem>@<locale>.page.md`) never become their own row —
+ * with a `locales` config each base page instead reports which locales it has
+ * a translation for (via `locales`).
+ */
 export function listPages(
   mechDir: string,
-  options: { data?: { id: string }[] } = {},
+  options: { data?: { id: string }[]; locales?: LocalesConfig } = {},
 ): PageListItem[] {
   const pagesDir = join(mechDir, 'pages')
   if (!fs.existsSync(pagesDir)) return []
+  const config = options.locales ?? null
 
-  const items: PageListItem[] = []
+  // First pass: collect translation locales per logical path so a base row can
+  // report its coverage without re-reading the variant files.
+  const variantLocales = new Map<string, Set<string>>()
+  const bases: { relative: string; dir: string; base: string; path: string }[] = []
   for (const relative of fs.readdirSync(pagesDir, { recursive: true }) as string[]) {
     if (!relative.endsWith(EXT)) continue
-
     const parsed = parse(relative)
     const dir = parsed.dir.replace(/\\/g, '/')
-    const base = parsed.base.slice(0, -EXT.length)
-    const page = readFile(join(pagesDir, relative))
+    const stem = parsed.base.slice(0, -EXT.length)
+    const variant = stem.match(VARIANT_RE)
+    const base = variant ? variant[1]! : stem
     const path = `/${dir}/${base === 'index' ? '' : base}`.replace('//', '/').replace(/\/$/, '') || '/'
+    if (variant) {
+      if (!variantLocales.has(path)) variantLocales.set(path, new Set())
+      variantLocales.get(path)!.add(variant[2]!)
+      continue
+    }
+    bases.push({ relative, dir, base, path })
+  }
 
+  const items: PageListItem[] = []
+  for (const entry of bases) {
+    const page = readFile(join(pagesDir, entry.relative))
     const embedded: Record<string, unknown> = {}
-    for (const entry of options.data ?? []) embedded[entry.id] = page.data?.[entry.id] ?? {}
+    for (const dataEntry of options.data ?? []) embedded[dataEntry.id] = page.data?.[dataEntry.id] ?? {}
 
-    items.push({
-      path,
-      name: page.name ?? base,
-      folderPath: dir === '' ? null : dir,
+    const item: PageListItem = {
+      path: entry.path,
+      name: page.name ?? entry.base,
+      folderPath: entry.dir === '' ? null : entry.dir,
       order: page.order ?? 0,
       orderAfter: page.orderAfter ?? null,
       draft: page.draft === true,
       ...embedded,
-    })
+    }
+    if (config) {
+      const present = variantLocales.get(entry.path) ?? new Set<string>()
+      item.locales = config.all.filter((code) => code === config.default || present.has(code))
+    }
+    items.push(item)
   }
 
   return items.sort(comparePages)

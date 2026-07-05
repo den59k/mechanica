@@ -36,6 +36,13 @@ export interface SeoTagOptions {
   templateHandlesPagination?: boolean
   /** Breadcrumb trail (root first) — emits BreadcrumbList JSON-LD. */
   breadcrumbs?: { name: string; path: string }[]
+  /**
+   * Language alternates for a translated page — emits `<link rel="alternate"
+   * hreflang="…">` per locale plus an `x-default`. `path` is each locale's
+   * exported path (already locale-prefixed); `hreflang` its code (`x-default`
+   * for the default). Skipped when the page has only one locale.
+   */
+  alternates?: { hreflang: string; path: string }[]
 }
 
 /** Meta properties whose `content` must be an absolute URL per the OG/Twitter specs. */
@@ -108,6 +115,17 @@ export function applySeoTags(html: string, options: SeoTagOptions): string {
     }
   }
 
+  // hreflang alternates for a translated page (each locale + x-default). Emitted
+  // only with a site url — the hrefs must be absolute for crawlers.
+  if (siteUrl && options.alternates && options.alternates.length > 1) {
+    for (const alt of options.alternates) {
+      const href = pageUrl(siteUrl, alt.path)
+      if (!new RegExp(`hreflang\\s*=\\s*["']${alt.hreflang}["']`, 'i').test(html)) {
+        tags.push(`<link rel="alternate" hreflang="${alt.hreflang}" href="${href}">`)
+      }
+    }
+  }
+
   if (siteUrl && options.siteName && options.path === '/' && !/"@type"\s*:\s*"WebSite"/.test(html)) {
     tags.push(
       jsonLdScript({
@@ -173,23 +191,35 @@ export interface SitemapEntry {
   path: string
   /** ISO date (`2026-07-04`) — emitted as `<lastmod>`. */
   lastmod?: string
+  /**
+   * Language alternates for a translated page — each locale's exported path
+   * plus `x-default` — emitted as `<xhtml:link rel="alternate" hreflang="…">`.
+   */
+  alternates?: { hreflang: string; path: string }[]
 }
 
 /** Build a sitemap.xml for the exported pages (directory-style URLs). */
 export function buildSitemap(siteUrl: string, entries: SitemapEntry[]): string {
+  const hasAlternates = entries.some((entry) => entry.alternates && entry.alternates.length > 1)
   const urls = [...entries]
     .sort((a, b) => a.path.localeCompare(b.path))
-    .map(({ path, lastmod }) => {
+    .map(({ path, lastmod, alternates }) => {
       const suffix = lastmod ? `<lastmod>${lastmod}</lastmod>` : ''
-      return `  <url><loc>${pageUrl(siteUrl, path)}</loc>${suffix}</url>`
+      const links =
+        alternates && alternates.length > 1
+          ? alternates
+              .map(
+                (alt) =>
+                  `<xhtml:link rel="alternate" hreflang="${alt.hreflang}" href="${pageUrl(siteUrl, alt.path)}"/>`,
+              )
+              .join('')
+          : ''
+      return `  <url><loc>${pageUrl(siteUrl, path)}</loc>${suffix}${links}</url>`
     })
-  return [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    ...urls,
-    '</urlset>',
-    '',
-  ].join('\n')
+  const urlsetOpen = hasAlternates
+    ? '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">'
+    : '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+  return ['<?xml version="1.0" encoding="UTF-8"?>', urlsetOpen, ...urls, '</urlset>', ''].join('\n')
 }
 
 /** The default robots.txt emitted alongside a sitemap (unless the site ships its own). */

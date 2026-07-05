@@ -1,4 +1,5 @@
 import type { Block } from './types'
+import type { LocalesConfig } from './locale'
 import { passDefaultValue, walkTree, walkSchema, getValueByPath } from './schema'
 
 const HTML_ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }
@@ -35,6 +36,10 @@ export interface PageState {
     meta?: Record<string, unknown>
     /** Set on paginated variants: which chunk of the page's paginated query this is. */
     pagination?: { page: number; pageCount?: number }
+    /** The locale this page renders in (multi-language sites). */
+    locale?: string
+    /** Which locales this logical page has a translation for. */
+    locales?: string[]
   }
 }
 
@@ -54,6 +59,9 @@ export interface GeneratePageOptions {
   projectData?: Record<string, any>
   /** Site identity, exposed to `{{ site.url }}` / `{{ site.name }}` templating. */
   site?: { url?: string; name?: string }
+  /** The site's locale config — baked into `state.locales` so the runtime can
+   *  prefix internal links for the page's locale. Omitted when i18n is off. */
+  locales?: LocalesConfig
   baseUrl?: string
   path?: string
   /** Rewrite `/assets/` to this base when set. */
@@ -95,6 +103,9 @@ export async function generatePage(
     // The page's own path rides along (pagination pathFor, `{{ page.path }}`).
     page: { path: options.path, ...options.state.page },
   }
+  // The locale config rides the state so the runtime prefixes internal links
+  // for `page.locale` and language switchers can enumerate translations.
+  if (options.locales) state.locales = options.locales
 
   const result = await options.render(state, options.path ?? '')
   const rendered = typeof result === 'string' ? result : result.html

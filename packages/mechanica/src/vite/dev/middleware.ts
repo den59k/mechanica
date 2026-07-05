@@ -12,8 +12,11 @@ import {
   listPages,
   listFolders,
   pageVersion,
+  createTranslation,
+  deleteTranslation,
   PageExistsError,
 } from './pages-store'
+import type { LocalesConfig } from 'mechanica-shared'
 import { saveUpload, saveDerivedAsset, listImages } from './assets-store'
 import { resolveDevQuery } from './query-dev'
 import { mergeSiteData, mergeFolderData, folderOf } from './data-store'
@@ -41,6 +44,8 @@ export interface DevMiddlewareOptions {
   ready?: () => Promise<void> | void
   /** Lists the project's blocks (for `mechanica thumbs --blocks`). */
   blocks?: () => Promise<BlockListing[]> | BlockListing[]
+  /** The site's locale config (multi-language sites); null/absent = i18n off. */
+  locales?: LocalesConfig | null
 }
 
 /**
@@ -52,6 +57,12 @@ export function createDevMiddleware(
   mechDir: string,
   options: DevMiddlewareOptions = {},
 ): Connect.NextHandleFunction {
+  const config = options.locales ?? null
+
+  /** Resolve a `locale` query param to a variant code (undefined = base/default). */
+  const variantCode = (raw: string | null): string | undefined =>
+    config && raw && raw !== config.default && config.all.includes(raw) ? raw : undefined
+
   return async (req, res, next) => {
     const url = new URL(req.url ?? '/', 'http://localhost')
     const { pathname } = url
@@ -120,10 +131,12 @@ export function createDevMiddleware(
         const pathParam = query.get('path')
         if (!pathParam) return json({ error: 'Missing path' }, 400)
         await options.ready?.()
-        return json(buildPageState(mechDir, pathParam))
+        return json(buildPageState(mechDir, pathParam, config))
       }
 
-      if (pathname === '/pages' && req.method === 'GET') return json(listPages(mechDir))
+      if (pathname === '/pages' && req.method === 'GET') {
+        return json(listPages(mechDir, config ? { locales: config } : {}))
+      }
 
       if (pathname === '/blocks' && req.method === 'GET') {
         if (!options.blocks) return json({ error: 'Block listing unavailable' }, 503)
@@ -140,8 +153,33 @@ export function createDevMiddleware(
         const pathParam = query.get('path')
         if (!pathParam) return json({ error: 'Missing path' }, 400)
         const body = JSON.parse((await readBody(req)).toString('utf-8'))
-        setPageDraft(mechDir, pathParam, body.draft === true)
+        setPageDraft(mechDir, pathParam, body.draft === true, variantCode(query.get('locale')))
         return json({ success: true, draft: body.draft === true })
+      }
+
+      // Create a translation of a page (seeded from the default-locale content)
+      // or delete one. The base (default-locale) page is a normal page file.
+      if (pathname === '/pages/translation' && req.method === 'POST') {
+        const pathParam = query.get('path')
+        const locale = query.get('locale')
+        if (!pathParam || !locale) return json({ error: 'Missing path or locale' }, 400)
+        if (!config || locale === config.default || !config.all.includes(locale)) {
+          return json({ error: 'Unknown locale' }, 400)
+        }
+        try {
+          createTranslation(mechDir, pathParam, locale)
+          return json({ success: true })
+        } catch (error) {
+          if (error instanceof PageExistsError) return json({ error: 'Translation already exists' }, 400)
+          throw error
+        }
+      }
+
+      if (pathname === '/pages/translation' && req.method === 'DELETE') {
+        const pathParam = query.get('path')
+        const locale = query.get('locale')
+        if (!pathParam || !locale) return json({ error: 'Missing path or locale' }, 400)
+        return json({ success: deleteTranslation(mechDir, pathParam, locale) })
       }
 
       if (pathname === '/pages/duplicate' && req.method === 'POST') {
@@ -173,6 +211,15 @@ export function createDevMiddleware(
           }
         }
         if (!body.path || !body.name) return json({ error: 'path and name are required' }, 400)
+        // Reject a page whose first URL segment names a non-default locale — it
+        // would be shadowed by the locale-prefix routing (`/ru` ≡ the ru home).
+        if (config) {
+          const prefix = typeof body.folderId === 'string' ? `${body.folderId}/` : ''
+          const first = `${prefix}${String(body.path).trim()}`.replace(/^\/+/, '').split('/')[0]
+          if (first && first !== config.default && config.all.includes(first)) {
+            return json({ error: { path: `"/${first}" is reserved for the ${first} locale` } }, 400)
+          }
+        }
         try {
           return json(createPage(mechDir, body))
         } catch (error) {
@@ -184,19 +231,24 @@ export function createDevMiddleware(
       if (pathname === '/save' && req.method === 'POST') {
         const pathParam = query.get('path')
         if (!pathParam) return json({ error: 'Missing path' }, 400)
+        // A non-default `locale` writes to that translation's variant file; the
+        // default locale (or i18n off) writes the base page.
+        const locale = variantCode(query.get('locale'))
         const body = JSON.parse((await readBody(req)).toString('utf-8'))
         // Optimistic concurrency: the editor sends back the version it loaded.
         // A mismatch means the file changed externally (e.g. Claude edited the
         // .page.md) — reject instead of overwriting; `force: true` overrides.
         if (!body.force && typeof body.version === 'string') {
-          const current = pageVersion(mechDir, pathParam)
+          const current = pageVersion(mechDir, pathParam, locale)
           if (current != null && current !== body.version) {
             return json({ error: 'conflict', version: current }, 409)
           }
         }
         // The editor pre-splits data into scope buckets; persist each to its store.
         // Page overrides replace the page's data; site/folder merge into shared files.
-        const version = savePage(mechDir, pathParam, { content: body.content, data: body.pageData ?? {} })
+        // (Site/folder data stay shared across locales in v1 — localized shared
+        // data is a later phase.)
+        const version = savePage(mechDir, pathParam, { content: body.content, data: body.pageData ?? {} }, locale)
         mergeSiteData(mechDir, body.siteData ?? {})
         mergeFolderData(mechDir, folderOf(mechDir, pathParam), body.folderData ?? {})
         return json({ success: true, version })

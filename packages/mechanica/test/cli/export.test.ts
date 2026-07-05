@@ -647,3 +647,61 @@ describe('mechanica export (SEO)', () => {
     expect(duplicate).toContain('/b')
   })
 })
+
+describe('mechanica export (i18n)', () => {
+  const i18nSsr: SsrBundle = {
+    ...ssr,
+    site: { url: 'https://x.com', name: 'Acme' },
+    locales: { default: 'en', all: ['en', 'ru'] },
+  }
+
+  it('renders each translation at its locale-prefixed path with hreflang + lang', async () => {
+    await writeFile(
+      join(dir, '.mech/pages/about.page.md'),
+      serializePage({ content: [{ id: 'a', blockId: 'hero', data: { title: 'About EN' } }], data: {} }),
+    )
+    await writeFile(
+      join(dir, '.mech/pages/about@ru.page.md'),
+      serializePage({ content: [{ id: 'a', blockId: 'hero', data: { title: 'About RU' } }], data: {} }),
+    )
+
+    const written = await exportProject(dir, i18nSsr)
+    expect(written).toContain('/about')
+    expect(written).toContain('/ru/about')
+
+    const ru = await readFile(join(dir, 'export/ru/about/index.html'), 'utf-8')
+    expect(ru).toContain('<h1>About RU</h1>')
+    expect(ru).toContain('<html lang="ru">')
+    expect(ru).toContain('<link rel="canonical" href="https://x.com/ru/about/">')
+    expect(ru).toContain('<link rel="alternate" hreflang="x-default" href="https://x.com/about/">')
+    expect(ru).toContain('<link rel="alternate" hreflang="ru" href="https://x.com/ru/about/">')
+
+    const en = await readFile(join(dir, 'export/about/index.html'), 'utf-8')
+    expect(en).toContain('<h1>About EN</h1>')
+    expect(en).toContain('<html lang="en">')
+    expect(en).toContain('<link rel="alternate" hreflang="ru" href="https://x.com/ru/about/">')
+
+    // The sitemap carries xhtml alternates for the translated page.
+    const sitemap = await readFile(join(dir, 'export/sitemap.xml'), 'utf-8')
+    expect(sitemap).toContain('xmlns:xhtml')
+    expect(sitemap).toContain('<xhtml:link rel="alternate" hreflang="ru" href="https://x.com/ru/about/"/>')
+  })
+
+  it('skips untranslated pages and warns per locale (no /ru output, no alternates)', async () => {
+    await writeFile(
+      join(dir, '.mech/pages/solo.page.md'),
+      serializePage({ content: [{ id: 's', blockId: 'hero', data: { title: 'Solo' } }], data: {} }),
+    )
+
+    const warnings: string[] = []
+    const written = await exportProject(dir, i18nSsr, { onWarn: (m) => warnings.push(m) })
+
+    expect(written).not.toContain('/ru/solo')
+    await expect(access(join(dir, 'export/ru/solo/index.html'))).rejects.toBeTruthy()
+    expect(warnings.some((w) => w.includes('locale "ru" is missing') && w.includes('/solo'))).toBe(true)
+
+    // A single-locale page emits no hreflang alternates.
+    const solo = await readFile(join(dir, 'export/solo/index.html'), 'utf-8')
+    expect(solo).not.toContain('hreflang')
+  })
+})

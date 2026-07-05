@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import type { Plugin } from 'vite'
 import { parseVueRequest } from '@vitejs/plugin-vue'
-import { passDataToHTML, serializeState } from 'mechanica-shared'
+import { passDataToHTML, serializeState, normalizeLocales, type LocalesConfig } from 'mechanica-shared'
 import { compileBlock } from '../compiler/compile-block'
 import { emitElementsCss } from '../elements/emit-css'
 import { parseComposerBreakpoints } from './read-breakpoints'
@@ -87,6 +87,15 @@ export interface MechanicaPluginOptions {
   /** The site's display name — `{{ site.name }}` + WebSite JSON-LD at export. */
   siteName?: string
   /**
+   * Multi-language configuration. Either a full config
+   * (`{ default: 'en', all: ['en', 'ru'], labels? }`) or a bare list of codes
+   * (`['en', 'ru']`, first = default). The default locale serves at unprefixed
+   * URLs; every other locale under a `/<code>` path prefix. Translations live
+   * beside their page as `<name>@<locale>.page.md`. Omitted (or a single
+   * locale) = i18n off — nothing changes for existing sites.
+   */
+  locales?: import('mechanica-shared').LocalesOption
+  /**
    * How the production client build chunks block code.
    *
    * - `'bundled'` (default) — all blocks share one `blocks` chunk: one
@@ -121,6 +130,8 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
   let mount = ''
   let root = ''
   let isDev = false
+  // The site's normalized locale config (null when i18n is off / single locale).
+  let locales: LocalesConfig | null = null
   // The client (non-SSR) production build code-splits blocks: the blocks
   // virtual module becomes dynamic imports and the entry loads per page.
   let isClientBuild = false
@@ -335,6 +346,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       userEntry = '/' + (options.entry ?? 'src/main.ts').replace(/^\/+/, '')
       mount = options.mount ?? '#app'
       root = config.root
+      locales = normalizeLocales(options.locales)
       isDev = config.command === 'serve'
       isClientBuild = config.command === 'build' && !config.build?.ssr
 
@@ -403,7 +415,11 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         return generateClientEntry({ userEntry, mount, mode: isDev ? 'dev' : 'client', lazy: isClientBuild })
       }
       if (id === RESOLVED_SSR_ID) {
-        return generateSsrEntry({ userEntry, site: { url: options.siteUrl, name: options.siteName } })
+        return generateSsrEntry({
+          userEntry,
+          site: { url: options.siteUrl, name: options.siteName },
+          locales,
+        })
       }
       if (id === RESOLVED_PREVIEW_ID) {
         return generatePreviewEntry({ userEntry })
@@ -462,6 +478,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       server.middlewares.use(
         '/@mechanica',
         createDevMiddleware(mechDir, {
+          locales,
           ready: () => ensurePageCodec(server),
           // Block listing for `mechanica thumbs --blocks` — loaded fresh so a
           // re-collected blocks module (HMR add/remove) is reflected. Composed
@@ -582,8 +599,9 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         // Ensure richText fields hydrate as Block[] (not raw Markdown).
         if (ctx.server) await ensurePageCodec(ctx.server)
         // Site < folder < page resolution plus the editor's scope buckets and
-        // the page's on-disk version (for optimistic-concurrency saves).
-        const state = buildPageState(mechDir, urlPath)
+        // the page's on-disk version (for optimistic-concurrency saves). A
+        // locale-prefixed URL (`/ru/about`) resolves to that translation.
+        const state = buildPageState(mechDir, urlPath, locales)
         const inject = [
           `<script>window.state=${serializeState(state)}</script>`,
           `<script type="module">`,

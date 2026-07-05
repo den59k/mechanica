@@ -66,6 +66,7 @@
     <Transition name="mech-slide-left">
       <aside v-if="!collapsed" class="mech-editor__panel mech-editor__panel--left">
         <PageBar />
+        <LocaleSwitcher />
 
         <div class="mech-editor__toolbar">
           <button
@@ -175,6 +176,7 @@ import BlockPalette from './components/BlockPalette.vue'
 import BlockSettings from './components/BlockSettings.vue'
 import BlockFrame from './components/BlockFrame.vue'
 import PageBar from './components/PageBar.vue'
+import LocaleSwitcher from './components/LocaleSwitcher.vue'
 import PanelToggle from './components/PanelToggle.vue'
 import VIcon from './components/VIcon.vue'
 

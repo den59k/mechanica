@@ -98,6 +98,7 @@ export function createMechanica(options: CreateMechanicaOptions = {}): Plugin {
         queryData,
         resolveQuery: options.resolveQuery,
         page,
+        locales: initial?.locales,
       }
 
       app.provide(mechanicaKey, context)

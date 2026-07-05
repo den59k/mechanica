@@ -5,6 +5,11 @@ export interface PageItem {
   folderPath?: string | null
   /** A work-in-progress page — hidden from queries and the static export. */
   draft?: boolean
+  /**
+   * Locales this logical page has (default + translations), on multi-language
+   * sites — for the language coverage badges. Absent when i18n is off.
+   */
+  locales?: string[]
 }
 
 let pagesPromise: Promise<PageItem[]> | null = null

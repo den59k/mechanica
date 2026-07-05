@@ -30,7 +30,15 @@ const state: State = (window as { state?: State }).state ?? { content: [], data:
 // paginated variant URL (/blog/2) the state is the base page's, and saving to
 // the raw pathname would silently create a page file at /blog/2.
 let pagePath = state.page?.path ?? location.pathname
-const savePath = () => `/@mechanica/save?path=${encodeURIComponent(pagePath)}`
+// On a multi-language site the state also carries the locale it was read in;
+// saves ride it so a translation writes its own `<name>@<locale>.page.md` file
+// (the server ignores the default locale, so this is inert on single-lang sites).
+let pageLocale = state.page?.locale
+const savePath = () => {
+  const params = new URLSearchParams({ path: pagePath })
+  if (pageLocale) params.set('locale', pageLocale)
+  return `/@mechanica/save?${params}`
+}
 
 // Optimistic concurrency: saves carry the version of the page we loaded; the
 // dev server rejects the save (409) when the file changed externally, so the
@@ -86,6 +94,7 @@ async function loadState(path: string): Promise<boolean> {
   const fresh = (await response.json()) as State & { version?: string | null }
   pageVersion = fresh.version ?? null
   pagePath = fresh.page?.path ?? path
+  pageLocale = fresh.page?.locale
   externalState.value = fresh
   return true
 }

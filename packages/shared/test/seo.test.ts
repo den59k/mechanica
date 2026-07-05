@@ -139,6 +139,38 @@ describe('applySeoTags', () => {
     expect(html).toContain('\\u003c/script') // escaped form survives
   })
 
+  it('emits hreflang alternates (incl. x-default) for translated pages', () => {
+    const html = applySeoTags(page(), {
+      siteUrl: 'https://x.com',
+      path: '/ru/about',
+      alternates: [
+        { hreflang: 'x-default', path: '/about' },
+        { hreflang: 'en', path: '/about' },
+        { hreflang: 'ru', path: '/ru/about' },
+      ],
+    })
+    expect(html).toContain('<link rel="alternate" hreflang="x-default" href="https://x.com/about/">')
+    expect(html).toContain('<link rel="alternate" hreflang="en" href="https://x.com/about/">')
+    expect(html).toContain('<link rel="alternate" hreflang="ru" href="https://x.com/ru/about/">')
+  })
+
+  it('skips alternates for a single-locale page and without a site url', () => {
+    const single = applySeoTags(page(), {
+      siteUrl: 'https://x.com',
+      path: '/about',
+      alternates: [{ hreflang: 'en', path: '/about' }],
+    })
+    expect(single).not.toContain('hreflang')
+    const noUrl = applySeoTags(page(), {
+      path: '/ru/about',
+      alternates: [
+        { hreflang: 'en', path: '/about' },
+        { hreflang: 'ru', path: '/ru/about' },
+      ],
+    })
+    expect(noUrl).not.toContain('hreflang')
+  })
+
   it('leaves HTML without a </head> untouched', () => {
     expect(applySeoTags('<body></body>', { siteUrl: 'https://x.com', path: '/' })).toBe('<body></body>')
   })
@@ -175,6 +207,24 @@ describe('buildSitemap / buildRobotsTxt', () => {
     expect(xml).toContain('<url><loc>https://x.com/</loc></url>')
     expect(xml).toContain('<url><loc>https://x.com/blog/</loc><lastmod>2026-07-01</lastmod></url>')
     expect(xml.indexOf('https://x.com/</loc>')).toBeLessThan(xml.indexOf('/blog/'))
+  })
+
+  it('emits xhtml:link alternates for translated entries', () => {
+    const xml = buildSitemap('https://x.com', [
+      {
+        path: '/ru/about',
+        alternates: [
+          { hreflang: 'x-default', path: '/about' },
+          { hreflang: 'en', path: '/about' },
+          { hreflang: 'ru', path: '/ru/about' },
+        ],
+      },
+      { path: '/about' },
+    ])
+    expect(xml).toContain('xmlns:xhtml="http://www.w3.org/1999/xhtml"')
+    expect(xml).toContain(
+      '<xhtml:link rel="alternate" hreflang="ru" href="https://x.com/ru/about/"/>',
+    )
   })
 
   it('robots.txt allows everything and points at the sitemap', () => {

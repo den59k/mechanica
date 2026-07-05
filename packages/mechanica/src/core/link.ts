@@ -1,5 +1,5 @@
 import { computed, defineComponent, h, inject, type PropType } from 'vue'
-import type { PageLink } from 'mechanica-shared'
+import { localePath, type PageLink } from 'mechanica-shared'
 import { mechanicaKey } from './state'
 
 /** A string path, or a `smartLink`-shaped target. */
@@ -28,12 +28,20 @@ function resolveTarget(to: LinkTarget): ResolvedTarget {
  * The single link component. Resolves a string path or a `smartLink` object:
  * internal targets navigate via the SPA router, external targets render a plain
  * `<a>`. Replaces v1's separate `RouterLink` / `SmartLink`.
+ *
+ * On a multi-language site an internal `to` is a **logical** path (`/about`);
+ * `<Link>` prefixes it for the current page's locale (`/ru/about`), so authors
+ * store logical paths and links resolve to the right language automatically.
+ * Pass `:locale` to target a specific locale instead — the shape a language
+ * switcher uses (`<Link :to="page.path" :locale="code">`).
  */
 export const Link = defineComponent({
   name: 'MechLink',
   props: {
     to: { type: [String, Object] as PropType<LinkTarget>, required: true },
     activeClass: { type: String, default: 'is-active' },
+    /** Target a specific locale instead of the current one (language switchers). */
+    locale: { type: String, default: undefined },
   },
   setup(props, { slots }) {
     const ctx = inject(mechanicaKey)
@@ -49,18 +57,21 @@ export const Link = defineComponent({
       }
 
       const router = ctx.router
-      const isActive = url === router.currentRoute.path
+      // Prefix internal logical paths for the target (or current) locale.
+      const locale = props.locale ?? ctx.page?.locale
+      const resolved = ctx.locales ? localePath(url, locale, ctx.locales) : url
+      const isActive = router.normalizePath(resolved) === router.currentRoute.path
       return h(
         'a',
         {
-          href: router.normalizePath(url),
+          href: router.normalizePath(resolved),
           ...newTab,
           class: isActive ? props.activeClass : undefined,
           onClick: (event: MouseEvent) => {
             if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
             if (event.button !== 0 || openNewTab) return
             event.preventDefault()
-            void router.push(url)
+            void router.push(resolved)
           },
         },
         children,

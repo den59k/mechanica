@@ -222,16 +222,24 @@ export async function runShot(target: string | undefined, options: ShotOptions =
 /** Fail early with the list of real pages instead of shooting an empty 200. */
 async function ensurePageExists(origin: string, pagePath: string): Promise<void> {
   let pages: Array<{ path: string }> | null = null
+  // The state builder resolves a locale prefix (/ru/about) and a pagination
+  // variant (/blog/2) down to the logical page path — so validating that
+  // resolved path handles both without the CLI needing the locale config.
+  let logical = pagePath
   try {
-    const res = await fetch(`${origin}/@mechanica/pages`)
-    if (res.ok) pages = (await res.json()) as Array<{ path: string }>
+    const [pagesRes, stateRes] = await Promise.all([
+      fetch(`${origin}/@mechanica/pages`),
+      fetch(`${origin}/@mechanica/state?path=${encodeURIComponent(pagePath)}`),
+    ])
+    if (pagesRes.ok) pages = (await pagesRes.json()) as Array<{ path: string }>
+    if (stateRes.ok) {
+      const resolved = (await stateRes.json())?.page?.path
+      if (typeof resolved === 'string') logical = resolved
+    }
   } catch {
     /* can't validate (older server?) — let navigation proceed */
   }
-  if (!pages || pages.some((page) => page.path === pagePath)) return
-  // Paginated variant URLs (/blog/2) are served virtually when their base exists.
-  const variant = pagePath.match(/^(.*)\/(\d+)$/)
-  if (variant && Number(variant[2]) >= 2 && pages.some((page) => page.path === (variant[1] || '/'))) return
+  if (!pages || pages.some((page) => page.path === logical)) return
   const known = pages.map((page) => page.path).sort().join(', ')
   throw new Error(`Unknown page "${pagePath}". Available pages: ${known}`)
 }

@@ -45,3 +45,38 @@ describe('<Link>', () => {
     expect(a.classList.contains('is-active')).toBe(true)
   })
 })
+
+function renderLocalized(to: any, opts: { locale?: string; prop?: string } = {}) {
+  const el = document.createElement('div')
+  const state: State = {
+    content: [],
+    data: {},
+    locales: { default: 'en', all: ['en', 'ru'] },
+    page: { path: '/', locale: opts.locale ?? 'en' },
+  }
+  createApp({ render: () => h(Link, { to, locale: opts.prop }, () => 'Go') })
+    .use(createMechanica({ mode: 'client', state }))
+    .mount(el)
+  return el.querySelector('a')!
+}
+
+describe('<Link> locale prefixing', () => {
+  it('prefixes an internal logical path for the current non-default locale', () => {
+    expect(renderLocalized('/about', { locale: 'ru' }).getAttribute('href')).toBe('/ru/about')
+  })
+
+  it('leaves the default locale unprefixed', () => {
+    expect(renderLocalized('/about', { locale: 'en' }).getAttribute('href')).toBe('/about')
+  })
+
+  it('targets a specific locale via the `locale` prop (language switcher)', () => {
+    // From an RU page, link back to the default-locale version.
+    expect(renderLocalized('/about', { locale: 'ru', prop: 'en' }).getAttribute('href')).toBe('/about')
+    // From an EN page, link to the RU version.
+    expect(renderLocalized('/about', { locale: 'en', prop: 'ru' }).getAttribute('href')).toBe('/ru/about')
+  })
+
+  it('never prefixes external links', () => {
+    expect(renderLocalized('https://x.com', { locale: 'ru' }).getAttribute('href')).toBe('https://x.com')
+  })
+})

@@ -45,6 +45,7 @@ export { usePages, type UsePagesFilter, type PageQueryResult } from './use-pages
 export { usePagination, type UsePaginationFilter, type PaginationResult } from './use-pagination'
 export { useFetch, type UseFetchOptions } from './use-fetch'
 export { usePageData } from './use-page-data'
+export { useLocale, type UseLocale } from './use-locale'
 
 // Context
 export {

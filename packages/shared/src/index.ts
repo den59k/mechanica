@@ -21,6 +21,16 @@ export type {
 export { normalizeClassManifest } from './composer-manifest'
 
 export {
+  normalizeLocales,
+  isLocale,
+  parseLocalePath,
+  localePath,
+  localeLabel,
+  type LocalesConfig,
+  type LocalesOption,
+} from './locale'
+
+export {
   resolveComposedTemplate,
   resolveBindings,
   templateBlockIds,

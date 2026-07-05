@@ -1,5 +1,5 @@
 import { readFile, writeFile, mkdir, rm, cp, readdir, copyFile, stat, access } from 'node:fs/promises'
-import { dirname, join, parse } from 'node:path'
+import { dirname, join, parse, relative } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
   applySeoTags,
@@ -9,7 +9,9 @@ import {
   findUnknownBlocks,
   generateProject,
   isPaginatedQuery,
+  localePath,
   migrateContent,
+  paginationVariantPath,
   registerFieldSchemas,
   resolveQueryKey,
   templateBlockIds,
@@ -18,6 +20,7 @@ import {
   walkTree,
   type Block,
   type ComposedBlockDefinition,
+  type LocalesConfig,
   type QuerySource,
   type RenderResult,
   type SitemapEntry,
@@ -35,13 +38,20 @@ import {
 } from '../vite/dev/assets-store'
 import { readSiteData, readFoldersData } from '../vite/dev/data-store'
 import { analyzeImageBuffer, hasSharp } from '../vite/dev/image-preview'
-import { listPages, setPageCodec } from '../vite/dev/pages-store'
+import { getPagePath, listPages, setPageCodec } from '../vite/dev/pages-store'
 import { buildRichTextCodec } from '../vite/rich-text-codec'
 import { blockAssetLinks, BLOCKS_MANIFEST_FILE, type BlockChunkRef, type ViteManifest } from './page-assets'
 import { runBuild } from './build'
 
 interface ExportPage {
+  /** The exported URL path — locale-prefixed for a translation (`/ru/about`). */
   path: string
+  /** The canonical (default-locale) path — for breadcrumbs, alternates, pagination. */
+  logicalPath: string
+  /** The locale this page renders in (undefined = the default locale). */
+  locale?: string
+  /** Which locales this logical page has (default + translations), for hreflang alternates. */
+  translations?: string[]
   content: any[]
   data: Record<string, any>
   /** Editor label — feeds the auto BreadcrumbList names. */
@@ -52,7 +62,20 @@ interface ExportPage {
     title?: string
     meta?: Record<string, unknown>
     pagination?: { page: number; pageCount: number }
+    /** The locale this page renders in — carried into `state.page.locale`. */
+    locale?: string
+    /** Which locales this logical page has — carried into `state.page.locales`. */
+    locales?: string[]
   }
+}
+
+/** A page filename stem ending in `@<locale>` is a translation, handled per-locale. */
+const VARIANT_STEM_RE = /@[A-Za-z][A-Za-z0-9_-]*$/
+
+/** Set `<html lang>` unless the template already declares one (author wins). */
+function setHtmlLang(html: string, lang: string): string {
+  if (/<html\b[^>]*\blang\s*=/i.test(html)) return html
+  return html.replace(/<html\b([^>]*)>/i, `<html$1 lang="${lang}">`)
 }
 
 /** Read every page JSON under `<mech>/pages` as an exportable page. */
@@ -75,6 +98,8 @@ async function readPages(
     const parsed = parse(relative)
     const dir = parsed.dir.replace(/\\/g, '/')
     const base = parsed.base.slice(0, -EXT.length)
+    // Translation files (`about@ru.page.md`) render per-locale, not as own pages.
+    if (VARIANT_STEM_RE.test(base)) continue
     const filePath = join(pagesDir, relative)
     const file = parsePage(await readFile(filePath, 'utf-8'), richText ? { richText } : undefined)
     // Draft pages are dev-only: never rendered, never in the sitemap.
@@ -89,9 +114,52 @@ async function readPages(
         : await stat(filePath).then((s) => s.mtime.toISOString().slice(0, 10)).catch(() => undefined)
     // The static-host 404 page is never a search result — noindex it.
     const meta = path === '/404' ? { noindex: true, ...file.meta } : file.meta
-    pages.push({ path, content: file.content ?? [], data, name: file.name, lastmod, page: { meta } })
+    pages.push({ path, logicalPath: path, content: file.content ?? [], data, name: file.name, lastmod, page: { meta } })
   }
   return pages
+}
+
+/**
+ * Read a page's translation for `locale`, returning an {@link ExportPage} at the
+ * locale-prefixed path — or `null` when the translation file is missing or is a
+ * per-locale draft. Content/data come from the variant file; folder-scoped data
+ * merges the same as the base page.
+ */
+async function readTranslation(
+  mechDir: string,
+  base: ExportPage,
+  locale: string,
+  config: LocalesConfig,
+  foldersData: Record<string, Record<string, any>>,
+  richText?: RichTextCodec,
+): Promise<ExportPage | null> {
+  const file = getPagePath(mechDir, base.logicalPath, locale)
+  let raw: string
+  try {
+    raw = await readFile(file, 'utf-8')
+  } catch {
+    return null
+  }
+  const doc = parsePage(raw, richText ? { richText } : undefined)
+  if (doc.draft) return null
+  const rel = relative(join(mechDir, 'pages'), file).replace(/\\/g, '/')
+  const dir = dirname(rel) === '.' ? '' : dirname(rel)
+  const data = { ...(dir ? foldersData[dir] : undefined), ...(doc.data ?? {}) }
+  const lastmod =
+    typeof doc.meta?.lastmod === 'string'
+      ? doc.meta.lastmod
+      : await stat(file).then((s) => s.mtime.toISOString().slice(0, 10)).catch(() => undefined)
+  const meta = base.logicalPath === '/404' ? { noindex: true, ...doc.meta } : doc.meta
+  return {
+    path: localePath(base.logicalPath, locale, config),
+    logicalPath: base.logicalPath,
+    locale,
+    content: doc.content ?? [],
+    data,
+    name: doc.name ?? base.name,
+    lastmod,
+    page: { meta, locale },
+  }
 }
 
 /**
@@ -127,6 +195,8 @@ export interface SsrBundle {
   dataEntries?: { id: string; props: any }[]
   /** Site identity baked in from the plugin's `siteUrl` / `siteName` options. */
   site?: { url?: string; name?: string }
+  /** The site's locale config baked in from the plugin's `locales` option. */
+  locales?: LocalesConfig | null
 }
 
 export interface ExportOptions {
@@ -272,8 +342,53 @@ export async function exportProject(
   const composedMap = new Map(composedDefs.map((def) => [def.id, def]))
 
   const richText = buildRichTextCodec(ssr.blocksList)
-  const pages = await readPages(join(cwd, '.mech/pages'), readFoldersData(join(cwd, '.mech')), richText)
+  const foldersData = readFoldersData(join(cwd, '.mech'))
+  const defaultPages = await readPages(join(cwd, '.mech/pages'), foldersData, richText)
   const projectData = readSiteData(join(cwd, '.mech'))
+
+  // Multi-language: render each translation that exists at its locale-prefixed
+  // path. Untranslated pages are skipped (rendering default content at `/ru/…`
+  // is an SEO liability) and reported per locale, like the link validator.
+  const config = ssr.locales ?? null
+  const mechDir = join(cwd, '.mech')
+  const pages: ExportPage[] = [...defaultPages]
+  if (config) {
+    const missing: Record<string, string[]> = {}
+    for (const base of defaultPages) {
+      const present = [config.default]
+      for (const locale of config.all) {
+        if (locale === config.default) continue
+        const translation = await readTranslation(mechDir, base, locale, config, foldersData, richText)
+        if (translation) {
+          present.push(locale)
+          pages.push(translation)
+        } else if (!base.page?.meta?.noindex) {
+          ;(missing[locale] ??= []).push(base.logicalPath)
+        }
+      }
+      // Every locale-variant of a page advertises the same set of alternates.
+      base.translations = present
+      if (base.page) base.locale = config.default
+      base.page = { ...base.page, locale: config.default, locales: present }
+    }
+    // Back-fill each translation with the shared alternates set (its base's).
+    const translationsByLogical = new Map(defaultPages.map((p) => [p.logicalPath, p.translations]))
+    for (const page of pages) {
+      if (page.locale && page.locale !== config.default) {
+        const present = translationsByLogical.get(page.logicalPath)
+        page.translations = present
+        page.page = { ...page.page, locales: present }
+      }
+    }
+    for (const [locale, paths] of Object.entries(missing)) {
+      if (paths.length) {
+        warn(
+          `[mechanica] locale "${locale}" is missing ${paths.length} translation(s) ` +
+            `(rendered only in ${config.default}): ${paths.join(', ')}`,
+        )
+      }
+    }
+  }
 
   // Queries (`usePages`/`usePagination`/`useFetch`) resolve at build time
   // against the same `.mech` store, memoized per (page-number, key) across the
@@ -373,6 +488,9 @@ export async function exportProject(
     dataEntries: ssr.dataEntries ?? [],
     projectData,
     site: { url: siteUrl, name: siteName },
+    // Bake the locale config into each page's `state.locales` so the runtime
+    // prefixes internal links for `state.page.locale`.
+    locales: config ?? undefined,
     // The page number of the variant being rendered rides `state.page.pagination`.
     render: (state: any) =>
       ssr.render(state, { resolveQuery: resolveForPage(state.page?.pagination?.page ?? 1) }),
@@ -391,16 +509,32 @@ export async function exportProject(
   // The automatic SEO output. When the template reads `page.pagination` the
   // author is handling variant titles — the "— Page N" suffix stays off.
   const templateHandlesPagination = index.includes('page.pagination')
+  // Breadcrumb names are keyed by logical path (default-locale labels) — a
+  // translation reuses its base page's trail.
   const pageNames = new Map(
-    pages.map((page) => [page.path, page.name ?? (page.path === '/' ? 'Home' : page.path.split('/').pop()!)]),
+    defaultPages.map((page) => [
+      page.logicalPath,
+      page.name ?? (page.logicalPath === '/' ? 'Home' : page.logicalPath.split('/').pop()!),
+    ]),
   )
+
+  /** hreflang alternates for a translated page (each locale + x-default), at page N. */
+  const alternatesFor = (source: ExportPage, pageNum = 1): { hreflang: string; path: string }[] | undefined => {
+    if (!config || !source.translations || source.translations.length < 2) return undefined
+    const at = (loc: string) => paginationVariantPath(localePath(source.logicalPath, loc, config), pageNum)
+    return [
+      { hreflang: 'x-default', path: at(config.default) },
+      ...source.translations.map((loc) => ({ hreflang: loc, path: at(loc) })),
+    ]
+  }
+
   const finishPage = (
     html: string,
     path: string,
     source: ExportPage,
     pagination?: { page: number; pageCount: number; basePath: string },
-  ): string =>
-    applySeoTags(html, {
+  ): string => {
+    let out = applySeoTags(html, {
       siteUrl,
       siteName,
       path,
@@ -408,13 +542,18 @@ export async function exportProject(
       pagination,
       templateHandlesPagination,
       // A variant is the same logical page — it carries the base page's trail.
-      breadcrumbs: breadcrumbsFor(pagination?.basePath ?? path, pageNames),
+      breadcrumbs: breadcrumbsFor(source.logicalPath, pageNames),
+      alternates: alternatesFor(source, pagination?.page ?? 1),
     })
+    // Set `<html lang>` per locale (unless the template already set it).
+    if (config) out = setHtmlLang(out, source.locale ?? config.default)
+    return out
+  }
 
   const sitemapEntries: SitemapEntry[] = []
-  const recordSitemap = (path: string, source: ExportPage): void => {
+  const recordSitemap = (path: string, source: ExportPage, pageNum = 1): void => {
     if (path === '/404' || source.page?.meta?.noindex === true) return
-    sitemapEntries.push({ path, lastmod: source.lastmod })
+    sitemapEntries.push({ path, lastmod: source.lastmod, alternates: alternatesFor(source, pageNum) })
   }
 
   // First pass: every real page. A paginated query (`usePagination`) with more
@@ -474,7 +613,7 @@ export async function exportProject(
     const basePath = path.replace(/\/\d+$/, '') || '/'
     const finished = finishPage(html, path, source, { ...source.page!.pagination!, basePath })
     await writePage(path, finished)
-    recordSitemap(path, source)
+    recordSitemap(path, source, source.page!.pagination!.page)
   }
 
   await copyUploads(join(cwd, '.mech/assets'), join(exportDir, MEDIA_DIR), referenced, warn)

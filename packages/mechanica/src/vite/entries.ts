@@ -149,6 +149,9 @@ export interface SsrEntryOptions {
   /** Site identity (origin, name) from the plugin options — rides the bundle so
    *  `mechanica export` can emit canonical URLs, sitemap.xml and robots.txt. */
   site?: { url?: string; name?: string }
+  /** The site's locale config (multi-language) — rides the bundle so the export
+   *  can walk translations, and gets baked into each page's `state.locales`. */
+  locales?: import('mechanica-shared').LocalesConfig | null
 }
 
 /**
@@ -171,6 +174,7 @@ export function generateSsrEntry(options: SsrEntryOptions): string {
     ``,
     `registerComponents(blocksMap)`,
     `export const site = ${JSON.stringify(options.site ?? {})}`,
+    `export const locales = ${JSON.stringify(options.locales ?? null)}`,
     `export const dataEntries = getDataEntries()`,
     ``,
     `export async function render(state, context = {}) {`,

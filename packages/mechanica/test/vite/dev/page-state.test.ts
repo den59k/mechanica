@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import { dirname, join } from 'node:path'
-import { type Block } from 'mechanica-shared'
+import { type Block, type LocalesConfig } from 'mechanica-shared'
 import { serializePage } from 'mechanica-shared/page-format'
-import { setPageBlocks } from '@/vite/dev/pages-store'
+import { setPageBlocks, createTranslation, savePage } from '@/vite/dev/pages-store'
 import { buildPageState } from '@/vite/dev/page-state'
 
 let mechDir: string
@@ -59,5 +59,58 @@ describe('buildPageState block-prop defaults', () => {
     })
     const state = buildPageState(mechDir, '/home')
     expect(state.content[0]!.data).toEqual({})
+  })
+})
+
+describe('buildPageState locale routing', () => {
+  const config: LocalesConfig = { default: 'en', all: ['en', 'ru'] }
+
+  it('serves the default locale for an unprefixed URL', () => {
+    writePage('about.page.md', { name: 'About' })
+    createTranslation(mechDir, '/about', 'ru')
+    const state = buildPageState(mechDir, '/about', config)
+    expect(state.page.path).toBe('/about')
+    expect(state.page.locale).toBe('en')
+    expect(state.page.locales).toEqual(['en', 'ru'])
+    expect(state.page.localeFallback).toBeUndefined()
+    expect(state.locales).toEqual(config)
+  })
+
+  it('serves the translation for a locale-prefixed URL, with its own version', () => {
+    writePage('about.page.md', { content: [{ id: 'a', blockId: 'x', data: { t: 'en' } }] })
+    createTranslation(mechDir, '/about', 'ru')
+    savePage(mechDir, '/about', { content: [{ id: 'a', blockId: 'x', data: { t: 'ru' } }] }, 'ru')
+
+    const state = buildPageState(mechDir, '/ru/about', config)
+    expect(state.page.path).toBe('/about') // logical
+    expect(state.page.locale).toBe('ru')
+    expect(state.content[0]!.data).toEqual({ t: 'ru' })
+    expect(state.version).not.toBeNull()
+  })
+
+  it('falls back to default content (flagged) when a translation is missing', () => {
+    writePage('about.page.md', { content: [{ id: 'a', blockId: 'x', data: { t: 'en' } }] })
+    const state = buildPageState(mechDir, '/ru/about', config)
+    expect(state.page.locale).toBe('ru')
+    expect(state.page.localeFallback).toBe(true)
+    expect(state.content[0]!.data).toEqual({ t: 'en' })
+    // No translation file yet → no version, so the first save creates it.
+    expect(state.version).toBeNull()
+  })
+
+  it('composes a locale prefix with a pagination variant', () => {
+    writePage('blog/index.page.md', { name: 'Blog' })
+    createTranslation(mechDir, '/blog', 'ru')
+    const state = buildPageState(mechDir, '/ru/blog/2', config)
+    expect(state.page.path).toBe('/blog')
+    expect(state.page.locale).toBe('ru')
+    expect(state.page.pagination).toEqual({ page: 2 })
+  })
+
+  it('adds no locale metadata when i18n is off', () => {
+    writePage('about.page.md', {})
+    const state = buildPageState(mechDir, '/about')
+    expect(state.page.locale).toBeUndefined()
+    expect(state.locales).toBeUndefined()
   })
 })

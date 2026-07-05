@@ -75,7 +75,7 @@
               v-for="page in group.pages"
               :key="page.path"
               class="mech-pages__row"
-              :class="{ 'is-active': page.path === activePath, 'is-current': page.path === current }"
+              :class="{ 'is-active': page.path === activePath, 'is-current': page.path === currentLogical }"
               @click="open(page)"
               @mouseenter="activePath = page.path"
               @contextmenu="onRowMenu($event, page)"
@@ -83,7 +83,17 @@
               <span class="mech-pages__cell-name">
                 <span class="mech-pages__name">{{ page.name || page.path }}</span>
                 <span v-if="page.draft" class="mech-pages__badge is-draft">Draft</span>
-                <span v-if="page.path === current" class="mech-pages__badge">Current</span>
+                <span v-if="page.path === currentLogical" class="mech-pages__badge">Current</span>
+                <span v-if="localeConfig && page.locales" class="mech-pages__locales">
+                  <span
+                    v-for="code in localeCodes"
+                    :key="code"
+                    class="mech-pages__loc"
+                    :class="{ 'is-on': page.locales.includes(code) }"
+                    :title="`${localeName(code)}: ${page.locales.includes(code) ? 'translated' : 'not translated'}`"
+                    >{{ code }}</span
+                  >
+                </span>
               </span>
               <span class="mech-pages__cell-path">{{ page.path }}</span>
               <span class="mech-pages__actions" @click.stop>
@@ -141,11 +151,19 @@ import { contextMenuKey } from '../lib/context-menu'
 import { filterPages, groupPagesByFolder, pageThumbUrl, type PageItem } from '../lib/page-list'
 import { navigationKey, fallbackNavigation } from '../lib/navigation'
 import { recordRecent } from '../lib/recents'
+import { parseLocalePath, localeLabel, type LocalesConfig, type State } from 'mechanica-shared'
 
 const dialog = useDialog()
 const contextMenu = inject(contextMenuKey, null)
 const navigation = inject(navigationKey, null) ?? fallbackNavigation()
 const current = computed(() => navigation.path.value)
+
+// Multi-language coverage: the site's locale config (null when i18n is off) and
+// the current page's logical path (the URL minus any locale prefix).
+const localeConfig = ((window as { state?: State }).state?.locales ?? null) as LocalesConfig | null
+const localeCodes = localeConfig?.all ?? []
+const currentLogical = computed(() => parseLocalePath(current.value, localeConfig).path)
+const localeName = (code: string) => localeLabel(localeConfig, code)
 
 const pages = ref<PageItem[]>([])
 const query = ref('')
@@ -606,6 +624,33 @@ async function toggleDraft(page: PageItem) {
 
   &.is-draft {
     color: var(--mech-muted);
+  }
+}
+.mech-pages__locales {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 2px;
+}
+.mech-pages__loc {
+  min-width: 15px;
+  padding: 1px 4px;
+  border-radius: var(--mech-radius-sm);
+  background: var(--mech-border-subtle, var(--mech-accent-soft));
+  color: var(--mech-muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  opacity: 0.5;
+
+  &.is-on {
+    background: var(--mech-accent-soft);
+    color: var(--mech-accent);
+    opacity: 1;
   }
 }
 .mech-pages__cell-path {
