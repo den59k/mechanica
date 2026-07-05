@@ -20,7 +20,7 @@
         v-for="p in padStrips"
         :key="'pad' + p.side"
         class="mech-composer__pad-strip"
-        :class="[`is-${p.side}`, { 'is-active': padDragging === p.side, 'is-mirror': padMirrorSide === p.side, 'is-echo': padEchoSide === p.side }]"
+        :class="[`is-${p.side}`, { 'is-active': padDragging === p.side, 'is-mirror': padMirrorSide === p.side, 'is-echo': padEchoSides.includes(p.side) }]"
         :style="boxStyle(p.box)"
         :title="`Padding ${padSideValue(p.side)}`"
         @pointerdown.stop.prevent="startPadDrag(p.side, $event)"
@@ -28,10 +28,15 @@
         <span class="mech-composer__space-label">{{ padSideValue(p.side) }}</span>
       </div>
 
-      <!-- Margin echo: a translucent-orange region outside the element, shown while
-           the inspector's margin box is hovered/edited. -->
-      <div v-if="marginStrip" class="mech-composer__margin-strip" :style="boxStyle(marginStrip)">
-        <span class="mech-composer__space-label">{{ marginValue }}</span>
+      <!-- Margin echo: translucent-orange region(s) outside the element, shown while
+           the inspector's margin box is hovered/edited (both sides when Alt). -->
+      <div
+        v-for="ms in marginStrips"
+        :key="'margin' + ms.side"
+        class="mech-composer__margin-strip"
+        :style="boxStyle(ms.box)"
+      >
+        <span class="mech-composer__space-label">{{ ms.value }}</span>
       </div>
 
       <div
@@ -128,19 +133,25 @@ const primaryBox = computed(() => selBoxes.value[selBoxes.value.length - 1] ?? n
 // ── Inspector spacing echo ─────────────────────────────────────────────────────
 // The sidebar padding/margin box reports the side it's touching (`store.spacing`);
 // echo it on the element — padding lights the existing strip (blue), margin gets
-// its own translucent-orange outset region.
-const padEchoSide = computed<Side | null>(() => (store.spacing?.prop === 'padding' ? store.spacing.side : null))
-const MARGIN_MIN = 4 // a visible sliver when the margin is 0 or negative (screen px)
-const marginValue = computed(() => {
+// its own translucent-orange outset region. `symmetric` (Alt held) also echoes the
+// opposite side, matching what an Alt edit would change.
+const spacingSides = computed<Side[]>(() => {
   const sp = store.spacing
-  const node = store.selected
-  return sp && sp.prop === 'margin' && node ? parsePadding(store.effective(node, 'margin'))[sp.side] : 0
+  if (!sp) return []
+  return sp.symmetric ? [sp.side, PAD_OPPOSITE[sp.side]] : [sp.side]
 })
-const marginStrip = computed<Box | null>(() => {
-  const sp = store.spacing
+const padEchoSides = computed<Side[]>(() => (store.spacing?.prop === 'padding' ? spacingSides.value : []))
+const MARGIN_MIN = 4 // a visible sliver when the margin is 0 or negative (screen px)
+const marginStrips = computed<{ side: Side; box: Box; value: number }[]>(() => {
   const box = primaryBox.value
-  if (!sp || sp.prop !== 'margin' || !box) return null
-  return marginRegion(box, sp.side, marginValue.value * store.zoom, MARGIN_MIN)
+  const node = store.selected
+  if (store.spacing?.prop !== 'margin' || !box || !node) return []
+  const sides = parsePadding(store.effective(node, 'margin'))
+  return spacingSides.value.map((side) => ({
+    side,
+    box: marginRegion(box, side, sides[side] * store.zoom, MARGIN_MIN),
+    value: sides[side],
+  }))
 })
 const unionBox = computed(() => (store.selectedIds.length > 1 ? union(selBoxes.value) : null))
 

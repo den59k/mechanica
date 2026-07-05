@@ -49,8 +49,9 @@ export interface ComposerStore {
   /** Measured on-canvas size of the selected node (from the overlay). View state. */
   measured: { w: number; h: number } | null
   /** The padding/margin side the inspector box is touching (hover/edit), for the
-   *  canvas to echo as a highlight. View state — not saved or undone. */
-  spacing: { prop: 'padding' | 'margin'; side: 't' | 'r' | 'b' | 'l' } | null
+   *  canvas to echo as a highlight. `symmetric` (Alt held) also lights the opposite
+   *  side. View state — not saved or undone. */
+  spacing: { prop: 'padding' | 'margin'; side: 't' | 'r' | 'b' | 'l'; symmetric?: boolean } | null
   readonly template: ContentBlock[]
   /** The canonical root frame (the block itself) — always present. */
   readonly rootFrame: ContentBlock
@@ -183,7 +184,7 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
     panX: 0,
     panY: 0,
     measured: null as { w: number; h: number } | null,
-    spacing: null as { prop: 'padding' | 'margin'; side: 't' | 'r' | 'b' | 'l' } | null,
+    spacing: null as { prop: 'padding' | 'margin'; side: 't' | 'r' | 'b' | 'l'; symmetric?: boolean } | null,
     /** Optional-property rows added this session with no data yet (view state,
      *  keyed by node id) — union'd with data presence by `hasProp`. */
     addedProps: {} as Record<string, string[]>,

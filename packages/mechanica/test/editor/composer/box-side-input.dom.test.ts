@@ -91,7 +91,13 @@ describe('BoxSideInput', () => {
     const input = host.querySelector<HTMLInputElement>('input[aria-label="Top margin"]')!
     input.dispatchEvent(new MouseEvent('pointermove', { bubbles: true }))
     await flush()
-    expect(store.spacing).toEqual({ prop: 'margin', side: 't' })
+    expect(store.spacing).toEqual({ prop: 'margin', side: 't', symmetric: false })
+
+    // Alt while hovering → symmetric, so the canvas can also light the opposite side.
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Alt', altKey: true }))
+    await flush()
+    expect(store.spacing).toEqual({ prop: 'margin', side: 't', symmetric: true })
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Alt', altKey: false }))
 
     host.querySelector('.mech-composer__box')!.dispatchEvent(new MouseEvent('pointerleave', { bubbles: true }))
     await flush()

@@ -122,11 +122,13 @@ function onDown(e: PointerEvent) {
   window.addEventListener('pointerup', up)
 }
 
-// Publish to the store; only clear the signal if it's still ours (both the padding
-// and margin boxes can be mounted — don't stomp the other's highlight).
-watch(activeSide, (s) => {
+// Publish to the store; `symmetric` (Alt) also lights the opposite side on the
+// canvas. Re-runs when Alt toggles while hovering, so the mirror appears/clears
+// live. Only clear the signal if it's still ours (both the padding and margin
+// boxes can be mounted — don't stomp the other's highlight).
+watch([activeSide, altHeld], ([s, alt]) => {
   if (!store) return
-  if (s) store.spacing = { prop: prop.value, side: s }
+  if (s) store.spacing = { prop: prop.value, side: s, symmetric: alt }
   else if (store.spacing?.prop === prop.value) store.spacing = null
 })
 
