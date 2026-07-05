@@ -106,14 +106,19 @@ describe('visual style vars (breakpoint-capable)', () => {
     expect(vars).toEqual({ '--el-fit': 'contain', '--el-ratio': '16/9', '--el-radius': '8px' })
   })
 
-  it('maps min-size on frames and leaves, with $bp overrides', () => {
-    expect(responsiveVars({ minWidth: 120, minHeight: 240 }, FRAME_VARS)).toEqual({
+  it('maps min/max limits on frames and leaves, with $bp overrides', () => {
+    expect(responsiveVars({ minWidth: 120, maxWidth: 960, minHeight: 240, maxHeight: 600 }, FRAME_VARS)).toEqual({
       '--el-minw': '120px',
+      '--el-maxw': '960px',
       '--el-minh': '240px',
+      '--el-maxh': '600px',
     })
-    // Leaves get it too (SIZE_VARS → TEXT_VARS/IMAGE_VARS).
-    expect(responsiveVars({ minHeight: 64 }, SIZE_VARS)['--el-minh']).toBe('64px')
-    expect(responsiveVars({ minHeight: 240, $bp: { sm: { minHeight: 120 } } }, FRAME_VARS)['--el-minh-sm']).toBe('120px')
+    // Leaves get every limit too (SIZE_VARS → TEXT_VARS/IMAGE_VARS).
+    expect(responsiveVars({ minHeight: 64, maxHeight: 320 }, SIZE_VARS)).toEqual({
+      '--el-minh': '64px',
+      '--el-maxh': '320px',
+    })
+    expect(responsiveVars({ maxWidth: 960, $bp: { sm: { maxWidth: 480 } } }, FRAME_VARS)['--el-maxw-sm']).toBe('480px')
   })
 
   it('emits suffixed overrides from $bp for style knobs', () => {

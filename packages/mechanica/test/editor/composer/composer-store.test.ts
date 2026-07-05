@@ -446,7 +446,7 @@ describe('composer store: optional properties (addProp / removeProp / hasProp)',
     const { store } = withText()
     expect(store.hasProp(store.rootFrame, 'padding')).toBe(true) // root seeds padding
     expect(store.hasProp(store.rootFrame, 'background')).toBe(true) // …and a white fill
-    expect(store.hasProp(store.rootFrame, 'minSize')).toBe(true) // …and a min-height floor
+    expect(store.hasProp(store.rootFrame, 'limits')).toBe(true) // …and a min-height floor
     expect(store.hasProp(store.rootFrame, 'radius')).toBe(false)
   })
 

@@ -13,7 +13,7 @@
 // Register them as non-inheriting so each element reads only its own; unset ones
 // resolve to the var() fallback. (Old browsers without @property support degrade
 // to the previous inheriting behavior.)
-$el-props: 'dir', 'gap', 'align', 'justify', 'wrap', 'pad', 'margin', 'w', 'h', 'maxw', 'grow', 'self', 'text-align',
+$el-props: 'dir', 'gap', 'align', 'justify', 'wrap', 'pad', 'margin', 'w', 'h', 'maxw', 'maxh', 'grow', 'self', 'text-align',
   'fs', 'fw', 'lh', 'color', 'bg', 'radius', 'minw', 'minh', 'shadow', 'fit', 'ratio';
 $el-bps: '', '-md', '-sm';
 @each $p in $el-props {
@@ -36,10 +36,12 @@ $el-bps: '', '-md', '-sm';
   // horizontal margin stays centered even when a margin is set.
   margin: var(--el-margin, 0);
   border-radius: var(--el-radius, 0);
-  // Min-size constraints (all element kinds). The default `--el-minw: 0` doubles
-  // as the "keep flex children from overflowing their track" guard.
+  // Size limits (all element kinds). The default `--el-minw: 0` doubles as the
+  // "keep flex children from overflowing their track" guard. max-width is set
+  // per-kind (frames center, images cap at 100%); max-height is uniform here.
   min-width: var(--el-minw, 0);
   min-height: var(--el-minh, auto);
+  max-height: var(--el-maxh, none);
 }
 
 .mxel-frame {
@@ -55,9 +57,9 @@ $el-bps: '', '-md', '-sm';
   background: var(--el-bg, none);
   box-shadow: var(--el-shadow, none);
 
-  // "Content width": when a frame caps its own width, center it in its parent.
-  // Scoped to frames that actually set the var so it never absorbs free space
-  // (auto margins would otherwise fight `justify` in a row parent).
+  // Max width centers a frame in its parent (the full-bleed-bg + centered
+  // content-column pattern). Scoped to frames that actually set the var so it
+  // never absorbs free space (auto margins would fight `justify` in a row parent).
   &[style*='--el-maxw'] {
     margin-inline: auto;
   }
@@ -79,7 +81,8 @@ $el-bps: '', '-md', '-sm';
 
 .mxel-image {
   display: block;
-  max-width: 100%;
+  // A user max-width caps the image, but never lets it overflow its box.
+  max-width: min(var(--el-maxw, 100%), 100%);
   object-fit: var(--el-fit, cover);
   aspect-ratio: var(--el-ratio, auto);
 }
@@ -115,6 +118,7 @@ $el-bps: '', '-md', '-sm';
     border-radius: var(--el-radius-md, var(--el-radius, 0));
     min-width: var(--el-minw-md, var(--el-minw, 0));
     min-height: var(--el-minh-md, var(--el-minh, auto));
+    max-height: var(--el-maxh-md, var(--el-maxh, none));
   }
   .mxel-frame {
     flex-direction: var(--el-dir-md, var(--el-dir, column));
@@ -125,6 +129,7 @@ $el-bps: '', '-md', '-sm';
     padding: var(--el-pad-md, var(--el-pad, 0px));
     background: var(--el-bg-md, var(--el-bg, none));
     box-shadow: var(--el-shadow-md, var(--el-shadow, none));
+    max-width: var(--el-maxw-md, var(--el-maxw, none));
   }
   .mxel-text {
     text-align: var(--el-text-align-md, var(--el-text-align, left));
@@ -132,10 +137,12 @@ $el-bps: '', '-md', '-sm';
     font-weight: var(--el-fw-md, var(--el-fw, revert));
     line-height: var(--el-lh-md, var(--el-lh, revert));
     color: var(--el-color-md, var(--el-color, currentcolor));
+    max-width: var(--el-maxw-md, var(--el-maxw, none));
   }
   .mxel-image {
     object-fit: var(--el-fit-md, var(--el-fit, cover));
     aspect-ratio: var(--el-ratio-md, var(--el-ratio, auto));
+    max-width: min(var(--el-maxw-md, var(--el-maxw, 100%)), 100%);
   }
 }
 
@@ -150,6 +157,7 @@ $el-bps: '', '-md', '-sm';
     border-radius: var(--el-radius-sm, var(--el-radius-md, var(--el-radius, 0)));
     min-width: var(--el-minw-sm, var(--el-minw-md, var(--el-minw, 0)));
     min-height: var(--el-minh-sm, var(--el-minh-md, var(--el-minh, auto)));
+    max-height: var(--el-maxh-sm, var(--el-maxh-md, var(--el-maxh, none)));
   }
   .mxel-frame {
     flex-direction: var(--el-dir-sm, var(--el-dir-md, var(--el-dir, column)));
@@ -160,6 +168,7 @@ $el-bps: '', '-md', '-sm';
     padding: var(--el-pad-sm, var(--el-pad-md, var(--el-pad, 0px)));
     background: var(--el-bg-sm, var(--el-bg-md, var(--el-bg, none)));
     box-shadow: var(--el-shadow-sm, var(--el-shadow-md, var(--el-shadow, none)));
+    max-width: var(--el-maxw-sm, var(--el-maxw-md, var(--el-maxw, none)));
   }
   .mxel-text {
     text-align: var(--el-text-align-sm, var(--el-text-align-md, var(--el-text-align, left)));
@@ -167,9 +176,11 @@ $el-bps: '', '-md', '-sm';
     font-weight: var(--el-fw-sm, var(--el-fw-md, var(--el-fw, revert)));
     line-height: var(--el-lh-sm, var(--el-lh-md, var(--el-lh, revert)));
     color: var(--el-color-sm, var(--el-color-md, var(--el-color, currentcolor)));
+    max-width: var(--el-maxw-sm, var(--el-maxw-md, var(--el-maxw, none)));
   }
   .mxel-image {
     object-fit: var(--el-fit-sm, var(--el-fit-md, var(--el-fit, cover)));
     aspect-ratio: var(--el-ratio-sm, var(--el-ratio-md, var(--el-ratio, auto)));
+    max-width: min(var(--el-maxw-sm, var(--el-maxw-md, var(--el-maxw, 100%))), 100%);
   }
 }

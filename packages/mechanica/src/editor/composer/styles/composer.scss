@@ -1238,6 +1238,32 @@ $margin: #f97316; // translucent orange for margin editing (distinct from paddin
 .mech-composer__prop2-body {
   padding: 4px 0 8px;
 }
+
+// "Limits" — min/max width & height as a compact grid: dimension rows (W / H),
+// Min / Max columns. Cells (header spans, dim labels, NumInputs) are laid out
+// directly on the three tracks, filling left-to-right / top-to-bottom.
+.mech-composer__limits {
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr;
+  align-items: center;
+  gap: 6px 8px;
+}
+.mech-composer__limits-col {
+  font-size: 11px;
+  color: var(--mech-muted);
+  text-align: center;
+}
+.mech-composer__limits-dim {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--mech-muted);
+
+  .vicon {
+    font-size: 14px;
+  }
+}
 .mech-composer__color {
   display: flex;
   align-items: center;

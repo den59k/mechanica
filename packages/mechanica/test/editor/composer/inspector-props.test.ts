@@ -7,11 +7,11 @@ const node = (data: Record<string, unknown>): ContentBlock => ({ id: 'n1', block
 describe('availableProps', () => {
   it('offers frame properties to frames only', () => {
     const frame = availableProps('frame', false).map((p) => p.key)
-    expect(frame).toEqual(['padding', 'margin', 'maxWidth', 'minSize', 'background', 'radius', 'position'])
+    expect(frame).toEqual(['padding', 'margin', 'limits', 'background', 'radius', 'position'])
     const text = availableProps('text', false).map((p) => p.key)
-    expect(text).toEqual(['margin', 'minSize', 'position'])
+    expect(text).toEqual(['margin', 'limits', 'position'])
     const image = availableProps('image', false).map((p) => p.key)
-    expect(image).toEqual(['margin', 'minSize', 'radius', 'position'])
+    expect(image).toEqual(['margin', 'limits', 'radius', 'position'])
   })
 
   it('excludes position for the root frame (the root *is* the block)', () => {

@@ -170,31 +170,29 @@
         <BoxSideInput :model-value="val('margin')" label="margin" @update:model-value="set('margin', $event, true)" />
       </PropToggle>
 
-      <!-- Content width -->
+      <!-- Limits — min/max width & height in a 2×2 grid (dimension rows, Min/Max
+           columns). Fields drag-to-scrub. maxWidth on a frame also centers it. -->
       <PropToggle
-        v-if="avail('maxWidth')"
-        title="Content width"
-        icon="width"
-        :active="active('maxWidth')"
-        :overridden="overridden('maxWidth')"
-        @toggle="toggle('maxWidth')"
-        @reset="resetKey('maxWidth')"
+        v-if="avail('limits')"
+        title="Limits"
+        icon="limits"
+        :active="active('limits')"
+        :overridden="limitsOverridden"
+        @toggle="toggle('limits')"
+        @reset="resetKeys('minWidth', 'maxWidth', 'minHeight', 'maxHeight')"
       >
-        <div class="mech-composer__row">
-          <span>Max</span>
-          <NumInput icon="width" :model-value="num('maxWidth')" placeholder="none" :min="0" @update:model-value="set('maxWidth', $event, true)" />
-        </div>
-      </PropToggle>
+        <div class="mech-composer__limits">
+          <span aria-hidden="true" />
+          <span class="mech-composer__limits-col">Min</span>
+          <span class="mech-composer__limits-col">Max</span>
 
-      <!-- Min size (W + H) — a floor independent of the Size mode -->
-      <PropToggle v-if="avail('minSize')" title="Min size" icon="min-size" :active="active('minSize')" @toggle="toggle('minSize')">
-        <div class="mech-composer__row">
-          <OverrideLabel :overridden="overridden('minWidth')" @reset="resetKey('minWidth')">Min W</OverrideLabel>
-          <NumInput :model-value="num('minWidth')" placeholder="0" :min="0" @update:model-value="set('minWidth', $event, true)" />
-        </div>
-        <div class="mech-composer__row">
-          <OverrideLabel :overridden="overridden('minHeight')" @reset="resetKey('minHeight')">Min H</OverrideLabel>
-          <NumInput :model-value="num('minHeight')" placeholder="0" :min="0" @update:model-value="set('minHeight', $event, true)" />
+          <span class="mech-composer__limits-dim" title="Width"><VIcon name="width" /> W</span>
+          <NumInput scrub :model-value="num('minWidth')" placeholder="—" :min="0" aria-label="Min width" @update:model-value="set('minWidth', $event, true)" />
+          <NumInput scrub :model-value="num('maxWidth')" placeholder="—" :min="0" aria-label="Max width" @update:model-value="set('maxWidth', $event, true)" />
+
+          <span class="mech-composer__limits-dim" title="Height"><VIcon name="height" /> H</span>
+          <NumInput scrub :model-value="num('minHeight')" placeholder="—" :min="0" aria-label="Min height" @update:model-value="set('minHeight', $event, true)" />
+          <NumInput scrub :model-value="num('maxHeight')" placeholder="—" :min="0" aria-label="Max height" @update:model-value="set('maxHeight', $event, true)" />
         </div>
       </PropToggle>
 
@@ -301,9 +299,13 @@ const set = (key: string, value: unknown, responsive = false) =>
 // Breakpoint override affordances.
 const overridden = (key: string) => store.isOverridden(node.value, key)
 const resetKey = (key: string) => store.clearOverride(node.value.id, key)
-// A visual row can own several data keys (direction+wrap, align+justify) —
-// its reset clears every one of them for the current breakpoint.
+// A visual row can own several data keys (direction+wrap, align+justify, the
+// four Limits) — its reset clears every one of them for the current breakpoint.
 const resetKeys = (...keys: string[]) => keys.forEach((key) => store.clearOverride(node.value.id, key))
+// Limits owns four keys; its header reset lights when any of them is overridden.
+const limitsOverridden = computed(() =>
+  ['minWidth', 'maxWidth', 'minHeight', 'maxHeight'].some((key) => store.isOverridden(node.value, key)),
+)
 
 // ── Align extras (stretch / auto space) ──────────────────────────────
 const toggleStretch = () => set('align', val('align') === 'stretch' ? 'center' : 'stretch', true)

@@ -31,10 +31,10 @@ export interface OptionalProp {
 export const OPTIONAL_PROPS: OptionalProp[] = [
   { key: 'padding', title: 'Padding', icon: 'sides', kinds: ['frame'], dataKeys: ['padding'] },
   { key: 'margin', title: 'Margin', icon: 'margin', kinds: ['frame', 'text', 'image'], dataKeys: ['margin'], component: true },
-  { key: 'maxWidth', title: 'Content width', icon: 'width', kinds: ['frame'], dataKeys: ['maxWidth'] },
-  // Min-size constraint (W + H), independent of the Hug/Fill/Fixed Size mode.
-  // The root frame carries a default minHeight so it's never zero-height.
-  { key: 'minSize', title: 'Min size', icon: 'min-size', kinds: ['frame', 'text', 'image'], dataKeys: ['minWidth', 'minHeight'] },
+  // Size limits — min/max width & height, independent of the Hug/Fill/Fixed Size
+  // mode. `maxWidth` on a frame also centers it (the content-column pattern). The
+  // root frame carries a default minHeight so it's never zero-height.
+  { key: 'limits', title: 'Limits', icon: 'limits', kinds: ['frame', 'text', 'image'], dataKeys: ['minWidth', 'maxWidth', 'minHeight', 'maxHeight'] },
   { key: 'background', title: 'Fill', icon: 'fill', kinds: ['frame'], dataKeys: ['background'] },
   { key: 'radius', title: 'Radius', icon: 'corner', kinds: ['frame', 'image'], dataKeys: ['radius'] },
   { key: 'position', title: 'Position', icon: 'position', kinds: ['frame', 'text', 'image'], dataKeys: ['$abs'], notRoot: true, component: true },

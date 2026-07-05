@@ -81,13 +81,14 @@ export const FRAME_VARS: Record<string, VarSpec> = {
   margin: { cssVar: '--el-margin', to: padding },
   w: { cssVar: '--el-w', to: size },
   h: { cssVar: '--el-h', to: size },
-  // Content width: cap the frame's own width and center it (the full-bleed
-  // background + centered content-column section pattern, without a second box).
-  maxWidth: { cssVar: '--el-maxw', to: px },
   grow: { cssVar: '--el-grow', to: (v) => (v ? '1' : '0') },
-  // Min size — a constraint independent of the Hug/Fill/Fixed width/height mode.
+  // Size limits — min/max on each axis, independent of the Hug/Fill/Fixed mode.
+  // maxWidth on a frame ALSO centers it (the full-bleed-bg + centered
+  // content-column pattern — the `margin-inline: auto` rule in elements.scss).
   minWidth: { cssVar: '--el-minw', to: px },
+  maxWidth: { cssVar: '--el-maxw', to: px },
   minHeight: { cssVar: '--el-minh', to: px },
+  maxHeight: { cssVar: '--el-maxh', to: px },
   // Visual style — variables too, so Fill/Radius/… take per-breakpoint overrides.
   background: { cssVar: '--el-bg', to: str },
   radius: { cssVar: '--el-radius', to: px },
@@ -101,19 +102,20 @@ export const SIZE_VARS: Record<string, VarSpec> = {
   grow: FRAME_VARS.grow!,
   margin: FRAME_VARS.margin!,
   minWidth: FRAME_VARS.minWidth!,
+  maxWidth: FRAME_VARS.maxWidth!,
   minHeight: FRAME_VARS.minHeight!,
+  maxHeight: FRAME_VARS.maxHeight!,
   align: { cssVar: '--el-self', to: alignValue },
   textAlign: { cssVar: '--el-text-align', to: enumMap({ left: 'left', center: 'center', right: 'right' }) },
 }
 
-/** Text knobs: size/grow plus typography, all breakpoint-capable. */
+/** Text knobs: size/grow/limits plus typography, all breakpoint-capable. */
 export const TEXT_VARS: Record<string, VarSpec> = {
   ...SIZE_VARS,
   size: { cssVar: '--el-fs', to: px },
   weight: { cssVar: '--el-fw', to: numeric },
   lineHeight: { cssVar: '--el-lh', to: numeric },
   color: { cssVar: '--el-color', to: str },
-  maxWidth: FRAME_VARS.maxWidth!,
 }
 
 /** Image knobs: size/grow plus fit/ratio/radius, all breakpoint-capable. */
