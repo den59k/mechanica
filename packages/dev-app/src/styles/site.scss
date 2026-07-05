@@ -102,6 +102,18 @@ ul {
   line-height: 1.6;
   color: var(--muted);
 }
+// "Surface" group — mutually exclusive panel styles, stack with Container.
+.ds-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+}
+.ds-panel-muted {
+  background: #eef0f6;
+  border-radius: var(--radius);
+  padding: 32px;
+}
 
 .mc-section {
   padding: 92px 0;

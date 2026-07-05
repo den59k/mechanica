@@ -118,6 +118,13 @@ export interface ComposerClassDefinition {
   title?: string
   /** Which element kinds may pick this class. */
   on: ComposerElementKind | ComposerElementKind[]
+  /**
+   * Optional group. Classes sharing a group are mutually exclusive (one Style
+   * select per group, single-pick); classes in different groups stack on the
+   * element. Ungrouped classes share one implicit default group labelled "Style".
+   * The developer guarantees groups are orthogonal, so precedence stays clear.
+   */
+  group?: string
 }
 
 /**
@@ -135,6 +142,8 @@ export interface ComposerClassDef {
   title: string
   /** Element kinds that may pick it. */
   kinds: ComposerElementKind[]
+  /** Group key (undefined = the default "Style" group). Same group = mutually exclusive. */
+  group?: string
 }
 
 /**

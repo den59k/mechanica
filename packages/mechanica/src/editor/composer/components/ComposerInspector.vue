@@ -9,17 +9,17 @@
       </button>
     </div>
 
-    <!-- ── Style (site design-system class) ───────────────────────── -->
-    <section v-if="classOptions.length > 1" class="mech-composer__section">
-      <div class="mech-composer__row">
-        <span>Style</span>
+    <!-- ── Style (site design-system classes — one select per group) ── -->
+    <section v-if="classGroups.length" class="mech-composer__section">
+      <div v-for="g in classGroups" :key="g.key" class="mech-composer__row">
+        <span>{{ g.label }}</span>
         <VSelect
           compact
-          :model-value="clsValue"
-          :options="classOptions"
+          :model-value="groupValue(g)"
+          :options="groupOptions(g)"
           placeholder="None"
-          aria-label="Design-system style"
-          @update:model-value="setClass"
+          :aria-label="`${g.label} style`"
+          @update:model-value="applyGroup(g, $event)"
         />
       </div>
     </section>
@@ -267,6 +267,7 @@ import { isBinding, resolveBindings } from 'mechanica-shared'
 import { composerStoreKey } from '../lib/keys'
 import { elementKind, blockLabel, blockIcon } from '../lib/elements-meta'
 import { availableProps } from '../lib/inspector-props'
+import { classGroupsFor, selectedClass, setGroupClass, type ClassGroup } from '../lib/class-groups'
 import { absAxisLabels, reanchorOffset } from '../lib/abs'
 import type { Block, ComposerClassDef } from 'mechanica-shared'
 import VIcon from '../../components/VIcon.vue'
@@ -299,20 +300,25 @@ const codeBlock = computed(() => codeBlocksList.find((block) => block.id === nod
 // A heading's text reads best as a `title` prop; body text as `text`.
 const contentName = computed(() => (val('tag') === 'h1' ? 'title' : 'text'))
 
-// ── Style (site design-system class) ──────────────────────────────────
+// ── Style (site design-system classes, grouped) ───────────────────────
 // `cls` is base-only — a class carries its own responsiveness in the site CSS —
-// so it's read from base data and written to base even in breakpoint mode.
+// so it's read from base data and written to base even in breakpoint mode. Each
+// group is a single-pick select; different groups stack on the element.
 const clsValue = computed(() => (typeof node.value.data.cls === 'string' ? (node.value.data.cls as string) : ''))
-const classOptions = computed<SelectOption[]>(() => {
-  if (!kind.value) return [] // placed components style themselves — no class row
-  const forKind = classDefs.filter((def) => def.kinds.includes(kind.value!))
-  const options: SelectOption[] = [{ value: '', label: 'None' }, ...forKind.map((def) => ({ value: def.cls, label: def.title }))]
+const kindClassDefs = computed(() => (kind.value ? classDefs.filter((def) => def.kinds.includes(kind.value!)) : []))
+const classGroups = computed(() => (kind.value ? classGroupsFor(classDefs, kind.value) : []))
+const groupValue = (group: ClassGroup) => selectedClass(clsValue.value, group, kindClassDefs.value)
+const groupOptions = (group: ClassGroup): SelectOption[] => {
+  const options: SelectOption[] = [{ value: '', label: 'None' }, ...group.defs.map((def) => ({ value: def.cls, label: def.title }))]
   // A stale value (class no longer in the manifest) still shows, marked missing.
-  const current = clsValue.value
-  if (current && !forKind.some((def) => def.cls === current)) options.push({ value: current, label: `${current} (missing)` })
+  const current = groupValue(group)
+  if (current && !group.defs.some((def) => def.cls === current)) options.push({ value: current, label: `${current} (missing)` })
   return options
-})
-const setClass = (value: unknown) => store.setData(node.value.id, { cls: value ? String(value) : undefined })
+}
+const applyGroup = (group: ClassGroup, value: unknown) => {
+  const next = setGroupClass(clsValue.value, group, value ? String(value) : '', kindClassDefs.value)
+  store.setData(node.value.id, { cls: next || undefined })
+}
 
 const target = (e: Event) => e.target as HTMLInputElement
 

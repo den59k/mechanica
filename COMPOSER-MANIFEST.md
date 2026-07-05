@@ -74,7 +74,10 @@ export default defineComposer({
     container: { title: 'Container', on: 'frame' },
     h1:        { title: 'Heading 1', on: 'text' },
     lead:      'text',            // string shorthand: kind only, title = class name
-    rounded:   ['frame', 'image'] // array shorthand: kinds only
+    rounded:   ['frame', 'image'],// array shorthand: kinds only
+    // typed groups: same group = mutually exclusive (one select), stack across groups
+    panel:     { title: 'Panel', on: 'frame', group: 'surface' },
+    'panel-muted': { title: 'Muted', on: 'frame', group: 'surface' },
   },
 
   // element-system breakpoints (max-widths, px). Literal numbers only — see §6.
@@ -86,44 +89,52 @@ export default defineComposer({
   site's SCSS and `.block.yml` files.
 - `on` filters which element kinds offer the class (`'frame' | 'text' | 'image'`, or an
   array). It's the only required metadata; `title` defaults to the key.
+- `group` (full form only) makes classes **mutually exclusive within the group** — one
+  Style select per group, single-pick; classes in different groups stack on the element.
+  Ungrouped classes share one implicit default group labelled "Style". See §3.
 - All three sections are optional. A site with only `components` behaves exactly as today.
 - Types live in `mechanica-shared` (`ComposerManifest`, `ComposerClassDefinition`,
   DOM-free); `defineComposer` in `mechanica` narrows `component` to a Vue `Component`
   (identity function, the `defineWidget` pattern).
 - `collect-components.ts` keeps generating `virtual:mechanica/components`, now from
   `manifest.components`, and additionally exports **`classDefs`** — the normalized list
-  `{ cls, title, kinds }[]` (shorthands unfolded) — consumed only by the composer entry.
-  `registerComponents` is unchanged.
+  `{ cls, title, kinds, group? }[]` (shorthands unfolded) — consumed only by the composer
+  entry. `registerComponents` is unchanged.
 
 The split also gives future manifest sections an obvious home (color tokens for
 `ColorField`, font lists) without new files or options.
 
-## 3. Designer surface: one **Style** row
+## 3. Designer surface: a **Style** select per group
 
-A single `VSelect` — **Style: None / Container / …** — at the top of the element's core
-section in `ComposerInspector` (above Size for frames, above Typography for text), shown
-*only when the manifest declares classes for that kind*. Sites without classes see zero
-new UI.
+A `VSelect` **per group** in a section near the top of the element's core (above Content /
+Size), shown *only when the manifest declares classes for that kind*. Sites without classes
+see zero new UI. Ungrouped classes form one select labelled **Style** (the default group,
+first); each named `group` adds its own single-pick select labelled by the humanized key
+("Surface", "Elevation", …). So a designer picks a *role per axis* — never composes a raw
+class list — and the axes stack: a frame can be Container **and** Panel at once, while Panel
+vs Muted stay exclusive. Precedence stays clear because the developer guarantees groups are
+orthogonal (each group's classes touch different properties). This is the Figma model
+(separate fill / text / effect styles), not Webflow's flat combo list.
 
-- **Single-select in v1**, like Figma's text styles. The data key `cls` is a plain string,
-  so it can hold several space-separated classes later if stacking ever proves necessary —
-  exclusive-pick covers the motivating cases (container widths, type scale) and avoids
-  class-ordering fights.
+- **Single-pick within a group** — like Figma's style categories. The `cls` data key is a
+  space-separated string holding at most one class per group; the element renderer already
+  renders every token, so stacking needs no data-model change.
 - **Base-only**, like `tag` / `content` / `src` — a class is responsive *inside its own
-  CSS*, so it must not fork per breakpoint. In breakpoint mode the row writes base,
-  exactly like those props.
-- A stale value (class no longer in the manifest) still shows in the select as
-  `container (missing)` rather than silently vanishing; picking None removes the key.
-- Placed **components / composed blocks** do *not* get a Style row — an SFC styles itself;
-  their optional props stay Margin + Position only.
-- The canvas is instantly WYSIWYG: the composer page already loads the site CSS, so
-  picking "Heading 1" shows the real `h1` style, and the measured size badge / SizeInput
-  reflect it.
+  CSS*, so it must not fork per breakpoint. In breakpoint mode the row writes base.
+- A stale value (class no longer in the manifest) still shows — marked `x (missing)` — in
+  the default "Style" select; picking None removes it. Other groups' picks are preserved
+  when you change one group.
+- Placed **components / composed blocks** get no Style row — an SFC styles itself; their
+  optional props stay Margin + Position only.
+- The canvas is instantly WYSIWYG: the composer page already loads the site CSS, so picking
+  "Heading 1" shows the real `h1` style, and the measured size badge / SizeInput reflect it.
 
-Data model: `cls?: string` on element data, persisted in the `.block.yml` template like
-any other key. Elements append it to their class list
-(`class: ['mxel mxel-frame', data.cls]`, tokens sanitized). Rendering needs nothing else —
-dev, SSR, export, shot all just work.
+Data model: `cls?: string` (space-separated) on element data, persisted in the `.block.yml`
+template like any other key. Pure grouping/replace logic lives in
+`editor/composer/lib/class-groups.ts` (`classGroupsFor` / `selectedClass` / `setGroupClass`,
+unit-tested). Elements append the sanitized tokens to their class list
+(`classAttr('mxel mxel-frame', data.cls)`). Rendering needs nothing else — dev, SSR, export,
+shot all just work.
 
 ## 4. The cascade: class vs knob
 
@@ -244,12 +255,18 @@ breakpoints: { md: 900, sm: 560 }   // max-widths in px; defaults 1024 / 640
   and the element system can now agree on one set of numbers, declared where the design
   system already lives.
 
+**Typed groups (added 2026-07-05).** `classes` entries may carry a `group`; same group =
+mutually exclusive (one Style select), different groups stack. See §3 — this replaced the
+original single-select v1 without a data-model change (`cls` was always a space-separated
+string).
+
 ## 7. Out of scope (deliberately)
 
 - Classes on placed components / composed-block instances, and on page blocks.
 - Parsing the site's CSS to validate or preview class contents — the canvas is the preview.
-- Exclusivity groups, multi-class chips, per-breakpoint class switching — all expressible
-  later without data-model changes (`cls` is a string).
+- Free multi-class chips / per-token ordering (Webflow combo classes) and per-breakpoint
+  class switching — typed groups (§3) cover the "base + variant" need cascade-safely; the
+  rest stays expressible later without data-model changes (`cls` is a string).
 - Renaming/tracking classes across `.block.yml` files when the manifest changes.
 - Custom breakpoint *names/counts*.
 

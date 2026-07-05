@@ -39,9 +39,14 @@ export default defineComposer({
     card: 'card',
   },
   classes: {
+    // Ungrouped classes share one "Style" select (single pick per element).
     'ds-container': { title: 'Container', on: 'frame' },
     'ds-display': { title: 'Display heading', on: 'text' },
     'ds-lead': { title: 'Lead paragraph', on: 'text' },
+    // A typed group: "Surface" is its own select (Panel vs Muted are exclusive),
+    // and it stacks with Container — so a frame can be Container + Panel at once.
+    'ds-panel': { title: 'Panel', on: 'frame', group: 'surface' },
+    'ds-panel-muted': { title: 'Muted panel', on: 'frame', group: 'surface' },
   },
   breakpoints: { md: 1024, sm: 640 },
 })

@@ -21,6 +21,17 @@ describe('normalizeClassManifest', () => {
     ])
   })
 
+  it('carries a group only when declared (full form)', () => {
+    const defs = normalizeClassManifest({
+      panel: { title: 'Panel', on: 'frame', group: 'surface' },
+      plain: { title: 'Plain', on: 'frame' },
+    })
+    expect(defs).toEqual([
+      { cls: 'panel', title: 'Panel', kinds: ['frame'], group: 'surface' },
+      { cls: 'plain', title: 'Plain', kinds: ['frame'] },
+    ])
+  })
+
   it('drops entries with no valid kind and dedupes kinds', () => {
     const defs = normalizeClassManifest({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

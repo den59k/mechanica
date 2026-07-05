@@ -12,9 +12,9 @@ import type {
  * See COMPOSER-MANIFEST.md § 2.
  *
  * Shorthands:
- *  - `'text'`            → `{ on: ['text'] }`
- *  - `['frame', 'image']`→ `{ on: ['frame', 'image'] }`
- *  - `{ title?, on }`    → as written
+ *  - `'text'`               → `{ on: ['text'] }`
+ *  - `['frame', 'image']`   → `{ on: ['frame', 'image'] }`
+ *  - `{ title?, on, group? }` → as written (only the full form carries a group)
  */
 export function normalizeClassManifest(
   classes: Record<string, ComposerClassEntry> | undefined,
@@ -26,8 +26,10 @@ export function normalizeClassManifest(
     if (entry == null) continue
     const kinds = classKinds(entry)
     if (!kinds.length) continue
-    const title = typeof entry === 'object' && !Array.isArray(entry) && entry.title ? entry.title : cls
-    out.push({ cls, title, kinds })
+    const full = typeof entry === 'object' && !Array.isArray(entry) ? entry : null
+    const def: ComposerClassDef = { cls, title: full?.title || cls, kinds }
+    if (full?.group) def.group = full.group
+    out.push(def)
   }
   return out
 }
