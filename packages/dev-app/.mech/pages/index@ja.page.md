@@ -10,43 +10,23 @@ data:
 ---
 
 ::: banner #5807eef5-b60c-457e-b0d4-a07f7facf810
-image:
-  src: /@mechanica/assets/ChatGPT Image 4 дек. 2025 г., 18_38_04.png
-  width: 1024
-  height: 1024
-  focalX: 0.176
-  focalY: 0.684
 heading: バナー見出し
 caption: 新しいバナーです！
 :::
 
 ::: landing-hero #hero
-eyebrow: Vite 8 · Vue 3.5 · Bun
 title: ビジュアルブロックエディタで Vue サイトを構築
 primaryLabel: 作り始める
-primaryHref: "#get-started"
-secondary:
-  url: /docs
-  title: ドキュメントを読む
-  external: false
-  openNewTab: true
+secondary: { title: ドキュメントを読む }
 note: オープンソース · MIT ライセンス
-@subtitle
-ブロックを本物の Vue コンポーネントとして記述。ブラウザ内のライブエディタでページ上に配置。今日は静的サイトを書き出し、明日はサーバーでレンダリング。
+subtitle: ブロックを本物の Vue コンポーネントとして記述。ブラウザ内のライブエディタでページ上に配置。今日は静的サイトを書き出し、明日はサーバーでレンダリング。
 :::
 
 ::: logo-strip #logos
 label: モダンで高速なツールチェーンの上に構築
-items:
-  - { name: Vue 3 }
-  - { name: Vitest 4 }
-  - { name: Vite 8 }
-  - { name: Bun }
-  - { name: TypeScript }
 :::
 
 ::: feature-grid #features
-anchor: features
 eyebrow: Mechanica を選ぶ理由
 title: すべてが Vue コンポーネント
 items:
@@ -68,22 +48,18 @@ items:
   - icon: ⚡
     title: Vite 8 + Bun
     text: ソースレベルのコンパイル、文字列操作なし。高速な開発とビルド。
-@subtitle
-独自のブロック形式はありません。あなたのブロックは本物の SFC — 型付き、テスト可能、そしてあなたのもの。
+subtitle: 独自のブロック形式はありません。あなたのブロックは本物の SFC — 型付き、テスト可能、そしてあなたのもの。
 :::
 
 ::: card #f9354ac2-2cf5-45a8-89d5-41c4b93ed40a
 title: カードの見出し
 ::: testimonial #quote
-author: Alex Rivera
 role: フロントエンドリード、Northwind
-avatar: { src: "" }
 @quote
 CMS テンプレートの絡まりを、ひと晩で Mechanica のブロックに置き換えました。編集者は本物のビジュアルツールを手にし、私たちは普通の Vue コンポーネントを git で管理し続けられます。
 :::
 
 ::: pricing #pricing
-anchor: pricing
 eyebrow: 料金
 title: 無料で始めて、出荷時に拡張。
 subtitle: エディタと静的書き出しはオープンソース。ホスティングレンダリングは近日公開。
@@ -127,28 +103,18 @@ plans:
 :::
 
 ::: cta-band #cta
-anchor: get-started
 title: 今日、最初のブロックを出荷しよう
 subtitle: リポジトリをクローンし、dev サーバーを起動して、配置を始めましょう。
 primaryLabel: 作り始める
-primaryHref: "#"
-note: bun create mechanica@latest
 :::
 
 ::: /card
 
 ::: fields-demo #bed0813f-f3a8-44a0-806f-dcb59896c7e0
 title: チェックボックスとドロップダウン
-tone: brand
-size: lg
-bordered: true
-rounded: true
-@text
-このブロックをエディタで開いてください — Tone と Size のドロップダウンと 2 つのチェックボックスがこのカードのスタイルをライブで変更します。
+text: このブロックをエディタで開いてください — Tone と Size のドロップダウンと 2 つのチェックボックスがこのカードのスタイルをライブで変更します。
 :::
 
 ::: banner #9d80eaae-9a4c-4c85-9571-39cfe96d7494
-image: { src: "" }
 heading: バナー見出し
-caption: ""
 :::

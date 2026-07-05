@@ -54,13 +54,16 @@ describe('getPagePath with a locale', () => {
 })
 
 describe('createTranslation / translationsOf / deleteTranslation', () => {
-  it('seeds a translation from the default-locale content', () => {
+  it('creates an empty (fully inherited) translation', () => {
     writePage('about.page.md', { name: 'About', content: [{ id: 'a', blockId: 'hero', data: {} }] })
     createTranslation(mechDir, '/about', 'ru')
 
     expect(exists('about@ru.page.md')).toBe(true)
+    // A fresh translation stores nothing — every field inherits the base until
+    // it's actually translated (buildPageState/export overlay the base on read).
     const ru = readPage(mechDir, '/about', 'ru')
-    expect(ru.content).toHaveLength(1)
+    expect(ru.content).toEqual([])
+    expect(ru.name).toBe('About')
     expect(pageVersion(mechDir, '/about', 'ru')).not.toBeNull()
   })
 
@@ -105,6 +108,32 @@ describe('savePage / pageVersion per locale', () => {
     expect(pageVersion(mechDir, '/about', 'ru')).toBeNull()
     savePage(mechDir, '/about', { content: [{ id: 'a', blockId: 'x', data: {} }] }, 'ru')
     expect(exists('about@ru.page.md')).toBe(true)
+  })
+
+  it('stores only fields that differ from the base (shared fields inherit)', () => {
+    writePage('about.page.md', {
+      content: [
+        { id: 'hero', blockId: 'banner', data: { image: { src: '/car.png' }, heading: 'Hello' } },
+        { id: 'cta', blockId: 'cta-band', data: { title: 'Ship', href: '#go' } },
+      ],
+    })
+    // The editor sends the full (merged) content back with one heading translated.
+    savePage(
+      mechDir,
+      '/about',
+      {
+        content: [
+          { id: 'hero', blockId: 'banner', data: { image: { src: '/car.png' }, heading: 'Привет' } },
+          { id: 'cta', blockId: 'cta-band', data: { title: 'Ship', href: '#go' } },
+        ],
+      },
+      'ru',
+    )
+    // Only the translated block + field persist; the shared image and the
+    // untouched block collapse away — they inherit the base.
+    expect(readPage(mechDir, '/about', 'ru').content).toEqual([
+      { id: 'hero', blockId: 'banner', data: { heading: 'Привет' } },
+    ])
   })
 })
 

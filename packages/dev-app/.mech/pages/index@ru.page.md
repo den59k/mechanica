@@ -10,26 +10,14 @@ data:
 ---
 
 ::: banner #5807eef5-b60c-457e-b0d4-a07f7facf810
-image:
-  src: /@mechanica/assets/ChatGPT Image 4 дек. 2025 г., 18_38_04.png
-  width: 1024
-  height: 1024
-  focalX: 0.176
-  focalY: 0.684
 heading: Заголовок баннера
 caption: Совершенно новый баннер!
 :::
 
 ::: landing-hero #hero
-eyebrow: Vite 8 · Vue 3.5 · Bun
 title: Создавайте сайты на Vue с визуальным блочным редактором
 primaryLabel: Начать
-primaryHref: "#get-started"
-secondary:
-  url: /docs
-  title: Читать документацию
-  external: false
-  openNewTab: true
+secondary: { title: Читать документацию }
 note: Открытый код · Лицензия MIT
 @subtitle
 Пишите блоки как настоящие компоненты Vue. Расставляйте их на странице в живом редакторе прямо в браузере. Экспортируйте статический сайт сегодня — рендерите на сервере завтра.
@@ -37,16 +25,9 @@ note: Открытый код · Лицензия MIT
 
 ::: logo-strip #logos
 label: Построено на современном быстром стеке
-items:
-  - { name: Vue 3 }
-  - { name: Vitest 4 }
-  - { name: Vite 8 }
-  - { name: Bun }
-  - { name: TypeScript }
 :::
 
 ::: feature-grid #features
-anchor: features
 eyebrow: Почему Mechanica
 title: Всё — это компонент Vue
 items:
@@ -75,15 +56,12 @@ items:
 ::: card #f9354ac2-2cf5-45a8-89d5-41c4b93ed40a
 title: Заголовок карточки
 ::: testimonial #quote
-author: Alex Rivera
 role: Frontend-лид, Northwind
-avatar: { src: "" }
 @quote
 Мы заменили клубок CMS-шаблонов на блоки Mechanica за один вечер. Редакторы получают настоящий визуальный инструмент, а мы держим обычные компоненты Vue в git.
 :::
 
 ::: pricing #pricing
-anchor: pricing
 eyebrow: Цены
 title: Начните бесплатно. Масштабируйтесь, когда выпустите продукт.
 subtitle: Редактор и статический экспорт — с открытым кодом. Хостинг-рендеринг уже в пути.
@@ -127,28 +105,19 @@ plans:
 :::
 
 ::: cta-band #cta
-anchor: get-started
 title: Соберите свой первый блок сегодня
 subtitle: Клонируйте репозиторий, запустите dev-сервер и начните расставлять блоки.
 primaryLabel: Начать
-primaryHref: "#"
-note: bun create mechanica@latest
 :::
 
 ::: /card
 
 ::: fields-demo #bed0813f-f3a8-44a0-806f-dcb59896c7e0
 title: Чекбоксы и выпадающие списки
-tone: brand
-size: lg
-bordered: true
-rounded: true
 @text
 Откройте этот блок в редакторе — выпадающие списки Tone и Size и два чекбокса меняют стиль карточки вживую.
 :::
 
 ::: banner #9d80eaae-9a4c-4c85-9571-39cfe96d7494
-image: { src: "" }
 heading: Заголовок баннера
-caption: ""
 :::

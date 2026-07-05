@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import { createHash } from 'node:crypto'
 import { basename, dirname, join, parse, relative } from 'node:path'
 import {
+  diffTranslation,
   migrateContent,
   passDefaultValue,
   walkTree,
@@ -283,15 +284,19 @@ export function deletePage(mechDir: string, urlPath: string): boolean {
   return true
 }
 
-/** Create a translation of a page, seeded from its default-locale content. */
+/**
+ * Create a translation of a page. The file starts empty — every field inherits
+ * the default-locale page until it's actually translated. Reads (buildPageState,
+ * export) overlay the base under the translation, so an empty file renders
+ * identical to the default-locale page (the editor flags it as untranslated).
+ */
 export function createTranslation(mechDir: string, urlPath: string, locale: string): PageFile {
   const target = getPagePath(mechDir, urlPath, locale)
   if (fs.existsSync(target)) throw new PageExistsError(urlPath)
   const source = readPage(mechDir, urlPath)
   const page: PageFile = {
-    content: source.content ?? [],
-    data: source.data ?? {},
-    meta: source.meta,
+    content: [],
+    data: {},
     name: source.name,
     path: source.path,
     ...(source.draft ? { draft: true } : {}),
@@ -371,6 +376,24 @@ export function savePage(
   // captured previews reach the manifest when `sharp` isn't installed.
   if (blocksMeta && page.content) {
     updateImageManifest(mechDir, harvestImageMeta(page.content, blocksMeta))
+  }
+  // A translation stores only what differs from the default-locale page — shared
+  // fields (images, links, layout) inherit at read time. Diff against a base
+  // normalized the same way (defaults + image meta filled, then LQIP stripped)
+  // so equal values compare equal and collapse away.
+  if (locale && pageVersion(mechDir, urlPath) != null) {
+    const base = readPage(mechDir, urlPath)
+    if (blocksMeta && base.content) {
+      fillContentDefaults(base.content)
+      fillImageMeta(mechDir, base.content)
+      harvestImageMeta(base.content, blocksMeta)
+    }
+    const sparse = diffTranslation(
+      { content: base.content ?? [], data: base.data ?? {} },
+      { content: (page.content as ContentBlock[]) ?? [], data: page.data ?? {} },
+    )
+    page.content = sparse.content
+    page.data = sparse.data
   }
   writeFile(file, page)
   return pageVersion(mechDir, urlPath, locale)

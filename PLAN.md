@@ -7,6 +7,25 @@ and [COMPOSER-MANIFEST.md](./COMPOSER-MANIFEST.md) for that work).
 
 ## Implementation status (2026-07-05)
 
+**Done — translation overlays (field-level inheritance):** the storage model below started as a
+**full copy** per locale, with the overlay explicitly deferred ("can be layered on afterwards
+without changing the storage model"). It has now been layered on. A translation file is **sparse**:
+it stores only the fields it changes and **inherits everything else from the default-locale page**,
+so an image/link/color/layout authored once flows into every language automatically — change it
+once, no re-translation. The math is pure and schema-free in **`mechanica-shared/translation.ts`**
+(`mergeTranslation` read-time / `diffTranslation` save-time, over `mergeValue`/`diffValue` +
+block-tree `mergeBlocks`/`diffBlocks`; barrel-exported, 15 unit tests). Two rules, both **base owns
+structure**: (1) blocks match by `id` — base owns which blocks exist and their order (a block added
+to the base appears in every locale, untranslated; overlay-only blocks are dropped); (2) inside a
+block's `data`, **objects deep-merge** (an image's `alt` translated, its `src` inherited) while
+**arrays and scalars replace wholesale** (rich text / a card list is atomic). The JSON shape drives
+localizability — this is the "auto by field type" behavior with **no per-field flag**. Wired into
+`buildPageState` (dev read), export `readTranslation`, `savePage(…, locale)` (diffs against a
+normalized base), and `createTranslation` (now seeds an **empty**, fully-inherited file). Verified
+end-to-end: the dev-app RU/JA home pages carry **no image field** yet render byte-identical banners
+(src + focal point + LQIP) to EN, in both dev shots and the static export. Backward-compatible: an
+old full-copy translation still renders and sparsifies on its next save.
+
 **Done — phase 4 (locale-aware queries):** `usePages`/`usePagination` resolve against the current
 locale. The query engine's `QueryContext.locale` threads to `QuerySource.listPages({ …, locale })`;
 `pages-store.listPages(mechDir, { …, locale })` then lists **only pages translated to that locale**
@@ -84,7 +103,7 @@ switcher in the editor, and URL-prefix routing that resolves `/ru/about` to the 
 avoid, and it breaks folder semantics — `folderName` queries, folder-scoped data, and the
 BreadcrumbList JSON-LD would all see `ru` as a content folder.
 
-## Storage: sibling files, full copy per locale
+## Storage: sibling files, sparse overlay per locale
 
 ```
 .mech/pages/about.page.md        # the default locale — unchanged, existing sites are already
@@ -96,17 +115,19 @@ BreadcrumbList JSON-LD would all see `ru` as a content folder.
 - **Separator is `@`, not a dot.** Dots are legal in page slugs and `getPagePath` maps URL →
   filename directly (`pages-store.ts`), so `about.ru.page.md` would collide with a real page at
   `/about.ru`. `@` cannot appear in a slug; the parse is unambiguous.
-- **Full copy, not a field-level overlay.** The overlay model (shared block tree, per-locale
-  text overrides keyed by node id) was considered and rejected for v1: locales genuinely
-  diverge (different testimonials, legal blocks, text lengths needing different layouts), and
-  overlay merging would touch the codec, save path, undo history, and block reordering all at
-  once. A full copy means `parsePage`/`serializePage`/`savePage` are untouched — a translation
-  is just another page file. Per-locale `draft` falls out for free (a RU translation can be a
-  draft while EN is live), and each language's Markdown stays readable on its own (these files
-  are authored by Claude and by hand). The drift cost ("added a block to EN, forgot RU") is the
-  standard CMS trade-off (WPML, Storyblok folder-level); a staleness indicator mitigates it
-  later (phase 4). A synced/overlay "translation mode" can still be layered on afterwards
-  without changing the storage model.
+- **Sparse overlay on a full-copy-shaped file** (started full-copy — see the *translation
+  overlays* status entry above). The file is still an ordinary `PageDoc` on disk, so
+  `parsePage`/`serializePage` are untouched and per-locale `draft` is free; but it carries **only
+  the fields a translation changes** and inherits the rest from the default-locale page at read
+  time (`mergeTranslation`), and `savePage` diffs it back down to sparse on write
+  (`diffTranslation`). This kills the drift cost the original full-copy model accepted — a shared
+  image/link/color authored once in the default locale flows into every language, and a block
+  **added** to the base appears (untranslated) in every locale instead of silently missing. The
+  cost the overlay pays back: **base owns structure**, so a locale can't reorder or introduce
+  blocks (that was the one thing full-copy allowed and this doesn't; it's the right trade for a
+  *translation*, and a genuinely divergent page is a different page). Because the merge is
+  schema-free and object-deep/array-atomic, localizability needs **no per-field annotation** — an
+  image inherits, its `alt` can be overridden, rich text is atomic.
 - Per-page `<head>` data (`head.title`, `head.description`) is page-scoped `defineData` living
   *in* the page file — head translation therefore needs **zero extra work**.
 

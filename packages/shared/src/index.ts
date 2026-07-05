@@ -88,6 +88,17 @@ export {
 
 export { migrateContent, findUnknownBlocks } from './migrate'
 
+export {
+  mergeTranslation,
+  diffTranslation,
+  mergeValue,
+  diffValue,
+  mergeBlocks,
+  diffBlocks,
+  deepEqual,
+  type TranslationDoc,
+} from './translation'
+
 // The `.page.md` codec is deliberately NOT re-exported here: it pulls in the
 // YAML parser, and this barrel is imported by the client runtime — nothing in
 // a production page needs to parse pages. Server-side callers (dev store,

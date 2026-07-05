@@ -1,4 +1,4 @@
-import { parseLocalePath, type LocalesConfig, type PageMeta } from 'mechanica-shared'
+import { parseLocalePath, mergeTranslation, type LocalesConfig, type PageMeta } from 'mechanica-shared'
 import {
   readPage,
   pageVersion,
@@ -62,9 +62,24 @@ export function buildPageState(
   // content when the page isn't translated yet (the editor flags it).
   let fallback = false
   let page = readPage(mechDir, pagePath, localeCode)
-  if (localeCode && pageVersion(mechDir, pagePath, localeCode) == null) {
-    page = readPage(mechDir, pagePath)
-    fallback = true
+  if (localeCode) {
+    const hasTranslation = pageVersion(mechDir, pagePath, localeCode) != null
+    const hasBase = pageVersion(mechDir, pagePath) != null
+    if (!hasTranslation) {
+      page = readPage(mechDir, pagePath)
+      fallback = true
+    } else if (hasBase) {
+      // Overlay the sparse translation on the default-locale page: the base owns
+      // the block structure, and every field the translation doesn't override
+      // (images, links, colors, layout) inherits automatically.
+      const base = readPage(mechDir, pagePath)
+      const merged = mergeTranslation(
+        { content: base.content ?? [], data: base.data ?? {}, meta: base.meta ?? {} },
+        { content: page.content ?? [], data: page.data ?? {}, meta: page.meta ?? {} },
+      )
+      page = { ...page, content: merged.content, data: merged.data, meta: merged.meta }
+    }
+    // hasTranslation && !hasBase → a standalone translation; render it as-is.
   }
 
   const content = page.content ?? []

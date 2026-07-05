@@ -10,6 +10,7 @@ import {
   generateProject,
   isPaginatedQuery,
   localePath,
+  mergeTranslation,
   migrateContent,
   paginationVariantPath,
   registerFieldSchemas,
@@ -145,22 +146,43 @@ async function readTranslation(
   if (doc.draft) return null
   const rel = relative(join(mechDir, 'pages'), file).replace(/\\/g, '/')
   const dir = dirname(rel) === '.' ? '' : dirname(rel)
+  // Overlay the sparse translation on the default-locale page: the base owns the
+  // block structure, and shared fields (images, links, colors) the translation
+  // doesn't override inherit — exactly like the dev server's buildPageState.
+  let content = doc.content ?? []
+  let pageData = doc.data ?? {}
+  let pageMeta = doc.meta
+  try {
+    const baseDoc = parsePage(
+      await readFile(getPagePath(mechDir, base.logicalPath), 'utf-8'),
+      richText ? { richText } : undefined,
+    )
+    const merged = mergeTranslation(
+      { content: baseDoc.content ?? [], data: baseDoc.data ?? {}, meta: baseDoc.meta ?? {} },
+      { content: doc.content ?? [], data: doc.data ?? {}, meta: doc.meta ?? {} },
+    )
+    content = merged.content
+    pageData = merged.data
+    pageMeta = merged.meta
+  } catch {
+    // No base file (a standalone translation) — render the translation as-is.
+  }
   // `localized` shared data: fold this locale's folder override (over the base
   // folder data) and site override in, so translated nav/footer strings render.
   // Precedence stays site < folder < page (base site rides `projectData`).
   const folderData = readFolderData(mechDir, dir || null, locale)
   const siteOverride = readSiteLocaleOverride(mechDir, locale)
-  const data = { ...siteOverride, ...folderData, ...(doc.data ?? {}) }
+  const data = { ...siteOverride, ...folderData, ...pageData }
   const lastmod =
     typeof doc.meta?.lastmod === 'string'
       ? doc.meta.lastmod
       : await stat(file).then((s) => s.mtime.toISOString().slice(0, 10)).catch(() => undefined)
-  const meta = base.logicalPath === '/404' ? { noindex: true, ...doc.meta } : doc.meta
+  const meta = base.logicalPath === '/404' ? { noindex: true, ...pageMeta } : pageMeta
   return {
     path: localePath(base.logicalPath, locale, config),
     logicalPath: base.logicalPath,
     locale,
-    content: doc.content ?? [],
+    content,
     data,
     name: doc.name ?? base.name,
     lastmod,

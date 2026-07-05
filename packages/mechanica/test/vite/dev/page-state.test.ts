@@ -89,6 +89,38 @@ describe('buildPageState locale routing', () => {
     expect(state.version).not.toBeNull()
   })
 
+  it('inherits shared fields from the base; a later base edit propagates', () => {
+    writePage('home.page.md', {
+      content: [
+        { id: 'hero', blockId: 'banner', data: { image: { src: '/car.png', width: 1024 }, heading: 'Hello' } },
+      ],
+    })
+    createTranslation(mechDir, '/home', 'ru')
+    // A translation that only translates the heading (the image is left shared).
+    savePage(
+      mechDir,
+      '/home',
+      {
+        content: [
+          { id: 'hero', blockId: 'banner', data: { image: { src: '/car.png', width: 1024 }, heading: 'Привет' } },
+        ],
+      },
+      'ru',
+    )
+    const ru = buildPageState(mechDir, '/ru/home', config)
+    expect(ru.content[0]!.data).toEqual({ image: { src: '/car.png', width: 1024 }, heading: 'Привет' })
+
+    // Changing the image in the default locale flows into the translation with
+    // no re-translation — the whole point of the overlay model.
+    savePage(mechDir, '/home', {
+      content: [
+        { id: 'hero', blockId: 'banner', data: { image: { src: '/tesla.png', width: 2048 }, heading: 'Hello' } },
+      ],
+    })
+    const ru2 = buildPageState(mechDir, '/ru/home', config)
+    expect(ru2.content[0]!.data).toEqual({ image: { src: '/tesla.png', width: 2048 }, heading: 'Привет' })
+  })
+
   it('falls back to default content (flagged) when a translation is missing', () => {
     writePage('about.page.md', { content: [{ id: 'a', blockId: 'x', data: { t: 'en' } }] })
     const state = buildPageState(mechDir, '/ru/about', config)
