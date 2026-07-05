@@ -1,8 +1,9 @@
 <template>
   <!-- Box-model editor: the four side fields sit where they act — top on top,
        left on the left, etc. — around a glyph standing in for the element, so
-       the spatial position *is* the label. Used for padding and margin. -->
-  <div class="mech-composer__box">
+       the spatial position *is* the label. Used for padding and margin. Holding
+       Alt edits a side and its opposite together (top↔bottom, left↔right). -->
+  <div class="mech-composer__box" :class="{ 'is-alt': altHeld }">
     <NumInput
       class="mech-composer__box-t"
       scrub
@@ -40,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import NumInput from './NumInput.vue'
 import { parsePadding, setSide, type Sides } from '../lib/padding'
 
@@ -55,7 +56,25 @@ const props = defineProps<{
 const emit = defineEmits<{ 'update:modelValue': [value: number | number[]] }>()
 
 const sides = computed<Sides>(() => parsePadding(props.modelValue))
+
+// Alt mirrors an edit to the opposite side (top↔bottom, left↔right), like the
+// canvas padding drag. Tracked globally so it applies mid-scrub, on arrow keys,
+// and while typing — and drives the `is-alt` preview highlight in CSS.
+const altHeld = ref(false)
+const syncAlt = (e: KeyboardEvent) => (altHeld.value = e.altKey)
+const clearAlt = () => (altHeld.value = false)
+onMounted(() => {
+  window.addEventListener('keydown', syncAlt)
+  window.addEventListener('keyup', syncAlt)
+  window.addEventListener('blur', clearAlt)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', syncAlt)
+  window.removeEventListener('keyup', syncAlt)
+  window.removeEventListener('blur', clearAlt)
+})
+
 // setSide collapses back to the shortest form, so all-equal sides stay a single number.
 const setSideVal = (side: keyof Sides, n: number | undefined) =>
-  emit('update:modelValue', setSide(props.modelValue, side, n ?? 0))
+  emit('update:modelValue', setSide(props.modelValue, side, n ?? 0, altHeld.value))
 </script>

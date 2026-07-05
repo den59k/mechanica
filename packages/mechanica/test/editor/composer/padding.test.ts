@@ -43,6 +43,12 @@ describe('setSide (one side at a time) collapses to the shortest form', () => {
   it('produces the full form for an asymmetric edit', () => {
     expect(setSide([96, 24], 'l', 40)).toEqual([96, 24, 96, 40])
   })
+  it('mirrors to the opposite side when symmetric (Alt)', () => {
+    // Top 40 with its opposite (bottom) → 40; left/right stay 10 → [40, 10].
+    expect(setSide(10, 't', 40, true)).toEqual([40, 10])
+    // Left 32 mirrors to right; top/bottom keep their own values.
+    expect(setSide([12, 4, 20, 4], 'l', 32, true)).toEqual([12, 32, 20, 32])
+  })
 })
 
 describe('computePaddingDrag', () => {

@@ -20,7 +20,7 @@
         v-for="p in padStrips"
         :key="'pad' + p.side"
         class="mech-composer__pad-strip"
-        :class="[`is-${p.side}`, { 'is-active': padDragging === p.side }]"
+        :class="[`is-${p.side}`, { 'is-active': padDragging === p.side, 'is-mirror': padMirrorSide === p.side }]"
         :style="boxStyle(p.box)"
         :title="`Padding ${padSideValue(p.side)}`"
         @pointerdown.stop.prevent="startPadDrag(p.side, $event)"
@@ -93,6 +93,12 @@ const gapValue = computed(() => {
 
 const padStrips = ref<{ side: Side; box: Box }[]>([])
 const padDragging = ref<Side | null>(null)
+const padAlt = ref(false) // Alt held during a padding drag → mirror to the opposite side
+const PAD_OPPOSITE: Record<Side, Side> = { t: 'b', b: 't', l: 'r', r: 'l' }
+// The strip opposite the one being dragged, highlighted while Alt mirrors the edit.
+const padMirrorSide = computed<Side | null>(() =>
+  padDragging.value && padAlt.value ? PAD_OPPOSITE[padDragging.value] : null,
+)
 const PAD_MIN = 6 // minimum grab thickness (screen px) so 0 padding is draggable
 const SNAP = 4 // Shift-drag snaps gap / padding / size to this grid
 // Each side's drag axis + which pointer direction grows it. Composer frames are
@@ -317,6 +323,7 @@ function startPadDrag(side: Side, event: PointerEvent) {
   const startSides = parsePadding(store.effective(frame, 'padding'))
   const startPos = axis === 'x' ? event.clientX : event.clientY
   padDragging.value = side
+  padAlt.value = event.altKey
 
   const loop = () => {
     measure()
@@ -324,7 +331,11 @@ function startPadDrag(side: Side, event: PointerEvent) {
   }
   padRaf = requestAnimationFrame(loop)
 
+  // Track Alt independently of pointer movement so the opposite strip lights up
+  // the instant Alt is pressed, not only on the next drag tick.
+  const onKey = (e: KeyboardEvent) => (padAlt.value = e.altKey)
   const onMove = (e: PointerEvent) => {
+    padAlt.value = e.altKey
     const pos = axis === 'x' ? e.clientX : e.clientY
     const delta = (sign * (pos - startPos)) / store.zoom
     // Alt mirrors the value to the opposite side; Shift snaps to the grid.
@@ -335,11 +346,16 @@ function startPadDrag(side: Side, event: PointerEvent) {
     cancelAnimationFrame(padRaf)
     padRaf = 0
     padDragging.value = null
+    padAlt.value = false
+    window.removeEventListener('keydown', onKey)
+    window.removeEventListener('keyup', onKey)
     window.removeEventListener('pointermove', onMove)
     window.removeEventListener('pointerup', onUp)
     history.commit()
     remeasure()
   }
+  window.addEventListener('keydown', onKey)
+  window.addEventListener('keyup', onKey)
   window.addEventListener('pointermove', onMove)
   window.addEventListener('pointerup', onUp)
 }

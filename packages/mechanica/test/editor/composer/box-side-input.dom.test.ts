@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { createApp, h } from 'vue'
+import { createApp, h, ref } from 'vue'
 import BoxSideInput from '@/editor/composer/components/BoxSideInput.vue'
 
 beforeEach(() => {
@@ -7,7 +7,9 @@ beforeEach(() => {
 })
 
 function mount(initial: unknown, opts: { min?: number; label?: string } = {}) {
-  const state = { value: initial }
+  // A ref so edits flow back into modelValue and the field re-renders — needed to
+  // chain edits (e.g. the Alt-mirror test edits two sides in sequence).
+  const state = ref(initial)
   const host = document.createElement('div')
   document.body.appendChild(host)
   const app = createApp({
@@ -75,5 +77,18 @@ describe('BoxSideInput', () => {
     window.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
     await flush()
     expect(state.value).toEqual([28, 16, 16, 16]) // 16 + 12px of drag
+  })
+
+  it('mirrors an edit to the opposite side while Alt is held', async () => {
+    const { host, state } = mount(10)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Alt', altKey: true }))
+    type(field(host, 'Top padding'), '40') // top + bottom → 40; left/right stay 10
+    await flush()
+    expect(state.value).toEqual([40, 10])
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Alt', altKey: false }))
+    // Alt released → a later edit touches only its own side.
+    type(field(host, 'Left padding'), '4')
+    await flush()
+    expect(state.value).toEqual([40, 10, 40, 4])
   })
 })

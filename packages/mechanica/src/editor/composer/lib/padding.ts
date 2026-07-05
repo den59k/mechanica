@@ -38,12 +38,17 @@ export function collapsePadding(s: Sides): number | number[] {
   return [s.t, s.r, s.b, s.l]
 }
 
-/** Set one side, returning the collapsed value ready to store. */
-export function setSide(value: unknown, side: keyof Sides, next: number): number | number[] {
-  return collapsePadding({ ...parsePadding(value), [side]: next })
-}
-
 const OPPOSITE: Record<keyof Sides, keyof Sides> = { t: 'b', b: 't', l: 'r', r: 'l' }
+
+/**
+ * Set one side — and, when `symmetric` (Alt held), its opposite too — returning
+ * the collapsed value ready to store.
+ */
+export function setSide(value: unknown, side: keyof Sides, next: number, symmetric = false): number | number[] {
+  const sides = { ...parsePadding(value), [side]: next }
+  if (symmetric) sides[OPPOSITE[side]] = next
+  return collapsePadding(sides)
+}
 
 /**
  * New per-side padding from a drag gesture. Adds the signed `delta` to the

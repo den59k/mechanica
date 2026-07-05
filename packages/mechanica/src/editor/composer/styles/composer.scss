@@ -360,7 +360,8 @@ $space: #e5227f; // Figma-style spacing pink for gap + padding editing (distinct
 .mech-composer__gap:hover .mech-composer__space-label,
 .mech-composer__gap.is-active .mech-composer__space-label,
 .mech-composer__pad-strip:hover .mech-composer__space-label,
-.mech-composer__pad-strip.is-active .mech-composer__space-label {
+.mech-composer__pad-strip.is-active .mech-composer__space-label,
+.mech-composer__pad-strip.is-mirror .mech-composer__space-label {
   opacity: 1;
 }
 // Padding-drag strips: the inset region fills pink on hover / while dragging.
@@ -382,7 +383,9 @@ $space: #e5227f; // Figma-style spacing pink for gap + padding editing (distinct
     cursor: ew-resize;
   }
   &:hover,
-  &.is-active {
+  &.is-active,
+  // Alt-mirror: the opposite side is changing too, so it lights up like the active one.
+  &.is-mirror {
     background: rgba($sel, 0.18);
   }
   // Padding stays on the blue selection colour; only gaps are pink.
@@ -1016,6 +1019,20 @@ $space: #e5227f; // Figma-style spacing pink for gap + padding editing (distinct
   height: 13px;
   border-radius: 3px;
   background: var(--mech-border-strong);
+}
+// Alt held → hovering or scrubbing a side previews its opposite (the pair that
+// will change together), so the mirror is visible before you commit an edit.
+.mech-composer__box.is-alt {
+  &:has(.mech-composer__box-t:hover) .mech-composer__box-b,
+  &:has(.mech-composer__box-t.is-scrubbing) .mech-composer__box-b,
+  &:has(.mech-composer__box-b:hover) .mech-composer__box-t,
+  &:has(.mech-composer__box-b.is-scrubbing) .mech-composer__box-t,
+  &:has(.mech-composer__box-l:hover) .mech-composer__box-r,
+  &:has(.mech-composer__box-l.is-scrubbing) .mech-composer__box-r,
+  &:has(.mech-composer__box-r:hover) .mech-composer__box-l,
+  &:has(.mech-composer__box-r.is-scrubbing) .mech-composer__box-l {
+    box-shadow: inset 0 0 0 1px var(--mech-accent);
+  }
 }
 .mech-composer__row--top {
   align-items: flex-start;
