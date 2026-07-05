@@ -9,20 +9,21 @@
     @pointerleave="hoverId = null"
     @mousedown.middle.prevent
   >
-    <div class="mech-composer__world" :style="worldStyle">
-      <div
-        ref="canvasEl"
-        class="mech-composer__canvas"
-        :class="{ 'is-editing': !!editingId }"
-        :style="canvasStyle"
-        @click.capture="onClick"
-        @dblclick="onCanvasDblClick"
-      >
-        <CanvasContent />
-        <div v-if="isEmpty" class="mech-composer__empty">
-          <p>This block is empty.</p>
-          <p>Drag a Row, Column, or Text from the left — or click one — to get started.</p>
-        </div>
+    <!-- The world is the artboard: its width is the device width and the root
+         frame (w: fill) fills it, so the root block itself is the visible surface
+         — no separate canvas underlay. -->
+    <div
+      ref="worldEl"
+      class="mech-composer__world"
+      :class="{ 'is-editing': !!editingId }"
+      :style="worldStyle"
+      @click.capture="onClick"
+      @dblclick="onCanvasDblClick"
+    >
+      <CanvasContent />
+      <div v-if="isEmpty" class="mech-composer__empty">
+        <p>This block is empty.</p>
+        <p>Drag a Row, Column, or Text from the left — or click one — to get started.</p>
       </div>
     </div>
     <CanvasOverlay :hover-id="hoverId" />
@@ -80,7 +81,7 @@ const hoverId = ref<string | null>(null)
 const editingId = ref<string | null>(null)
 
 const viewportEl = ref<HTMLElement>()
-const canvasEl = ref<HTMLElement>()
+const worldEl = ref<HTMLElement>()
 
 const isEmpty = computed(() => {
   const children = store.rootFrame.children
@@ -96,12 +97,13 @@ const CanvasContent = defineComponent({
   },
 })
 
-// ── View: pan + zoom, applied as one world transform ──────────────────────────
+// ── View: pan + zoom, applied as one world transform. The world's width is the
+// device width — the artboard — so the root frame (w: fill) spans it. ──────────
 const worldStyle = computed(() => ({
   transform: `translate(${store.panX}px, ${store.panY}px) scale(${store.zoom})`,
   transformOrigin: '0 0',
+  width: `${bpWidth.value}px`,
 }))
-const canvasStyle = computed(() => ({ width: `${bpWidth.value}px` }))
 
 const view = (): View => ({ zoom: store.zoom, panX: store.panX, panY: store.panY })
 const applyView = (v: View) => {
@@ -133,7 +135,7 @@ function zoomStep(factor: number) {
 function fit() {
   const rect = viewportEl.value?.getBoundingClientRect()
   if (!rect) return
-  const height = canvasEl.value?.offsetHeight ?? 400
+  const height = worldEl.value?.offsetHeight ?? 400
   applyView(fitView(rect.width, rect.height, bpWidth.value, height))
 }
 
@@ -239,10 +241,10 @@ function beginMarquee(event: PointerEvent, pressedId: string | null, additive: b
 
 /** Every element (never the root) whose box intersects the marquee, unioned with `base`. */
 function collectMarqueeHits(rect: Box, base: string[]): string[] {
-  const canvas = canvasEl.value
-  if (!canvas) return base
+  const world = worldEl.value
+  if (!world) return base
   const ids = new Set(base)
-  for (const el of canvas.querySelectorAll<HTMLElement>('[data-block-id]')) {
+  for (const el of world.querySelectorAll<HTMLElement>('[data-block-id]')) {
     const id = el.getAttribute('data-block-id')!
     if (id === store.rootId) continue // the marquee selects children, not the whole block
     const r = el.getBoundingClientRect()

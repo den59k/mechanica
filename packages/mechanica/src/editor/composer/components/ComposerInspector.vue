@@ -186,6 +186,18 @@
         </div>
       </PropToggle>
 
+      <!-- Min size (W + H) — a floor independent of the Size mode -->
+      <PropToggle v-if="avail('minSize')" title="Min size" icon="min-size" :active="active('minSize')" @toggle="toggle('minSize')">
+        <div class="mech-composer__row">
+          <OverrideLabel :overridden="overridden('minWidth')" @reset="resetKey('minWidth')">Min W</OverrideLabel>
+          <NumInput :model-value="num('minWidth')" placeholder="0" :min="0" @update:model-value="set('minWidth', $event, true)" />
+        </div>
+        <div class="mech-composer__row">
+          <OverrideLabel :overridden="overridden('minHeight')" @reset="resetKey('minHeight')">Min H</OverrideLabel>
+          <NumInput :model-value="num('minHeight')" placeholder="0" :min="0" @update:model-value="set('minHeight', $event, true)" />
+        </div>
+      </PropToggle>
+
       <!-- Fill -->
       <PropToggle
         v-if="avail('background')"

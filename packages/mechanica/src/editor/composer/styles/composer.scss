@@ -263,16 +263,14 @@ $margin: #f97316; // translucent orange for margin editing (distinct from paddin
     cursor: grabbing;
   }
 }
+// The world IS the artboard: device-width (set inline), the root frame fills it
+// and supplies its own fill/min-height, so there's no separate canvas underlay.
+// A hairline + soft shadow reads it as a surface even when the root is transparent.
 .mech-composer__world {
   position: absolute;
   top: 0;
   left: 0;
   will-change: transform;
-}
-.mech-composer__canvas {
-  position: relative;
-  min-height: 200px;
-  background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
 
   [contenteditable] {

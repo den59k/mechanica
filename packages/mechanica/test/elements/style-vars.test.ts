@@ -106,6 +106,16 @@ describe('visual style vars (breakpoint-capable)', () => {
     expect(vars).toEqual({ '--el-fit': 'contain', '--el-ratio': '16/9', '--el-radius': '8px' })
   })
 
+  it('maps min-size on frames and leaves, with $bp overrides', () => {
+    expect(responsiveVars({ minWidth: 120, minHeight: 240 }, FRAME_VARS)).toEqual({
+      '--el-minw': '120px',
+      '--el-minh': '240px',
+    })
+    // Leaves get it too (SIZE_VARS → TEXT_VARS/IMAGE_VARS).
+    expect(responsiveVars({ minHeight: 64 }, SIZE_VARS)['--el-minh']).toBe('64px')
+    expect(responsiveVars({ minHeight: 240, $bp: { sm: { minHeight: 120 } } }, FRAME_VARS)['--el-minh-sm']).toBe('120px')
+  })
+
   it('emits suffixed overrides from $bp for style knobs', () => {
     const vars = responsiveVars(
       { size: 48, background: '#fff', $bp: { md: { size: 36 }, sm: { size: 28 } } },

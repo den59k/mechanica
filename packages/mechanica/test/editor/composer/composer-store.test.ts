@@ -445,7 +445,9 @@ describe('composer store: optional properties (addProp / removeProp / hasProp)',
   it('hasProp is true when the data already carries the key', () => {
     const { store } = withText()
     expect(store.hasProp(store.rootFrame, 'padding')).toBe(true) // root seeds padding
-    expect(store.hasProp(store.rootFrame, 'background')).toBe(false)
+    expect(store.hasProp(store.rootFrame, 'background')).toBe(true) // …and a white fill
+    expect(store.hasProp(store.rootFrame, 'minSize')).toBe(true) // …and a min-height floor
+    expect(store.hasProp(store.rootFrame, 'radius')).toBe(false)
   })
 
   it('addProp shows the row without writing data; the first edit writes it', () => {

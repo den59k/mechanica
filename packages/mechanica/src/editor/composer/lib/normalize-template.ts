@@ -16,12 +16,17 @@ export function isRootTemplate(template: ContentBlock[]): boolean {
   return template.length === 1 && template[0]!.blockId === 'mech:frame'
 }
 
-/** A fresh root column frame — the starting shape for a new composed block. */
+/**
+ * A fresh root column frame — the starting shape for a new composed block. It
+ * *is* the artboard: `w: 'fill'` spans the page/device width, a white `background`
+ * and a `minHeight` floor make it a visible surface from the first click (no
+ * separate editor "canvas" underlay), and the section padding stays.
+ */
 export function createRootFrame(children: ContentBlock[] = []): ContentBlock {
   return {
     id: 'root',
     blockId: 'mech:frame',
-    data: { direction: 'column', gap: 24, padding: [64, 24] },
+    data: { direction: 'column', gap: 24, padding: [64, 24], w: 'fill', minHeight: 240, background: '#ffffff' },
     children,
   }
 }

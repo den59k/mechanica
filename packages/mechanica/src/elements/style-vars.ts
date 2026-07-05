@@ -85,10 +85,12 @@ export const FRAME_VARS: Record<string, VarSpec> = {
   // background + centered content-column section pattern, without a second box).
   maxWidth: { cssVar: '--el-maxw', to: px },
   grow: { cssVar: '--el-grow', to: (v) => (v ? '1' : '0') },
+  // Min size — a constraint independent of the Hug/Fill/Fixed width/height mode.
+  minWidth: { cssVar: '--el-minw', to: px },
+  minHeight: { cssVar: '--el-minh', to: px },
   // Visual style — variables too, so Fill/Radius/… take per-breakpoint overrides.
   background: { cssVar: '--el-bg', to: str },
   radius: { cssVar: '--el-radius', to: px },
-  minHeight: { cssVar: '--el-minh', to: px },
   shadow: { cssVar: '--el-shadow', to: enumMap(SHADOWS) },
 }
 
@@ -98,6 +100,8 @@ export const SIZE_VARS: Record<string, VarSpec> = {
   h: FRAME_VARS.h!,
   grow: FRAME_VARS.grow!,
   margin: FRAME_VARS.margin!,
+  minWidth: FRAME_VARS.minWidth!,
+  minHeight: FRAME_VARS.minHeight!,
   align: { cssVar: '--el-self', to: alignValue },
   textAlign: { cssVar: '--el-text-align', to: enumMap({ left: 'left', center: 'center', right: 'right' }) },
 }

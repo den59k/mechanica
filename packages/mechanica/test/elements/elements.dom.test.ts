@@ -64,6 +64,23 @@ describe('element blocks', () => {
     expect(frame.style.getPropertyValue('--el-dir-sm')).toBe('column')
   })
 
+  it('maps min-size to shared CSS variables on any element kind', () => {
+    const el = mount({
+      content: [
+        {
+          id: 'f',
+          blockId: 'mech:frame',
+          data: { minWidth: 120, minHeight: 240, $bp: { sm: { minHeight: 160 } } },
+        },
+      ],
+      data: {},
+    })
+    const frame = el.querySelector('.mxel-frame') as HTMLElement
+    expect(frame.style.getPropertyValue('--el-minw')).toBe('120px')
+    expect(frame.style.getPropertyValue('--el-minh')).toBe('240px')
+    expect(frame.style.getPropertyValue('--el-minh-sm')).toBe('160px')
+  })
+
   it('image renders a placeholder when src is empty, an <img> otherwise', () => {
     const empty = mount({ content: [{ id: 'i', blockId: 'mech:image', data: {} }], data: {} })
     expect(empty.querySelector('.mxel-image--empty')?.textContent).toBe('Image')

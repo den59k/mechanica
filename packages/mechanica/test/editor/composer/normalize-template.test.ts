@@ -60,9 +60,13 @@ describe('normalizeTemplate', () => {
 })
 
 describe('createRootFrame', () => {
-  it('defaults to a padded column with the given children', () => {
+  it('defaults to a padded, filled column artboard with a min-height floor', () => {
     const root = createRootFrame([text('a')])
-    expect(root).toMatchObject({ blockId: 'mech:frame', data: { direction: 'column', gap: 24, padding: [64, 24] } })
+    expect(root).toMatchObject({
+      blockId: 'mech:frame',
+      // Fills the device width, white surface, never zero-height — it IS the artboard.
+      data: { direction: 'column', gap: 24, padding: [64, 24], w: 'fill', minHeight: 240, background: '#ffffff' },
+    })
     expect((root.children as ContentBlock[])[0]!.id).toBe('a')
   })
 })

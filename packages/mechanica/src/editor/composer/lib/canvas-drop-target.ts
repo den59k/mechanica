@@ -18,7 +18,9 @@ export interface DropResult {
 }
 
 const LINE_THICKNESS = 2
-const CANVAS_SELECTOR = '.mech-composer__canvas'
+// The artboard element. The root frame fills it, so an in-bounds pointer normally
+// hits the root directly; this is the outside-all-blocks fallback (→ top-level drop).
+const CANVAS_SELECTOR = '.mech-composer__world'
 
 const toRect = (el: Element): Rect => {
   const r = el.getBoundingClientRect()
