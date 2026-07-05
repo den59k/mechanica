@@ -51,6 +51,7 @@ export function generateClientEntry(options: ClientEntryOptions): string {
           `  const params = new URLSearchParams({ q: key })`,
           `  const page = state.page?.pagination?.page`,
           `  if (page) params.set('page', String(page))`,
+          `  if (state.page?.locale) params.set('locale', state.page.locale)`,
           `  return fetch('/@mechanica/query?' + params).then((res) => res.json())`,
           `}`,
         ]

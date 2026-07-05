@@ -1,11 +1,20 @@
 # PLAN.md — Multi-language pages (i18n)
 
-Status: **phases 1–3 implemented & verified** (2026-07-05); phase 4 (polish) deferred. This
-replaces the completed Block Composer plan that previously lived here (see
-[COMPOSER-REDESIGN.md](./COMPOSER-REDESIGN.md) and [COMPOSER-MANIFEST.md](./COMPOSER-MANIFEST.md)
-for that work).
+Status: **phases 1–3 + locale-aware queries implemented & verified** (2026-07-05); the remaining
+phase-4 polish (staleness indicator, per-locale thumbnails) deferred. This replaces the completed
+Block Composer plan that previously lived here (see [COMPOSER-REDESIGN.md](./COMPOSER-REDESIGN.md)
+and [COMPOSER-MANIFEST.md](./COMPOSER-MANIFEST.md) for that work).
 
 ## Implementation status (2026-07-05)
+
+**Done — phase 4 (locale-aware queries):** `usePages`/`usePagination` resolve against the current
+locale. The query engine's `QueryContext.locale` threads to `QuerySource.listPages({ …, locale })`;
+`pages-store.listPages(mechDir, { …, locale })` then lists **only pages translated to that locale**
+and embeds each translation's data/name — so a translated listing shows translated content and
+never links to a page that wasn't rendered at `/<locale>/…`. Dev passes the locale on
+`GET /@mechanica/query?locale=`; the export's `resolveForPage(pageNumber, locale)` keys its query
+cache by locale. Also fixed: a translation's `state.page.path` is now the **logical** path in the
+export (as in dev), so `<Link>` / `pathFor` prefix it for the locale instead of double-prefixing.
 
 **Done — phase 3 (localized site/folder data):** a `defineData` entry declares **`localized: true`**;
 its site/folder value is stored per locale in `data.<locale>.json` / `folders.<locale>.json`
@@ -38,10 +47,9 @@ separate locale tab** — you edit the language you're viewing the page in (swit
   `page-state.test.ts` locale cases, export i18n cases, `link.dom`/`use-locale.dom`.
   907 repo tests green; typecheck clean; dist build ok.
 
-**Deferred:**
-- **Phase 4** — locale-aware `usePages`/`usePagination` (queries resolve against default-locale
-  data, so a translated listing shows default-locale item data), staleness indicator, per-locale
-  thumbnails.
+**Deferred (remaining phase-4 polish):**
+- Staleness indicator (a translation older than its base page).
+- Per-locale thumbnails.
 
 **Deviations from the design below:** the "showing default — translate this page" state is
 surfaced as an *untranslated* badge + a Create affordance on the `LocaleSwitcher` (not a separate

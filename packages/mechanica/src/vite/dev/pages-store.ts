@@ -428,7 +428,7 @@ export function listFolders(mechDir: string): { id: string; path: string; name: 
  */
 export function listPages(
   mechDir: string,
-  options: { data?: { id: string }[]; locales?: LocalesConfig } = {},
+  options: { data?: { id: string }[]; locales?: LocalesConfig; locale?: string } = {},
 ): PageListItem[] {
   const pagesDir = join(mechDir, 'pages')
   if (!fs.existsSync(pagesDir)) return []
@@ -457,16 +457,26 @@ export function listPages(
   const items: PageListItem[] = []
   for (const entry of bases) {
     const page = readFile(join(pagesDir, entry.relative))
+    // Locale-scoped listing (a translated page's query): read the translation
+    // for data/name/draft, and drop pages that aren't translated to it — the
+    // listing must never link to a page that won't exist at `/<locale>/…`.
+    let source = page
+    if (options.locale) {
+      const variantFile = getPagePath(mechDir, entry.path, options.locale)
+      if (!fs.existsSync(variantFile)) continue
+      source = readFile(variantFile)
+    }
     const embedded: Record<string, unknown> = {}
-    for (const dataEntry of options.data ?? []) embedded[dataEntry.id] = page.data?.[dataEntry.id] ?? {}
+    for (const dataEntry of options.data ?? []) embedded[dataEntry.id] = source.data?.[dataEntry.id] ?? {}
 
     const item: PageListItem = {
       path: entry.path,
-      name: page.name ?? entry.base,
+      name: source.name ?? entry.base,
       folderPath: entry.dir === '' ? null : entry.dir,
+      // Ordering is structural (same across locales) — always from the base file.
       order: page.order ?? 0,
       orderAfter: page.orderAfter ?? null,
-      draft: page.draft === true,
+      draft: source.draft === true,
       ...embedded,
     }
     if (config) {

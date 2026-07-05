@@ -23,8 +23,13 @@ export interface PageQueryItem {
 
 /** What a caller must supply for the engine to resolve queries. */
 export interface QuerySource {
-  /** List all pages, with the requested page-scoped data entries embedded. */
-  listPages(options: { data?: { id: string }[] }): PageQueryItem[]
+  /**
+   * List all pages, with the requested page-scoped data entries embedded. With
+   * a `locale` (a non-default code) only pages translated to it are listed, and
+   * each item's data/name come from the translation — so a translated listing
+   * shows translated content and never links to an untranslated page.
+   */
+  listPages(options: { data?: { id: string }[]; locale?: string }): PageQueryItem[]
   /** Fetch external JSON (`useFetch`). Omit to disable fetch queries. */
   fetchJson?(options: { url: string } & Record<string, unknown>): Promise<unknown>
 }
@@ -60,6 +65,8 @@ export interface PaginatedPagesResult {
 export interface QueryContext {
   /** 1-based page number for paginated queries. Default 1. */
   page?: number
+  /** The locale to resolve `getPages` against (multi-language sites); a non-default code. */
+  locale?: string
 }
 
 /** Split a query key (`"<type>.<json-args>"`) into its type and parsed args. */
@@ -101,8 +108,10 @@ export function resolvePagesQuery(
   context: QueryContext = {},
 ): PageQueryItem[] | PaginatedPagesResult {
   // Drafts are never visible to queries (`usePages`/`usePagination`), across
-  // every caller (dev server, static export, future backend).
-  let pages = source.listPages({ data: args.data }).filter((page) => !page.draft)
+  // every caller (dev server, static export, future backend). On a translated
+  // page the listing is resolved in that locale (translated data, translated
+  // pages only).
+  let pages = source.listPages({ data: args.data, locale: context.locale }).filter((page) => !page.draft)
 
   if (args.folderName) {
     // "Pages in this folder" means its children — the folder's own index page

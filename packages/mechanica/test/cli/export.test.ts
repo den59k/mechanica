@@ -727,4 +727,42 @@ describe('mechanica export (i18n)', () => {
     const ru = await readFile(join(dir, 'export/ru/about/index.html'), 'utf-8')
     expect(ru).toContain('data-site="Акме"')
   })
+
+  it('resolves a translated listing per locale — only translated pages, translated names', async () => {
+    await writePosts(3) // posts a, b, c (en) + a /news listing page
+    // Translate the /news page and posts a, b to ru (with Russian names); c stays en-only.
+    for (const p of ['a', 'b']) {
+      await writeFile(
+        join(dir, `.mech/pages/posts/${p}@ru.page.md`),
+        serializePage({ content: [], data: {}, name: `Пост ${p.toUpperCase()}` }),
+      )
+    }
+    await writeFile(
+      join(dir, '.mech/pages/news@ru.page.md'),
+      serializePage({
+        content: [{ id: 'n', blockId: 'hero', data: { title: 'Новости' } }],
+        data: { head: { title: 'Новости' } },
+      }),
+    )
+
+    const i18nPaginated: SsrBundle = {
+      ...paginatedSsr,
+      site: { url: 'https://x.com' },
+      locales: { default: 'en', all: ['en', 'ru'] },
+    }
+    await exportProject(dir, i18nPaginated)
+
+    // The ru /news lists only the ru-translated posts, by their Russian names.
+    const ruNews = await readFile(join(dir, 'export/ru/news/index.html'), 'utf-8')
+    expect(ruNews).toContain('<li>Пост A</li>')
+    expect(ruNews).toContain('<li>Пост B</li>')
+    expect(ruNews).not.toContain('Post C') // untranslated → not listed (and not rendered)
+
+    // The default /news counts all three English posts (page 1 of 2, pageSize 2).
+    const enNews = await readFile(join(dir, 'export/news/index.html'), 'utf-8')
+    expect(enNews).toContain('<li>Post A</li>')
+    expect(enNews).toContain('page 1 of 2')
+    // The ru listing is a single page (only 2 translated posts) — no /ru/news/2.
+    await expect(access(join(dir, 'export/ru/news/2/index.html'))).rejects.toBeTruthy()
+  })
 })

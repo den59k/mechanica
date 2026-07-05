@@ -184,6 +184,25 @@ describe('cascading page operations move translations with the base', () => {
   })
 })
 
+describe('listPages locale-scoped listing (locale-aware queries)', () => {
+  it('lists only translated pages and embeds the translation data/name', () => {
+    writePage('posts/a.page.md', { name: 'A', data: { meta: { title: 'A en' } } })
+    createTranslation(mechDir, '/posts/a', 'ru')
+    savePage(mechDir, '/posts/a', { data: { meta: { title: 'A ru' } } }, 'ru')
+    writePage('posts/b.page.md', { name: 'B', data: { meta: { title: 'B en' } } }) // en only
+
+    // Default listing: both pages, English data.
+    const en = listPages(mechDir, { data: [{ id: 'meta' }] })
+    expect(en.map((p) => p.path).sort()).toEqual(['/posts/a', '/posts/b'])
+    expect(en.find((p) => p.path === '/posts/a')?.meta).toEqual({ title: 'A en' })
+
+    // ru listing: only the translated page, with its ru data.
+    const ru = listPages(mechDir, { data: [{ id: 'meta' }], locale: 'ru' })
+    expect(ru.map((p) => p.path)).toEqual(['/posts/a'])
+    expect(ru.find((p) => p.path === '/posts/a')?.meta).toEqual({ title: 'A ru' })
+  })
+})
+
 describe('pageUrlOf strips the @locale suffix', () => {
   it('maps a translation file to its logical URL', () => {
     expect(pageUrlOf(mechDir, join(mechDir, 'pages', 'about@ru.page.md'))).toBe('/about')

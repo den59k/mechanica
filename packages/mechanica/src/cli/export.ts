@@ -66,6 +66,8 @@ interface ExportPage {
     locale?: string
     /** Which locales this logical page has — carried into `state.page.locales`. */
     locales?: string[]
+    /** The logical path for `state.page.path` (a translation keeps its logical, not `/<locale>/`, path). */
+    path?: string
   }
 }
 
@@ -162,7 +164,10 @@ async function readTranslation(
     data,
     name: doc.name ?? base.name,
     lastmod,
-    page: { meta, locale },
+    // `state.page.path` stays the *logical* path (not the /<locale>/ export path)
+    // so `<Link>` / `usePagination().pathFor` prefix it for the locale exactly
+    // like the dev server does — otherwise they'd double-prefix.
+    page: { meta, locale, path: base.logicalPath },
   }
 }
 
@@ -409,12 +414,15 @@ export async function exportProject(
   }
   const queryCache = new Map<string, Promise<unknown>>()
   const resolveForPage =
-    (pageNumber: number) =>
+    (pageNumber: number, pageLocale?: string) =>
     (key: string): Promise<unknown> => {
-      const cacheKey = `${pageNumber} ${key}`
+      // A translation resolves `getPages` in its locale (translated data,
+      // translated pages only); default-locale pages use the base listing.
+      const locale = config && pageLocale && pageLocale !== config.default ? pageLocale : undefined
+      const cacheKey = `${pageNumber} ${locale ?? ''} ${key}`
       let hit = queryCache.get(cacheKey)
       if (!hit) {
-        hit = resolveQueryKey(querySource, key, { page: pageNumber })
+        hit = resolveQueryKey(querySource, key, { page: pageNumber, locale })
         queryCache.set(cacheKey, hit)
       }
       return hit
@@ -495,9 +503,12 @@ export async function exportProject(
     // Bake the locale config into each page's `state.locales` so the runtime
     // prefixes internal links for `state.page.locale`.
     locales: config ?? undefined,
-    // The page number of the variant being rendered rides `state.page.pagination`.
+    // The page number of the variant being rendered rides `state.page.pagination`;
+    // its locale rides `state.page.locale` (translated listings resolve per locale).
     render: (state: any) =>
-      ssr.render(state, { resolveQuery: resolveForPage(state.page?.pagination?.page ?? 1) }),
+      ssr.render(state, {
+        resolveQuery: resolveForPage(state.page?.pagination?.page ?? 1, state.page?.locale),
+      }),
     onFile,
     pageLinks,
   }

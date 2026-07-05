@@ -112,9 +112,10 @@ export function createDevMiddleware(
       if (pathname === '/query' && req.method === 'GET') {
         const key = query.get('q')
         if (!key) return json({ error: 'Missing query key' }, 400)
-        // `page` selects the chunk of a paginated query (variant URLs like /blog/2).
+        // `page` selects the chunk of a paginated query (variant URLs like /blog/2);
+        // `locale` scopes a `getPages` listing to a translation.
         const page = Number(query.get('page') ?? '') || undefined
-        return json(await resolveDevQuery(mechDir, key, { page }))
+        return json(await resolveDevQuery(mechDir, key, { page, locale: variantCode(query.get('locale')) }))
       }
 
       if (pathname === '/upload' && req.method === 'POST') {
