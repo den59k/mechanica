@@ -340,7 +340,9 @@ $margin: #f97316; // translucent orange for margin editing (distinct from paddin
     cursor: row-resize;
   }
   &:hover,
-  &.is-active {
+  &.is-active,
+  // Echo: the inspector's Gap field is being touched.
+  &.is-echo {
     background: rgba($space, 0.25);
   }
 }
@@ -360,6 +362,7 @@ $margin: #f97316; // translucent orange for margin editing (distinct from paddin
 }
 .mech-composer__gap:hover .mech-composer__space-label,
 .mech-composer__gap.is-active .mech-composer__space-label,
+.mech-composer__gap.is-echo .mech-composer__space-label,
 .mech-composer__pad-strip:hover .mech-composer__space-label,
 .mech-composer__pad-strip.is-active .mech-composer__space-label,
 .mech-composer__pad-strip.is-mirror .mech-composer__space-label,

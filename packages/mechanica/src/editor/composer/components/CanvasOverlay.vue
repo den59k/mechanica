@@ -69,7 +69,7 @@
         v-for="(g, i) in gapBoxes"
         :key="'gap' + i"
         class="mech-composer__gap"
-        :class="[gapAxis === 'x' ? 'is-col' : 'is-row', { 'is-active': gapDragging }]"
+        :class="[gapAxis === 'x' ? 'is-col' : 'is-row', { 'is-active': gapDragging, 'is-echo': gapEcho }]"
         :style="boxStyle(g)"
         :title="`Gap ${gapValue}`"
         @pointerdown.stop.prevent="startGapDrag($event)"
@@ -137,10 +137,11 @@ const primaryBox = computed(() => selBoxes.value[selBoxes.value.length - 1] ?? n
 // opposite side, matching what an Alt edit would change.
 const spacingSides = computed<Side[]>(() => {
   const sp = store.spacing
-  if (!sp) return []
+  if (!sp || !sp.side) return [] // gap has no side
   return sp.symmetric ? [sp.side, PAD_OPPOSITE[sp.side]] : [sp.side]
 })
 const padEchoSides = computed<Side[]>(() => (store.spacing?.prop === 'padding' ? spacingSides.value : []))
+const gapEcho = computed(() => store.spacing?.prop === 'gap')
 const MARGIN_MIN = 4 // a visible sliver when the margin is 0 or negative (screen px)
 const marginStrips = computed<{ side: Side; box: Box; value: number }[]>(() => {
   const box = primaryBox.value

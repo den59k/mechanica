@@ -96,7 +96,17 @@
       <div class="mech-composer__row">
         <OverrideLabel :overridden="overridden('gap')" @reset="resetKey('gap')">Gap</OverrideLabel>
         <div class="mech-composer__inline">
-          <NumInput icon="gap" :model-value="num('gap')" :min="0" @update:model-value="set('gap', $event, true)" />
+          <NumInput
+            icon="gap"
+            :model-value="num('gap')"
+            :min="0"
+            @update:model-value="set('gap', $event, true)"
+            @pointerenter="gapHover = true"
+            @pointerleave="gapHover = false"
+            @focusin="gapFocus = true"
+            @focusout="gapFocus = false"
+            @pointerdown="onGapDown"
+          />
           <button type="button" class="mech-composer__toggle" :class="{ 'is-active': val('justify') === 'between' }" title="Auto space (space-between)" @click="toggleAutoSpace">
             Auto
           </button>
@@ -208,7 +218,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject } from 'vue'
+import { computed, inject, onBeforeUnmount, ref, watch } from 'vue'
 import { isBinding, resolveBindings } from 'mechanica-shared'
 import { composerStoreKey } from '../lib/keys'
 import { elementKind, blockLabel, blockIcon } from '../lib/elements-meta'
@@ -263,6 +273,28 @@ const resetKey = (key: string) => store.clearOverride(node.value.id, key)
 // ── Align extras (stretch / auto space) ──────────────────────────────
 const toggleStretch = () => set('align', val('align') === 'stretch' ? 'center' : 'stretch', true)
 const toggleAutoSpace = () => set('justify', val('justify') === 'between' ? 'start' : 'between', true)
+
+// ── Gap echo: highlight the frame's gaps on the canvas while the Gap field is
+// touched (hover / focus / scrub), mirroring the padding/margin box echo. ─────
+const gapHover = ref(false)
+const gapFocus = ref(false)
+const gapScrub = ref(false)
+const gapTouched = computed(() => gapScrub.value || gapFocus.value || gapHover.value)
+watch(gapTouched, (on) => {
+  if (on) store.spacing = { prop: 'gap' }
+  else if (store.spacing?.prop === 'gap') store.spacing = null
+})
+function onGapDown() {
+  gapScrub.value = true // held for the whole scrub, even if the pointer strays
+  const up = () => {
+    gapScrub.value = false
+    window.removeEventListener('pointerup', up)
+  }
+  window.addEventListener('pointerup', up)
+}
+onBeforeUnmount(() => {
+  if (store.spacing?.prop === 'gap') store.spacing = null
+})
 
 // ── Optional properties (each a switch that expands when activated) ───
 // Built-in elements get their kind-specific props; a placed component / composed
