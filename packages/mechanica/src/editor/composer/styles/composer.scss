@@ -959,22 +959,59 @@ $space: #e5227f; // Figma-style spacing pink for gap + padding editing (distinct
     transform 0.12s ease,
     background 0.12s ease;
 }
-// Padding block (2 or 4 side fields + expand toggle).
-.mech-composer__pad {
-  display: flex;
-  align-items: flex-start;
+// Box-model editor — the four side fields laid out where they act (top on top,
+// left on the left…) around a glyph standing in for the element. Padding + margin.
+.mech-composer__box {
+  display: grid;
+  grid-template-columns: 54px 58px 54px;
+  grid-template-rows: repeat(3, 32px);
+  grid-template-areas:
+    '. t .'
+    'l c r'
+    '. b .';
   gap: 6px;
-  flex: 1;
-}
-.mech-composer__pad-fields {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  flex: 1;
+  justify-content: center;
+  align-items: center;
+  padding: 2px 0;
 
   .mech-composer__num2 {
-    flex: 1 1 calc(50% - 3px);
+    flex: none;
+    width: 54px;
+    min-width: 0;
+    padding: 0 6px;
   }
+  .mech-composer__num2-field {
+    text-align: center;
+  }
+}
+.mech-composer__box-t {
+  grid-area: t;
+}
+.mech-composer__box-r {
+  grid-area: r;
+}
+.mech-composer__box-b {
+  grid-area: b;
+}
+.mech-composer__box-l {
+  grid-area: l;
+}
+.mech-composer__box-frame {
+  grid-area: c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 30px;
+  border: 1.5px solid var(--mech-border-strong);
+  border-radius: 6px;
+  background: var(--mech-field-bg);
+}
+.mech-composer__box-glyph {
+  width: 30px;
+  height: 13px;
+  border-radius: 3px;
+  background: var(--mech-border-strong);
 }
 .mech-composer__row--top {
   align-items: flex-start;
@@ -984,90 +1021,95 @@ $space: #e5227f; // Figma-style spacing pink for gap + padding editing (distinct
   }
 }
 
-// ── Optional properties (the "+ Add" menu) ───────────────────────────────────
-.mech-composer__props-head {
+// ── Optional properties — a switch per property; flipping one on expands its
+//    editor. Every property a node can carry is listed, none hidden in a menu. ──
+.mech-composer__prop2 {
+  display: flex;
+  flex-direction: column;
+}
+.mech-composer__prop2-head {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 4px 0 0;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+}
+.mech-composer__prop2-toggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 3px 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+
+  &:hover .mech-composer__switch:not(.is-on) {
+    background: var(--mech-border-strong);
+  }
+}
+.mech-composer__prop2-icon {
+  flex: 0 0 auto;
+  font-size: 15px;
   color: var(--mech-muted);
-
-  .mech-icon-button {
-    margin: -5px -5px -5px 0; // keep the header row compact
-  }
 }
-// An added property row: the remove button hangs in the section's right gutter
-// and fades in on row hover, so editors stay aligned with the core sections.
-.mech-composer__prop {
+.mech-composer__prop2-title {
+  flex: 1;
+  text-align: left;
+  color: var(--mech-fg);
+}
+.mech-composer__prop2.is-overridden .mech-composer__prop2-title {
+  color: var(--mech-accent);
+  font-weight: 500;
+}
+// Switch — grey track when off, accent when on; the knob slides across.
+.mech-composer__switch {
+  flex: 0 0 auto;
   position: relative;
+  width: 30px;
+  height: 18px;
+  border-radius: var(--mech-radius-pill);
+  background: var(--mech-border-strong);
+  transition: background 0.15s ease;
 
-  .mech-composer__prop-remove {
-    opacity: 0;
-  }
-  &:hover .mech-composer__prop-remove,
-  .mech-composer__prop-remove:focus-visible {
-    opacity: 1;
+  &.is-on {
+    background: var(--mech-accent);
   }
 }
-.mech-composer__prop-remove {
+.mech-composer__switch-knob {
   position: absolute;
-  right: -14px;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(20, 23, 28, 0.25);
+  transition: transform 0.15s ease;
+
+  .is-on & {
+    transform: translateX(12px);
+  }
+}
+.mech-composer__prop2-reset {
+  position: absolute;
+  right: 38px;
   top: 50%;
   translate: 0 -50%;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 17px;
-  height: 17px;
-  padding: 0;
   border: none;
-  border-radius: 4px;
-  background: var(--mech-bg);
-  color: var(--mech-muted);
-  cursor: pointer;
-  transition: opacity 0.1s;
-
-  &:hover {
-    background: var(--mech-hover);
-    color: var(--mech-fg);
-  }
-  .vicon {
-    font-size: 11px;
-  }
-}
-.mech-composer__row--top.mech-composer__prop .mech-composer__prop-remove {
-  top: 15px; // align with the first line, not the middle of a tall editor
-}
-.mech-composer__add-menu {
-  display: flex;
-  flex-direction: column;
-  min-width: 168px;
-}
-.mech-composer__add-item {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 9px;
-  border: none;
-  border-radius: var(--mech-radius-sm);
   background: none;
-  color: var(--mech-fg);
-  font: inherit;
-  font-size: 13px;
-  text-align: left;
+  padding: 2px;
+  color: var(--mech-accent);
   cursor: pointer;
 
-  &:hover {
-    background: var(--mech-hover);
-  }
   .vicon {
-    font-size: 14px;
-    color: var(--mech-fg-alt);
+    font-size: 12px;
   }
+}
+.mech-composer__prop2-body {
+  padding: 4px 0 8px;
 }
 .mech-composer__color {
   display: flex;

@@ -1,10 +1,11 @@
 /**
  * The inspector's optional-property registry. The inspector shows a slim core
- * (size, layout, typography) and everything else — padding, margin, fill,
- * radius, content width, absolute position — is *added on demand* via the
- * "+ Add" menu, Framer-style. A property row is visible when the node's data
- * already carries it (base or any `$bp` layer) or when it was added this
- * session; removing a row deletes the underlying data keys everywhere. Pure
+ * (size, layout, typography); everything else — padding, margin, fill, radius,
+ * content width, absolute position — is a *switch* in the Properties section.
+ * Every property a node can carry is listed there; flipping one on activates it
+ * and expands its editor. A property counts as active when the node's data
+ * already carries it (base or any `$bp` layer) or when it was switched on this
+ * session; switching it off deletes the underlying data keys everywhere. Pure
  * and unit-tested.
  */
 
@@ -14,7 +15,7 @@ import type { ElementKind } from './elements-meta'
 export interface OptionalProp {
   key: string
   title: string
-  /** VIcon name shown in the add-menu. */
+  /** VIcon name shown on the property's toggle row. */
   icon: string
   /** Which element kinds can add it. */
   kinds: ElementKind[]

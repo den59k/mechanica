@@ -108,14 +108,14 @@ export interface ComposerStore {
   setAbsolute(id: string, on: boolean): void
   /** Merge into a node's absolute-placement config. */
   setAbs(id: string, patch: Record<string, unknown>): void
-  // ── Optional inspector properties (the "+ Add" menu) ───────────────
-  /** Whether the property row shows: its data keys exist (any layer) or it was
-   *  added this session. */
+  // ── Optional inspector properties (the Properties switches) ────────
+  /** Whether a property is active: its data keys exist (any layer) or it was
+   *  switched on this session. */
   hasProp(node: ContentBlock, key: string): boolean
-  /** Show a property row. View-state only — no data is written until the user
+  /** Switch a property on. View-state only — no data is written until the user
    *  edits a value (`position` is the exception: being on *is* data). */
   addProp(id: string, key: string): void
-  /** Hide a property row and delete its data keys from the base + every `$bp` layer. */
+  /** Switch a property off and delete its data keys from the base + every `$bp` layer. */
   removeProp(id: string, key: string): void
   setMeta(patch: Partial<Pick<ComposedBlockDefinition, 'name' | 'icon' | 'category'>>): void
   // ── Prop exposure (parameterization) ──────────────────────────────

@@ -134,102 +134,67 @@
       </div>
     </section>
 
-    <!-- ── Optional properties (added on demand via "+") ──────────── -->
+    <!-- ── Optional properties (each a switch that expands when activated) ── -->
     <section v-if="propDefs.length" class="mech-composer__section mech-composer__props-section">
-      <div class="mech-composer__props-head">
-        <span>Properties</span>
-        <button
-          ref="addBtn"
-          type="button"
-          class="mech-icon-button"
-          title="Add property"
-          :disabled="!addable.length"
-          @click="addOpen = !addOpen"
-        >
-          <VIcon name="plus" />
-        </button>
-      </div>
+      <div class="mech-composer__section-title">Properties</div>
 
       <!-- Padding -->
-      <div v-if="show('padding')" class="mech-composer__row mech-composer__prop" :class="{ 'mech-composer__row--top': padExpanded }">
-        <OverrideLabel :overridden="overridden('padding')" @reset="resetKey('padding')">Padding</OverrideLabel>
-        <div class="mech-composer__pad">
-          <div class="mech-composer__pad-fields">
-            <template v-if="!padExpanded">
-              <NumInput icon="row" aria-label="Vertical padding" :model-value="pad.t" :min="0" @update:model-value="setPadV" />
-              <NumInput icon="column" aria-label="Horizontal padding" :model-value="pad.r" :min="0" @update:model-value="setPadH" />
-            </template>
-            <template v-else>
-              <NumInput label="T" :model-value="pad.t" :min="0" @update:model-value="setPad('t', $event)" />
-              <NumInput label="R" :model-value="pad.r" :min="0" @update:model-value="setPad('r', $event)" />
-              <NumInput label="B" :model-value="pad.b" :min="0" @update:model-value="setPad('b', $event)" />
-              <NumInput label="L" :model-value="pad.l" :min="0" @update:model-value="setPad('l', $event)" />
-            </template>
-          </div>
-          <button type="button" class="mech-composer__toggle" :class="{ 'is-active': padExpanded }" title="Edit each side" @click="padExpanded = !padExpanded">
-            <VIcon name="sides" />
-          </button>
-        </div>
-        <button type="button" class="mech-composer__prop-remove" title="Remove padding" @click="removeProp('padding')">
-          <VIcon name="close" />
-        </button>
-      </div>
+      <PropToggle
+        v-if="avail('padding')"
+        title="Padding"
+        icon="sides"
+        :active="active('padding')"
+        :overridden="overridden('padding')"
+        @toggle="toggle('padding')"
+        @reset="resetKey('padding')"
+      >
+        <BoxSideInput :model-value="val('padding')" :min="0" label="padding" @update:model-value="set('padding', $event, true)" />
+      </PropToggle>
 
-      <!-- Margin -->
-      <div v-if="show('margin')" class="mech-composer__row mech-composer__prop" :class="{ 'mech-composer__row--top': marExpanded }">
-        <OverrideLabel :overridden="overridden('margin')" @reset="resetKey('margin')">Margin</OverrideLabel>
-        <div class="mech-composer__pad">
-          <div class="mech-composer__pad-fields">
-            <template v-if="!marExpanded">
-              <NumInput icon="row" aria-label="Vertical margin" :model-value="mar.t" @update:model-value="setMarV" />
-              <NumInput icon="column" aria-label="Horizontal margin" :model-value="mar.r" @update:model-value="setMarH" />
-            </template>
-            <template v-else>
-              <NumInput label="T" :model-value="mar.t" @update:model-value="setMar('t', $event)" />
-              <NumInput label="R" :model-value="mar.r" @update:model-value="setMar('r', $event)" />
-              <NumInput label="B" :model-value="mar.b" @update:model-value="setMar('b', $event)" />
-              <NumInput label="L" :model-value="mar.l" @update:model-value="setMar('l', $event)" />
-            </template>
-          </div>
-          <button type="button" class="mech-composer__toggle" :class="{ 'is-active': marExpanded }" title="Edit each side" @click="marExpanded = !marExpanded">
-            <VIcon name="sides" />
-          </button>
-        </div>
-        <button type="button" class="mech-composer__prop-remove" title="Remove margin" @click="removeProp('margin')">
-          <VIcon name="close" />
-        </button>
-      </div>
+      <!-- Margin (same box editor; negatives allowed) -->
+      <PropToggle
+        v-if="avail('margin')"
+        title="Margin"
+        icon="margin"
+        :active="active('margin')"
+        :overridden="overridden('margin')"
+        @toggle="toggle('margin')"
+        @reset="resetKey('margin')"
+      >
+        <BoxSideInput :model-value="val('margin')" label="margin" @update:model-value="set('margin', $event, true)" />
+      </PropToggle>
 
       <!-- Content width -->
-      <div v-if="show('maxWidth')" class="mech-composer__row mech-composer__prop">
-        <OverrideLabel :overridden="overridden('maxWidth')" @reset="resetKey('maxWidth')">Content w</OverrideLabel>
-        <NumInput icon="width" :model-value="num('maxWidth')" placeholder="none" :min="0" @update:model-value="set('maxWidth', $event, true)" />
-        <button type="button" class="mech-composer__prop-remove" title="Remove content width" @click="removeProp('maxWidth')">
-          <VIcon name="close" />
-        </button>
-      </div>
+      <PropToggle
+        v-if="avail('maxWidth')"
+        title="Content width"
+        icon="width"
+        :active="active('maxWidth')"
+        :overridden="overridden('maxWidth')"
+        @toggle="toggle('maxWidth')"
+        @reset="resetKey('maxWidth')"
+      >
+        <div class="mech-composer__row">
+          <span>Max</span>
+          <NumInput icon="width" :model-value="num('maxWidth')" placeholder="none" :min="0" @update:model-value="set('maxWidth', $event, true)" />
+        </div>
+      </PropToggle>
 
       <!-- Fill -->
-      <div v-if="show('background')" class="mech-composer__row mech-composer__row--top mech-composer__prop">
-        <span>Fill</span>
+      <PropToggle v-if="avail('background')" title="Fill" icon="fill" :active="active('background')" @toggle="toggle('background')">
         <ColorField :model-value="val('background')" placeholder="none" @update:model-value="set('background', $event)" />
-        <button type="button" class="mech-composer__prop-remove" title="Remove fill" @click="removeProp('background')">
-          <VIcon name="close" />
-        </button>
-      </div>
+      </PropToggle>
 
       <!-- Radius -->
-      <div v-if="show('radius')" class="mech-composer__row mech-composer__prop">
-        <span>Radius</span>
-        <NumInput icon="corner" :model-value="num('radius')" :min="0" @update:model-value="set('radius', $event)" />
-        <button type="button" class="mech-composer__prop-remove" title="Remove radius" @click="removeProp('radius')">
-          <VIcon name="close" />
-        </button>
-      </div>
+      <PropToggle v-if="avail('radius')" title="Radius" icon="corner" :active="active('radius')" @toggle="toggle('radius')">
+        <div class="mech-composer__row">
+          <span>Corner</span>
+          <NumInput icon="corner" :model-value="num('radius')" :min="0" @update:model-value="set('radius', $event)" />
+        </div>
+      </PropToggle>
 
       <!-- Position (absolute) -->
-      <div v-if="show('position')" class="mech-composer__row mech-composer__row--top mech-composer__prop">
-        <span>Position</span>
+      <PropToggle v-if="avail('position')" title="Position" icon="position" :active="active('position')" @toggle="toggle('position')">
         <div class="mech-composer__abs">
           <AnchorGrid :model-value="absAnchor" @update:model-value="store.setAbs(node.id, { anchor: $event })" />
           <div class="mech-composer__abs-offsets">
@@ -237,31 +202,19 @@
             <NumInput label="Y" :model-value="absNum('y')" :aria-label="absYLabel" @update:model-value="store.setAbs(node.id, { y: $event ?? 0 })" />
           </div>
         </div>
-        <button type="button" class="mech-composer__prop-remove" title="Back to flow" @click="removeProp('position')">
-          <VIcon name="close" />
-        </button>
-      </div>
-
-      <VPopover v-model:open="addOpen" :anchor="addBtn" panel-class="mech-composer__add-menu">
-        <button v-for="p in addable" :key="p.key" type="button" class="mech-composer__add-item" @click="onAdd(p.key)">
-          <VIcon :name="p.icon" />
-          <span>{{ p.title }}</span>
-        </button>
-      </VPopover>
+      </PropToggle>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, inject, ref } from 'vue'
+import { computed, inject } from 'vue'
 import { isBinding, resolveBindings } from 'mechanica-shared'
 import { composerStoreKey } from '../lib/keys'
 import { elementKind, blockLabel, blockIcon } from '../lib/elements-meta'
 import { availableProps } from '../lib/inspector-props'
-import { parsePadding, collapsePadding, setSide, type Sides } from '../lib/padding'
 import type { Block } from 'mechanica-shared'
 import VIcon from '../../components/VIcon.vue'
-import VPopover from '../../components/VPopover.vue'
 import ComponentFields from './ComponentFields.vue'
 import SegControl, { type SegOption } from './SegControl.vue'
 import BindField from './BindField.vue'
@@ -271,6 +224,8 @@ import NumInput from './NumInput.vue'
 import SizeInput from './SizeInput.vue'
 import AlignGrid from './AlignGrid.vue'
 import AnchorGrid from './AnchorGrid.vue'
+import PropToggle from './PropToggle.vue'
+import BoxSideInput from './BoxSideInput.vue'
 
 const store = inject(composerStoreKey)!
 const uploader = inject<((file: File) => Promise<{ src: string }>) | null>('mechFileUploader', null)
@@ -309,37 +264,22 @@ const resetKey = (key: string) => store.clearOverride(node.value.id, key)
 const toggleStretch = () => set('align', val('align') === 'stretch' ? 'center' : 'stretch', true)
 const toggleAutoSpace = () => set('justify', val('justify') === 'between' ? 'start' : 'between', true)
 
-// ── Optional properties (the "+ Add" menu) ───────────────────────────
-const addOpen = ref(false)
-const addBtn = ref<HTMLElement | null>(null)
+// ── Optional properties (each a switch that expands when activated) ───
 // Built-in elements get their kind-specific props; a placed component / composed
 // block (no element `meta`) gets only the placement props (margin + position),
 // which its wrapping `.mxel` div carries at render time.
 const propDefs = computed(() =>
   meta.value ? availableProps(kind.value, isRoot.value) : availableProps(null, false, true),
 )
-/** A row renders when the property applies to this kind AND is present/added. */
-const show = (key: string) => propDefs.value.some((p) => p.key === key) && store.hasProp(node.value, key)
-const addable = computed(() => propDefs.value.filter((p) => !store.hasProp(node.value, p.key)))
-const onAdd = (key: string) => {
-  store.addProp(node.value.id, key)
-  addOpen.value = false
+/** Whether this property applies to the selected node at all. */
+const avail = (key: string) => propDefs.value.some((p) => p.key === key)
+/** On = active (present in data or added this session) → its editor is expanded. */
+const active = (key: string) => store.hasProp(node.value, key)
+/** Flip a property: activate it (add) or clear it (delete its data everywhere). */
+const toggle = (key: string) => {
+  if (active(key)) store.removeProp(node.value.id, key)
+  else store.addProp(node.value.id, key)
 }
-const removeProp = (key: string) => store.removeProp(node.value.id, key)
-
-// ── Padding (per-side) ───────────────────────────────────────────────
-const padExpanded = ref(false)
-const pad = computed<Sides>(() => parsePadding(val('padding')))
-const setPad = (side: keyof Sides, n: number | undefined) => set('padding', setSide(val('padding'), side, n ?? 0), true)
-const setPadV = (n: number | undefined) => set('padding', collapsePadding({ ...pad.value, t: n ?? 0, b: n ?? 0 }), true)
-const setPadH = (n: number | undefined) => set('padding', collapsePadding({ ...pad.value, r: n ?? 0, l: n ?? 0 }), true)
-
-// ── Margin (same sides math, negatives allowed) ──────────────────────
-const marExpanded = ref(false)
-const mar = computed<Sides>(() => parsePadding(val('margin')))
-const setMar = (side: keyof Sides, n: number | undefined) => set('margin', setSide(val('margin'), side, n ?? 0), true)
-const setMarV = (n: number | undefined) => set('margin', collapsePadding({ ...mar.value, t: n ?? 0, b: n ?? 0 }), true)
-const setMarH = (n: number | undefined) => set('margin', collapsePadding({ ...mar.value, r: n ?? 0, l: n ?? 0 }), true)
 
 // ── Absolute placement ($abs) ────────────────────────────────────────
 const absObj = computed(() => node.value.data.$abs as Record<string, unknown> | undefined)
