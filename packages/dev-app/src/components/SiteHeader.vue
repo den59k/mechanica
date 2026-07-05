@@ -9,6 +9,8 @@
         </a>
       </nav>
 
+      <LanguageSwitcher class="nav__lang" />
+
       <a v-if="nav.ctaLabel" :href="nav.ctaHref || '#'" class="mc-btn mc-btn--primary mc-btn--sm">
         {{ nav.ctaLabel }}
       </a>
@@ -20,6 +22,7 @@
 // Shared site header: reads the `navbar` data entry. Not a block — it's identical
 // on every page, so App.vue renders it once, outside the page content.
 import { useNavbar } from '../data/navbar'
+import LanguageSwitcher from './LanguageSwitcher.vue'
 
 const nav = useNavbar()
 </script>
@@ -59,6 +62,9 @@ const nav = useNavbar()
 .nav__link:hover {
   color: var(--ink);
 }
+.nav__lang {
+  margin-left: 2px;
+}
 .nav .mc-btn {
   margin-left: 4px;
 }
@@ -70,8 +76,11 @@ const nav = useNavbar()
   .nav__inner {
     justify-content: space-between;
   }
-  .nav .mc-btn {
+  .nav__lang {
     margin-left: auto;
+  }
+  .nav .mc-btn {
+    margin-left: 0;
   }
 }
 </style>

@@ -9,7 +9,17 @@ export default defineConfig({
   plugins: [
     // siteUrl/siteName feed `{{ site.* }}` templating and, at export, the
     // automatic SEO output (canonical/og:url tags, sitemap.xml, robots.txt).
-    mechanica({ siteUrl: 'https://mechanica-demo.example', siteName: 'Mechanica Dev App' }),
+    // `locales` turns on multi-language pages: English is the default (served
+    // unprefixed), Russian and Japanese live under /ru and /jp.
+    mechanica({
+      siteUrl: 'https://mechanica-demo.example',
+      siteName: 'Mechanica Dev App',
+      locales: {
+        default: 'en',
+        all: ['en', 'ru', 'ja'],
+        labels: { en: 'English', ru: 'Русский', ja: '日本語' },
+      },
+    }),
     svgGlob(),
     vue(),
   ],
