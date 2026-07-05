@@ -1000,9 +1000,9 @@ $margin: #f97316; // translucent orange for margin editing (distinct from paddin
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  width: 66px;
-  height: 66px;
-  padding: 3px;
+  width: 72px;
+  height: 72px;
+  padding: 2px;
   background: var(--mech-field-bg);
   border-radius: var(--mech-radius-sm);
 }
@@ -1011,21 +1011,52 @@ $margin: #f97316; // translucent orange for margin editing (distinct from paddin
   border: none;
   background: none;
   padding: 0;
+  border-radius: 3px;
   cursor: pointer;
 
-  &:hover .mech-composer__aligndot {
+  &:hover {
+    background: var(--mech-bg);
+  }
+  &:hover .mech-composer__alignbar {
     background: var(--mech-fg-alt);
   }
-  &.is-active .mech-composer__aligndot {
+  &.is-active {
+    background: var(--mech-accent-soft);
+  }
+  &.is-active .mech-composer__alignbar {
     background: var(--mech-accent);
   }
 }
-.mech-composer__aligndot {
-  width: 5px;
-  height: 5px;
-  margin: 4px;
-  border-radius: 1.5px;
+// The three stripes fill the cell; the inline flex (align-items / justify-content)
+// positions + aligns them to preview this cell's alignment.
+.mech-composer__alignbars {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  gap: 2px;
+  box-sizing: border-box;
+}
+.mech-composer__alignbar {
+  display: block;
+  flex: 0 0 auto;
+  border-radius: 1px;
   background: var(--mech-border-strong);
+  transition: background 0.1s;
+}
+// Column frame → horizontal bars (varying widths, ragged edge shows the align).
+.mech-composer__alignbars.is-col .mech-composer__alignbar {
+  height: 2px;
+  &:nth-child(1) { width: 9px; }
+  &:nth-child(2) { width: 5px; }
+  &:nth-child(3) { width: 7px; }
+}
+// Row frame → vertical bars side by side.
+.mech-composer__alignbars.is-row .mech-composer__alignbar {
+  width: 2px;
+  &:nth-child(1) { height: 9px; }
+  &:nth-child(2) { height: 5px; }
+  &:nth-child(3) { height: 7px; }
 }
 // Absolute placement — a pin-point grid + X/Y offsets, framed like a bounding box.
 .mech-composer__abs {

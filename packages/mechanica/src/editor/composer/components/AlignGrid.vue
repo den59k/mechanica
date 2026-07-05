@@ -6,11 +6,17 @@
       type="button"
       class="mech-composer__aligncell"
       :class="{ 'is-active': cell.active }"
-      :style="cell.style"
       :title="cell.title"
       @click="apply(cell.align, cell.justify)"
     >
-      <span class="mech-composer__aligndot" />
+      <!-- Three stripes standing in for the frame's children, aligned exactly as
+           this cell would align them (Figma-style). Orientation flips with the
+           frame's flow; the cell's flex places + aligns them per align/justify. -->
+      <span class="mech-composer__alignbars" :class="dirClass" :style="cell.barsStyle">
+        <i class="mech-composer__alignbar" />
+        <i class="mech-composer__alignbar" />
+        <i class="mech-composer__alignbar" />
+      </span>
     </button>
   </div>
 </template>
@@ -30,10 +36,14 @@ const direction = computed(() => (store.effective(props.node, 'direction') === '
 const curAlign = computed(() => store.effective(props.node, 'align') ?? 'stretch')
 const curJustify = computed(() => store.effective(props.node, 'justify') ?? 'start')
 
-// A 3×3 matrix. The dot's on-screen position (row = vertical, col = horizontal)
+// Column frames stack horizontal bars; row frames sit vertical bars side by side.
+const dirClass = computed(() => (direction.value === 'row' ? 'is-row' : 'is-col'))
+
+// A 3×3 matrix. The cell's on-screen position (row = vertical, col = horizontal)
 // is purely visual; the align/justify it applies is derived from the frame's
-// direction, so the grid reads the same way Figma's does whichever way the
-// frame flows.
+// direction, so the grid reads the same way Figma's does whichever way the frame
+// flows. Each cell's bars are aligned by `align` (cross axis) and grouped by
+// `justify` (main axis) — a real preview of that alignment.
 const cells = computed(() =>
   [0, 1, 2].flatMap((row) =>
     [0, 1, 2].map((col) => {
@@ -45,7 +55,11 @@ const cells = computed(() =>
         justify,
         active: curAlign.value === align && curJustify.value === justify,
         title: `Align ${align} · justify ${justify}`,
-        style: { justifyContent: CSS[col], alignItems: CSS[row] },
+        barsStyle: {
+          flexDirection: direction.value === 'row' ? 'row' : 'column',
+          alignItems: CSS[POS.indexOf(align)]!,
+          justifyContent: CSS[POS.indexOf(justify)]!,
+        },
       }
     }),
   ),
