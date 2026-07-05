@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { responsiveVars, absStyle, compactStyle, placementStyle, FRAME_VARS, SIZE_VARS } from '@/elements/style-vars'
+import {
+  responsiveVars,
+  absStyle,
+  compactStyle,
+  placementStyle,
+  FRAME_VARS,
+  SIZE_VARS,
+  TEXT_VARS,
+  IMAGE_VARS,
+  SHADOWS,
+} from '@/elements/style-vars'
 
 describe('responsiveVars: base mapping', () => {
   it('maps frame layout knobs to CSS variables', () => {
@@ -66,6 +76,51 @@ describe('SIZE_VARS', () => {
   it('maps self-align and text-align', () => {
     const vars = responsiveVars({ align: 'end', textAlign: 'center' }, SIZE_VARS)
     expect(vars).toEqual({ '--el-self': 'flex-end', '--el-text-align': 'center' })
+  })
+})
+
+describe('visual style vars (breakpoint-capable)', () => {
+  it('maps frame fill/radius/minHeight/shadow', () => {
+    const vars = responsiveVars({ background: '#fafafa', radius: 12, minHeight: 320, shadow: 'md' }, FRAME_VARS)
+    expect(vars).toEqual({
+      '--el-bg': '#fafafa',
+      '--el-radius': '12px',
+      '--el-minh': '320px',
+      '--el-shadow': SHADOWS.md,
+    })
+  })
+
+  it('maps text typography (size/weight/lineHeight/color/maxWidth)', () => {
+    const vars = responsiveVars({ size: 48, weight: 600, lineHeight: 1.3, color: '#111', maxWidth: '60ch' }, TEXT_VARS)
+    expect(vars).toEqual({
+      '--el-fs': '48px',
+      '--el-fw': '600',
+      '--el-lh': '1.3',
+      '--el-color': '#111',
+      '--el-maxw': '60ch',
+    })
+  })
+
+  it('maps image fit/ratio/radius', () => {
+    const vars = responsiveVars({ fit: 'contain', ratio: '16/9', radius: 8 }, IMAGE_VARS)
+    expect(vars).toEqual({ '--el-fit': 'contain', '--el-ratio': '16/9', '--el-radius': '8px' })
+  })
+
+  it('emits suffixed overrides from $bp for style knobs', () => {
+    const vars = responsiveVars(
+      { size: 48, background: '#fff', $bp: { md: { size: 36 }, sm: { size: 28 } } },
+      { ...FRAME_VARS, ...TEXT_VARS },
+    )
+    expect(vars['--el-fs']).toBe('48px')
+    expect(vars['--el-fs-md']).toBe('36px')
+    expect(vars['--el-fs-sm']).toBe('28px')
+    expect(vars['--el-bg']).toBe('#fff')
+  })
+
+  it('ignores an unknown shadow preset and empty strings', () => {
+    expect(responsiveVars({ shadow: 'xxl' }, FRAME_VARS)).toEqual({})
+    expect(responsiveVars({ background: '' }, FRAME_VARS)).toEqual({})
+    expect(responsiveVars({ color: '' }, TEXT_VARS)).toEqual({})
   })
 })
 

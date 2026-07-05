@@ -9,10 +9,6 @@
       </button>
     </div>
 
-    <p v-if="store.breakpoint !== 'base'" class="mech-composer__bp-note">
-      Editing <strong>{{ store.breakpoint === 'md' ? 'tablet' : 'mobile' }}</strong> overrides
-    </p>
-
     <!-- ── Content (text) ─────────────────────────────────────────── -->
     <section v-if="kind === 'text'" class="mech-composer__section">
       <div class="mech-composer__section-title">Content</div>
@@ -54,8 +50,8 @@
         <input class="mech-composer__input" :value="str('alt')" placeholder="Alt text" @input="set('alt', target($event).value || undefined)" />
       </BindField>
       <div class="mech-composer__row">
-        <span>Fit</span>
-        <SegControl :options="fitOptions" :model-value="val('fit') ?? 'cover'" @update:model-value="set('fit', $event)" />
+        <OverrideLabel :overridden="overridden('fit')" @reset="resetKey('fit')">Fit</OverrideLabel>
+        <SegControl :options="fitOptions" :model-value="val('fit') ?? 'cover'" @update:model-value="set('fit', $event, true)" />
       </div>
     </section>
 
@@ -76,7 +72,7 @@
     <section v-if="kind === 'frame'" class="mech-composer__section">
       <div class="mech-composer__section-title">Layout</div>
       <div class="mech-composer__row">
-        <OverrideLabel :overridden="overridden('direction')" @reset="resetKey('direction')">Direction</OverrideLabel>
+        <OverrideLabel :overridden="overridden('direction') || overridden('wrap')" @reset="resetKeys('direction', 'wrap')">Direction</OverrideLabel>
         <div class="mech-composer__inline">
           <SegControl :options="directionOptions" :model-value="val('direction') ?? 'column'" @update:model-value="set('direction', $event, true)" />
           <button type="button" class="mech-composer__toggle" :class="{ 'is-active': !!val('wrap') }" title="Wrap children" @click="set('wrap', !val('wrap'), true)">
@@ -85,7 +81,7 @@
         </div>
       </div>
       <div class="mech-composer__row mech-composer__row--top">
-        <span>Align</span>
+        <OverrideLabel :overridden="overridden('align') || overridden('justify')" @reset="resetKeys('align', 'justify')">Align</OverrideLabel>
         <div class="mech-composer__align-block">
           <AlignGrid :node="node" />
           <button type="button" class="mech-composer__toggle" :class="{ 'is-active': val('align') === 'stretch' }" title="Stretch children across" @click="toggleStretch">
@@ -131,16 +127,16 @@
         <NumInput :model-value="num('size')" placeholder="16" :min="1" @update:model-value="set('size', $event, true)" />
       </div>
       <div class="mech-composer__row">
-        <span>Weight</span>
-        <SegControl :options="weightOptions" :model-value="val('weight')" @update:model-value="set('weight', $event)" />
+        <OverrideLabel :overridden="overridden('weight')" @reset="resetKey('weight')">Weight</OverrideLabel>
+        <SegControl :options="weightOptions" :model-value="val('weight')" @update:model-value="set('weight', $event, true)" />
       </div>
       <div class="mech-composer__row">
         <OverrideLabel :overridden="overridden('textAlign')" @reset="resetKey('textAlign')">Align</OverrideLabel>
         <SegControl :options="textAlignOptions" :model-value="val('textAlign')" @update:model-value="set('textAlign', $event, true)" />
       </div>
       <div class="mech-composer__row mech-composer__row--top">
-        <span>Color</span>
-        <ColorField :model-value="val('color')" placeholder="inherit" @update:model-value="set('color', $event)" />
+        <OverrideLabel :overridden="overridden('color')" @reset="resetKey('color')">Color</OverrideLabel>
+        <ColorField :model-value="val('color')" placeholder="inherit" @update:model-value="set('color', $event, true)" />
       </div>
     </section>
 
@@ -191,15 +187,31 @@
       </PropToggle>
 
       <!-- Fill -->
-      <PropToggle v-if="avail('background')" title="Fill" icon="fill" :active="active('background')" @toggle="toggle('background')">
-        <ColorField :model-value="val('background')" placeholder="none" @update:model-value="set('background', $event)" />
+      <PropToggle
+        v-if="avail('background')"
+        title="Fill"
+        icon="fill"
+        :active="active('background')"
+        :overridden="overridden('background')"
+        @toggle="toggle('background')"
+        @reset="resetKey('background')"
+      >
+        <ColorField :model-value="val('background')" placeholder="none" @update:model-value="set('background', $event, true)" />
       </PropToggle>
 
       <!-- Radius -->
-      <PropToggle v-if="avail('radius')" title="Radius" icon="corner" :active="active('radius')" @toggle="toggle('radius')">
+      <PropToggle
+        v-if="avail('radius')"
+        title="Radius"
+        icon="corner"
+        :active="active('radius')"
+        :overridden="overridden('radius')"
+        @toggle="toggle('radius')"
+        @reset="resetKey('radius')"
+      >
         <div class="mech-composer__row">
           <span>Corner</span>
-          <NumInput icon="corner" :model-value="num('radius')" :min="0" @update:model-value="set('radius', $event)" />
+          <NumInput icon="corner" :model-value="num('radius')" :min="0" @update:model-value="set('radius', $event, true)" />
         </div>
       </PropToggle>
 
@@ -277,6 +289,9 @@ const set = (key: string, value: unknown, responsive = false) =>
 // Breakpoint override affordances.
 const overridden = (key: string) => store.isOverridden(node.value, key)
 const resetKey = (key: string) => store.clearOverride(node.value.id, key)
+// A visual row can own several data keys (direction+wrap, align+justify) —
+// its reset clears every one of them for the current breakpoint.
+const resetKeys = (...keys: string[]) => keys.forEach((key) => store.clearOverride(node.value.id, key))
 
 // ── Align extras (stretch / auto space) ──────────────────────────────
 const toggleStretch = () => set('align', val('align') === 'stretch' ? 'center' : 'stretch', true)

@@ -2,6 +2,11 @@
 // shared editor tokens (`--mech-*`) and primitives (`.mech-button`, VIcon);
 // composer-specific layout lives here.
 
+// Canvas-chrome palette (also used by the bar + inspector accents).
+$sel: #3b82f6;
+$space: #e5227f; // Figma-style spacing pink for gap + padding editing (distinct from the blue selection)
+$margin: #f97316; // translucent orange for margin editing (distinct from padding blue)
+
 .mech-composer {
   position: fixed;
   inset: 0;
@@ -164,20 +169,43 @@
   border-radius: var(--mech-radius-sm);
 }
 .mech-composer__bp {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 26px;
   border: none;
   background: none;
-  padding: 4px 10px;
   border-radius: 5px;
   font: inherit;
-  font-size: 12px;
   color: var(--mech-muted);
   cursor: pointer;
+
+  .vicon {
+    font-size: 16px;
+  }
 
   &.is-active {
     background: var(--mech-bg);
     color: var(--mech-fg);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   }
+  // Editing a breakpoint variant is a mode — tint it so it can't be missed.
+  &.is-variant.is-active {
+    color: $sel;
+  }
+}
+// "This breakpoint carries overrides" marker on the Tablet/Mobile buttons.
+.mech-composer__bp-dot {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: $sel;
+  pointer-events: none;
 }
 .mech-composer__save {
   min-width: 70px;
@@ -260,9 +288,6 @@
   pointer-events: none;
   z-index: 4;
 }
-$sel: #3b82f6;
-$space: #e5227f; // Figma-style spacing pink for gap + padding editing (distinct from the blue selection)
-$margin: #f97316; // translucent orange for margin editing (distinct from padding blue)
 .mech-composer__hover {
   position: absolute;
   outline: 1px solid rgba($sel, 0.55);
@@ -645,11 +670,37 @@ $margin: #f97316; // translucent orange for margin editing (distinct from paddin
   font-size: 11px;
   font-weight: 600;
 }
+// The breakpoint-mode banner at the top of the right panel: which device is
+// being styled, where those styles apply, and a way back to Desktop.
 .mech-composer__bp-note {
-  margin: 0;
-  padding: 10px 14px 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 10px 10px 0;
+  padding: 8px 6px 8px 12px;
+  border-radius: var(--mech-radius-sm);
+  background: rgba($sel, 0.08);
+  color: $sel;
   font-size: 12px;
-  color: var(--mech-accent);
+
+  > .vicon {
+    flex: 0 0 auto;
+    font-size: 15px;
+  }
+  span {
+    flex: 1;
+    line-height: 1.35;
+
+    em {
+      display: block;
+      font-style: normal;
+      opacity: 0.75;
+      font-size: 11px;
+    }
+  }
+  .mech-icon-button {
+    color: inherit;
+  }
 }
 .mech-composer__hint {
   margin: 0;

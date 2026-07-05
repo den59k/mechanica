@@ -27,10 +27,31 @@ describe('element blocks', () => {
     expect(frame).toBeTruthy()
     expect(frame.style.getPropertyValue('--el-dir')).toBe('row')
     expect(frame.style.getPropertyValue('--el-gap')).toBe('16px')
-    expect(frame.style.background).toBe('rgb(255, 255, 255)')
+    // Visual style rides the variable indirection too (breakpoint-capable).
+    expect(frame.style.getPropertyValue('--el-bg')).toBe('#fff')
     expect(frame.getAttribute('data-block-id')).toBe('f')
     const heading = el.querySelector('h1.mxel-text')
     expect(heading?.textContent).toBe('Hi')
+  })
+
+  it('text maps typography to CSS variables, with $bp overrides', () => {
+    const el = mount({
+      content: [
+        {
+          id: 't',
+          blockId: 'mech:text',
+          data: { content: 'Hi', size: 48, weight: 700, color: '#111', $bp: { sm: { size: 28 } } },
+        },
+      ],
+      data: {},
+    })
+    const text = el.querySelector('.mxel-text') as HTMLElement
+    expect(text.style.getPropertyValue('--el-fs')).toBe('48px')
+    expect(text.style.getPropertyValue('--el-fw')).toBe('700')
+    expect(text.style.getPropertyValue('--el-color')).toBe('#111')
+    expect(text.style.getPropertyValue('--el-fs-sm')).toBe('28px')
+    // No direct inline font-size — it would beat the media queries.
+    expect(text.style.fontSize).toBe('')
   })
 
   it('frame emits breakpoint-suffixed variables from $bp', () => {

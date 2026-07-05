@@ -23,11 +23,13 @@
           :key="bp.id"
           type="button"
           class="mech-composer__bp"
-          :class="{ 'is-active': store.breakpoint === bp.id }"
-          :title="`${bp.label} (${bp.width}px)`"
+          :class="{ 'is-active': store.breakpoint === bp.id, 'is-variant': bp.id !== 'base' }"
+          :title="bp.title"
+          :aria-label="bp.label"
           @click="store.breakpoint = bp.id"
         >
-          {{ bp.width }}
+          <VIcon :name="bp.icon" />
+          <span v-if="bp.id !== 'base' && overriddenBps[bp.id]" class="mech-composer__bp-dot" />
         </button>
       </div>
 
@@ -53,6 +55,16 @@
       </main>
 
       <aside class="mech-composer__panel mech-composer__panel--right">
+        <div v-if="store.breakpoint !== 'base'" class="mech-composer__bp-note">
+          <VIcon :name="store.breakpoint === 'md' ? 'tablet' : 'mobile'" />
+          <span>
+            Editing <strong>{{ store.breakpoint === 'md' ? 'Tablet' : 'Mobile' }}</strong> styles
+            <em>{{ store.breakpoint === 'md' ? 'apply at ≤ 1024px — tablet & mobile' : 'apply at ≤ 640px — mobile only' }}</em>
+          </span>
+          <button type="button" class="mech-icon-button" title="Back to Desktop" @click="store.breakpoint = 'base'">
+            <VIcon name="close" />
+          </button>
+        </div>
         <MultiSelectPanel v-if="store.selectedIds.length > 1" />
         <ComposerInspector v-else-if="store.selected" />
         <ComposerSettings v-else />
@@ -63,7 +75,7 @@
 
 <script setup lang="ts">
 import { computed, provide, watch, onScopeDispose } from 'vue'
-import type { ComposedBlockDefinition } from 'mechanica-shared'
+import { walkTree, type ComposedBlockDefinition } from 'mechanica-shared'
 import type { BlocksMap } from '../../core/state'
 import type { SaveController } from '../lib/types'
 import { createComposerStore, type ComposerSnapshot } from './lib/composer-store'
@@ -101,12 +113,27 @@ provide(composerHistoryKey, history)
 
 provide(composerInsertDndKey, createInsertDnd(store))
 
-const breakpoints: { id: CanvasBreakpoint; label: string; width: number }[] = [
-  { id: 'base', label: 'Desktop', width: 1440 },
-  { id: 'md', label: 'Tablet', width: 768 },
-  { id: 'sm', label: 'Mobile', width: 390 },
+const breakpoints: { id: CanvasBreakpoint; label: string; icon: string; width: number; title: string }[] = [
+  { id: 'base', label: 'Desktop', icon: 'desktop', width: 1440, title: 'Desktop — base styles' },
+  { id: 'md', label: 'Tablet', icon: 'tablet', width: 768, title: 'Tablet — style overrides at ≤ 1024px' },
+  { id: 'sm', label: 'Mobile', icon: 'mobile', width: 390, title: 'Mobile — style overrides at ≤ 640px' },
 ]
 provide('composerBreakpointWidth', computed(() => breakpoints.find((b) => b.id === store.breakpoint)!.width))
+
+// A dot on the Tablet/Mobile buttons when any element carries overrides there —
+// so a block's responsive variants are discoverable from the bar.
+const overriddenBps = computed(() => {
+  const found = { md: false, sm: false }
+  walkTree(store.def.template, (node) => {
+    const bp = node.data.$bp as Record<string, Record<string, unknown>> | undefined
+    if (!bp || typeof bp !== 'object') return
+    for (const key of ['md', 'sm'] as const) {
+      const layer = bp[key]
+      if (layer && typeof layer === 'object' && Object.keys(layer).length) found[key] = true
+    }
+  })
+  return found
+})
 
 const saveStatus = computed(() => props.save?.status ?? 'saved')
 const saveLabel = computed(() => {

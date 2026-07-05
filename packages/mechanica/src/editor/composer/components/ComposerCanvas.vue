@@ -56,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, inject, nextTick, onBeforeUnmount, onMounted, ref, type ComputedRef } from 'vue'
+import { computed, defineComponent, inject, nextTick, onBeforeUnmount, onMounted, ref, watch, type ComputedRef } from 'vue'
 import { isBinding, type ContentBlock } from 'mechanica-shared'
 import { renderBlocks } from '../../../core/render-blocks'
 import type { BlocksMap } from '../../../core/state'
@@ -367,5 +367,8 @@ const dropStyle = computed(() => {
 const ghostStyle = computed(() => ({ left: `${insert.pointer!.x}px`, top: `${insert.pointer!.y}px` }))
 
 onMounted(() => nextTick(fit))
+// Switching device changes the canvas width drastically — re-fit so the frame
+// is centered and fully visible in the new size.
+watch(bpWidth, () => nextTick(fit))
 onBeforeUnmount(onPanUp)
 </script>

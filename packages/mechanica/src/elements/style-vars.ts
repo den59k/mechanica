@@ -33,6 +33,12 @@ const padding = (v: unknown): string | null => {
   return px(v)
 }
 
+const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null)
+
+/** Numbers pass as-is (unitless weight / line-height / ratio), strings verbatim. */
+const numeric = (v: unknown): string | null =>
+  typeof v === 'number' ? String(v) : str(v)
+
 const enumMap =
   (table: Record<string, string>) =>
   (v: unknown): string | null =>
@@ -54,7 +60,14 @@ interface VarSpec {
   to: (value: unknown) => string | null
 }
 
-/** Frame layout knobs that participate in breakpoint overrides. */
+/** Named shadow presets (`shadow: 'md'`), resolved into the `--el-shadow` var. */
+export const SHADOWS: Record<string, string> = {
+  sm: '0 1px 2px rgba(0, 0, 0, 0.06)',
+  md: '0 4px 12px rgba(0, 0, 0, 0.08)',
+  lg: '0 12px 32px rgba(0, 0, 0, 0.12)',
+}
+
+/** Frame layout + visual knobs that participate in breakpoint overrides. */
 export const FRAME_VARS: Record<string, VarSpec> = {
   direction: { cssVar: '--el-dir', to: enumMap({ row: 'row', column: 'column' }) },
   gap: { cssVar: '--el-gap', to: px },
@@ -72,6 +85,11 @@ export const FRAME_VARS: Record<string, VarSpec> = {
   // background + centered content-column section pattern, without a second box).
   maxWidth: { cssVar: '--el-maxw', to: px },
   grow: { cssVar: '--el-grow', to: (v) => (v ? '1' : '0') },
+  // Visual style — variables too, so Fill/Radius/… take per-breakpoint overrides.
+  background: { cssVar: '--el-bg', to: str },
+  radius: { cssVar: '--el-radius', to: px },
+  minHeight: { cssVar: '--el-minh', to: px },
+  shadow: { cssVar: '--el-shadow', to: enumMap(SHADOWS) },
 }
 
 /** Size/grow knobs shared by leaf elements (text, image, button). */
@@ -82,6 +100,24 @@ export const SIZE_VARS: Record<string, VarSpec> = {
   margin: FRAME_VARS.margin!,
   align: { cssVar: '--el-self', to: alignValue },
   textAlign: { cssVar: '--el-text-align', to: enumMap({ left: 'left', center: 'center', right: 'right' }) },
+}
+
+/** Text knobs: size/grow plus typography, all breakpoint-capable. */
+export const TEXT_VARS: Record<string, VarSpec> = {
+  ...SIZE_VARS,
+  size: { cssVar: '--el-fs', to: px },
+  weight: { cssVar: '--el-fw', to: numeric },
+  lineHeight: { cssVar: '--el-lh', to: numeric },
+  color: { cssVar: '--el-color', to: str },
+  maxWidth: FRAME_VARS.maxWidth!,
+}
+
+/** Image knobs: size/grow plus fit/ratio/radius, all breakpoint-capable. */
+export const IMAGE_VARS: Record<string, VarSpec> = {
+  ...SIZE_VARS,
+  fit: { cssVar: '--el-fit', to: str },
+  ratio: { cssVar: '--el-ratio', to: numeric },
+  radius: FRAME_VARS.radius!,
 }
 
 /**

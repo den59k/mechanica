@@ -13,7 +13,8 @@
 // Register them as non-inheriting so each element reads only its own; unset ones
 // resolve to the var() fallback. (Old browsers without @property support degrade
 // to the previous inheriting behavior.)
-$el-props: 'dir', 'gap', 'align', 'justify', 'wrap', 'pad', 'margin', 'w', 'h', 'maxw', 'grow', 'self', 'text-align';
+$el-props: 'dir', 'gap', 'align', 'justify', 'wrap', 'pad', 'margin', 'w', 'h', 'maxw', 'grow', 'self', 'text-align',
+  'fs', 'fw', 'lh', 'color', 'bg', 'radius', 'minh', 'shadow', 'fit', 'ratio';
 $el-bps: '', '-md', '-sm';
 @each $p in $el-props {
   @each $bp in $el-bps {
@@ -34,6 +35,7 @@ $el-bps: '', '-md', '-sm';
   // frame's `margin-inline: auto` (below) outranks this shorthand, so its
   // horizontal margin stays centered even when a margin is set.
   margin: var(--el-margin, 0);
+  border-radius: var(--el-radius, 0);
   min-width: 0; // keep flex children from overflowing their track
 }
 
@@ -47,6 +49,9 @@ $el-bps: '', '-md', '-sm';
   flex-wrap: var(--el-wrap, nowrap);
   padding: var(--el-pad, 0px);
   max-width: var(--el-maxw, none);
+  background: var(--el-bg, none);
+  min-height: var(--el-minh, auto);
+  box-shadow: var(--el-shadow, none);
 
   // "Content width": when a frame caps its own width, center it in its parent.
   // Scoped to frames that actually set the var so it never absorbs free space
@@ -60,11 +65,21 @@ $el-bps: '', '-md', '-sm';
   // margin: 0 lives on .mxel (via --el-margin's fallback) — repeating it here
   // would beat the variable, as this rule comes later at equal specificity.
   text-align: var(--el-text-align, left);
+  // `revert` = "as if we declared nothing": UA heading sizes/weights and the
+  // site's inherited typography survive when the knob is unset. (CSS-wide
+  // keywords in var() fallbacks need a 2023+ browser — same era as @property.)
+  font-size: var(--el-fs, revert);
+  font-weight: var(--el-fw, revert);
+  line-height: var(--el-lh, revert);
+  color: var(--el-color, currentcolor);
+  max-width: var(--el-maxw, none);
 }
 
 .mxel-image {
   display: block;
   max-width: 100%;
+  object-fit: var(--el-fit, cover);
+  aspect-ratio: var(--el-ratio, auto);
 }
 
 // Placement wrapper for a non-element block (a site component / composed block
@@ -84,7 +99,7 @@ $el-bps: '', '-md', '-sm';
   font-size: 13px;
   background: rgba(0, 0, 0, 0.04);
   border: 1px dashed rgba(0, 0, 0, 0.16);
-  border-radius: 8px;
+  border-radius: var(--el-radius, 8px);
 }
 
 // ── Breakpoint md (≤ 1024px) ─────────────────────────────────────────────────
@@ -95,6 +110,7 @@ $el-bps: '', '-md', '-sm';
     flex-grow: var(--el-grow-md, var(--el-grow, 0));
     align-self: var(--el-self-md, var(--el-self, auto));
     margin: var(--el-margin-md, var(--el-margin, 0));
+    border-radius: var(--el-radius-md, var(--el-radius, 0));
   }
   .mxel-frame {
     flex-direction: var(--el-dir-md, var(--el-dir, column));
@@ -103,9 +119,20 @@ $el-bps: '', '-md', '-sm';
     justify-content: var(--el-justify-md, var(--el-justify, flex-start));
     flex-wrap: var(--el-wrap-md, var(--el-wrap, nowrap));
     padding: var(--el-pad-md, var(--el-pad, 0px));
+    background: var(--el-bg-md, var(--el-bg, none));
+    min-height: var(--el-minh-md, var(--el-minh, auto));
+    box-shadow: var(--el-shadow-md, var(--el-shadow, none));
   }
   .mxel-text {
     text-align: var(--el-text-align-md, var(--el-text-align, left));
+    font-size: var(--el-fs-md, var(--el-fs, revert));
+    font-weight: var(--el-fw-md, var(--el-fw, revert));
+    line-height: var(--el-lh-md, var(--el-lh, revert));
+    color: var(--el-color-md, var(--el-color, currentcolor));
+  }
+  .mxel-image {
+    object-fit: var(--el-fit-md, var(--el-fit, cover));
+    aspect-ratio: var(--el-ratio-md, var(--el-ratio, auto));
   }
 }
 
@@ -117,6 +144,7 @@ $el-bps: '', '-md', '-sm';
     flex-grow: var(--el-grow-sm, var(--el-grow-md, var(--el-grow, 0)));
     align-self: var(--el-self-sm, var(--el-self-md, var(--el-self, auto)));
     margin: var(--el-margin-sm, var(--el-margin-md, var(--el-margin, 0)));
+    border-radius: var(--el-radius-sm, var(--el-radius-md, var(--el-radius, 0)));
   }
   .mxel-frame {
     flex-direction: var(--el-dir-sm, var(--el-dir-md, var(--el-dir, column)));
@@ -125,8 +153,19 @@ $el-bps: '', '-md', '-sm';
     justify-content: var(--el-justify-sm, var(--el-justify-md, var(--el-justify, flex-start)));
     flex-wrap: var(--el-wrap-sm, var(--el-wrap-md, var(--el-wrap, nowrap)));
     padding: var(--el-pad-sm, var(--el-pad-md, var(--el-pad, 0px)));
+    background: var(--el-bg-sm, var(--el-bg-md, var(--el-bg, none)));
+    min-height: var(--el-minh-sm, var(--el-minh-md, var(--el-minh, auto)));
+    box-shadow: var(--el-shadow-sm, var(--el-shadow-md, var(--el-shadow, none)));
   }
   .mxel-text {
     text-align: var(--el-text-align-sm, var(--el-text-align-md, var(--el-text-align, left)));
+    font-size: var(--el-fs-sm, var(--el-fs-md, var(--el-fs, revert)));
+    font-weight: var(--el-fw-sm, var(--el-fw-md, var(--el-fw, revert)));
+    line-height: var(--el-lh-sm, var(--el-lh-md, var(--el-lh, revert)));
+    color: var(--el-color-sm, var(--el-color-md, var(--el-color, currentcolor)));
+  }
+  .mxel-image {
+    object-fit: var(--el-fit-sm, var(--el-fit-md, var(--el-fit, cover)));
+    aspect-ratio: var(--el-ratio-sm, var(--el-ratio-md, var(--el-ratio, auto)));
   }
 }

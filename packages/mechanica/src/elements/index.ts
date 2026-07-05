@@ -1,6 +1,6 @@
 import { defineComponent, h, type Component } from 'vue'
 import type { BlocksMap } from '../core/state'
-import { responsiveVars, absStyle, compactStyle, FRAME_VARS, SIZE_VARS } from './style-vars'
+import { responsiveVars, absStyle, compactStyle, FRAME_VARS, TEXT_VARS, IMAGE_VARS } from './style-vars'
 import './elements.scss'
 
 /**
@@ -19,31 +19,20 @@ import './elements.scss'
 
 type Data = Record<string, unknown>
 
-const px = (v: unknown): string | null =>
-  typeof v === 'number' ? `${v}px` : typeof v === 'string' && v !== '' ? v : null
-
-const SHADOWS: Record<string, string> = {
-  sm: '0 1px 2px rgba(0, 0, 0, 0.06)',
-  md: '0 4px 12px rgba(0, 0, 0, 0.08)',
-  lg: '0 12px 32px rgba(0, 0, 0, 0.12)',
-}
-
 /** The content-node id `renderBlocks` stamps on each block, for editor mapping. */
 const blockId = (data: Data): unknown => data['data-block-id']
 
+// Visual style (background/radius/size/color/…) rides the same CSS-variable
+// indirection as layout — see FRAME_VARS/TEXT_VARS/IMAGE_VARS — so every knob
+// takes `$bp` breakpoint overrides. Only the rare compound knobs that have no
+// editor UI (overflow, border) remain direct inline style, base-only.
 function frameStyle(data: Data): Record<string, string> {
   const out: Record<string, string> = {}
-  if (typeof data.background === 'string' && data.background) out.background = data.background
-  const radius = px(data.radius)
-  if (radius) out.borderRadius = radius
-  const minHeight = px(data.minHeight)
-  if (minHeight) out.minHeight = minHeight
   if (typeof data.overflow === 'string') out.overflow = data.overflow
   if (typeof data.borderColor === 'string' && data.borderColor) {
     const width = typeof data.borderWidth === 'number' ? data.borderWidth : 1
     out.border = `${width}px solid ${data.borderColor}`
   }
-  if (typeof data.shadow === 'string' && data.shadow in SHADOWS) out.boxShadow = SHADOWS[data.shadow]!
   return out
 }
 
@@ -66,18 +55,6 @@ const Frame = defineComponent({
 
 const TEXT_TAGS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p'])
 
-function textStyle(data: Data): Record<string, string> {
-  const out: Record<string, string> = {}
-  const size = px(data.size)
-  if (size) out.fontSize = size
-  if (data.weight != null) out.fontWeight = String(data.weight)
-  if (data.lineHeight != null) out.lineHeight = String(data.lineHeight)
-  if (typeof data.color === 'string' && data.color) out.color = data.color
-  const maxWidth = px(data.maxWidth)
-  if (maxWidth) out.maxWidth = maxWidth
-  return out
-}
-
 /** Text — a heading/paragraph. Plain-string content in v1. */
 const Text = defineComponent({
   name: 'MechText',
@@ -86,7 +63,7 @@ const Text = defineComponent({
     return () => {
       const data = attrs as Data
       const tag = typeof data.tag === 'string' && TEXT_TAGS.has(data.tag) ? data.tag : 'p'
-      const style = compactStyle(responsiveVars(data, SIZE_VARS), textStyle(data), absStyle(data.$abs))
+      const style = compactStyle(responsiveVars(data, TEXT_VARS), absStyle(data.$abs))
       return h(
         tag,
         { class: 'mxel mxel-text', style, 'data-block-id': blockId(data) },
@@ -96,15 +73,6 @@ const Text = defineComponent({
   },
 })
 
-function imageStyle(data: Data): Record<string, string> {
-  const out: Record<string, string> = {}
-  if (typeof data.fit === 'string') out.objectFit = data.fit
-  if (data.ratio != null) out.aspectRatio = String(data.ratio)
-  const radius = px(data.radius)
-  if (radius) out.borderRadius = radius
-  return out
-}
-
 /** Image — an uploaded asset. Renders a placeholder box when `src` is empty. */
 const Image = defineComponent({
   name: 'MechImage',
@@ -112,7 +80,7 @@ const Image = defineComponent({
   setup(_props, { attrs }) {
     return () => {
       const data = attrs as Data
-      const style = compactStyle(responsiveVars(data, SIZE_VARS), imageStyle(data), absStyle(data.$abs))
+      const style = compactStyle(responsiveVars(data, IMAGE_VARS), absStyle(data.$abs))
       const src = typeof data.src === 'string' ? data.src : ''
       if (!src) {
         return h(
