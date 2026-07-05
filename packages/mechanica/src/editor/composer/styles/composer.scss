@@ -1007,7 +1007,7 @@ $margin: #f97316; // translucent orange for margin editing (distinct from paddin
   border-radius: var(--mech-radius-sm);
 }
 .mech-composer__aligncell {
-  display: flex;
+  position: relative;
   border: none;
   background: none;
   padding: 0;
@@ -1017,22 +1017,43 @@ $margin: #f97316; // translucent orange for margin editing (distinct from paddin
   &:hover {
     background: var(--mech-bg);
   }
-  &:hover .mech-composer__alignbar {
-    background: var(--mech-fg-alt);
-  }
   &.is-active {
     background: var(--mech-accent-soft);
   }
-  &.is-active .mech-composer__alignbar {
+  // Hover swaps the dot for the three-stripe preview.
+  &:hover .mech-composer__aligndot {
+    opacity: 0;
+  }
+  &:hover .mech-composer__alignbars {
+    display: flex;
+  }
+  &.is-active .mech-composer__aligndot {
+    background: var(--mech-accent);
+  }
+  &:hover .mech-composer__alignbar {
+    background: var(--mech-fg-alt);
+  }
+  &.is-active:hover .mech-composer__alignbar {
     background: var(--mech-accent);
   }
 }
-// The three stripes fill the cell; the inline flex (align-items / justify-content)
-// positions + aligns them to preview this cell's alignment.
+// Default state — a calm centered dot; accent when this cell is the active align.
+.mech-composer__aligndot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 1.5px;
+  background: var(--mech-border-strong);
+}
+// Hover preview — three stripes fill the cell; the inline flex (align-items /
+// justify-content) positions + aligns them to preview this cell's alignment.
 .mech-composer__alignbars {
-  display: flex;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
+  display: none;
   padding: 4px;
   gap: 2px;
   box-sizing: border-box;
@@ -1042,7 +1063,6 @@ $margin: #f97316; // translucent orange for margin editing (distinct from paddin
   flex: 0 0 auto;
   border-radius: 1px;
   background: var(--mech-border-strong);
-  transition: background 0.1s;
 }
 // Column frame → horizontal bars (varying widths, ragged edge shows the align).
 .mech-composer__alignbars.is-col .mech-composer__alignbar {

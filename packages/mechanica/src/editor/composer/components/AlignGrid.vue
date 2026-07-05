@@ -9,9 +9,12 @@
       :title="cell.title"
       @click="apply(cell.align, cell.justify)"
     >
-      <!-- Three stripes standing in for the frame's children, aligned exactly as
-           this cell would align them (Figma-style). Orientation flips with the
-           frame's flow; the cell's flex places + aligns them per align/justify. -->
+      <!-- A calm dot by default (accent marks the active alignment); on hover the
+           cell previews the alignment as three Figma-style stripes standing in for
+           the frame's children, aligned exactly as this cell would align them.
+           Orientation flips with the frame's flow; the cell's flex places + aligns
+           them per align/justify. -->
+      <span class="mech-composer__aligndot" />
       <span class="mech-composer__alignbars" :class="dirClass" :style="cell.barsStyle">
         <i class="mech-composer__alignbar" />
         <i class="mech-composer__alignbar" />
