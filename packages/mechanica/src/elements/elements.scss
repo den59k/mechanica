@@ -7,6 +7,23 @@
 // narrower breakpoint falls back through the wider ones to the base value.
 // (See style-vars.ts.)
 
+// These variables are per-element inline state. CSS custom properties inherit by
+// default, so without this a child would pick up a parent's inline value — e.g. a
+// frame's `margin` (set only when present) leaking down onto its children.
+// Register them as non-inheriting so each element reads only its own; unset ones
+// resolve to the var() fallback. (Old browsers without @property support degrade
+// to the previous inheriting behavior.)
+$el-props: 'dir', 'gap', 'align', 'justify', 'wrap', 'pad', 'margin', 'w', 'h', 'maxw', 'grow', 'self', 'text-align';
+$el-bps: '', '-md', '-sm';
+@each $p in $el-props {
+  @each $bp in $el-bps {
+    @property --el-#{$p}#{$bp} {
+      syntax: '*';
+      inherits: false;
+    }
+  }
+}
+
 .mxel {
   box-sizing: border-box;
   width: var(--el-w, auto);
