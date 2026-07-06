@@ -44,6 +44,21 @@ describe('<Link>', () => {
     await nextTick()
     expect(a.classList.contains('is-active')).toBe(true)
   })
+
+  it('adds no active class when disabled with :active-class="false"', async () => {
+    const el = document.createElement('div')
+    const state: State = { content: [], data: {} }
+    createApp({ render: () => h(Link, { to: '/pricing', activeClass: false }, () => 'Go') })
+      .use(createMechanica({ mode: 'client', state }))
+      .mount(el)
+    const a = el.querySelector('a')!
+    const runtime = (window as unknown as Record<string, unknown>).__MECHANICA_RUNTIME__ as {
+      setPage?: (page: PageMeta) => void
+    }
+    runtime.setPage?.({ path: '/pricing' })
+    await nextTick()
+    expect(a.className).toBe('')
+  })
 })
 
 function renderLocalized(to: any, opts: { locale?: string; prop?: string } = {}) {

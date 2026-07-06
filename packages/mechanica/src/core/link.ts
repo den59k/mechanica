@@ -39,7 +39,13 @@ export const Link = defineComponent({
   name: 'MechLink',
   props: {
     to: { type: [String, Object] as PropType<LinkTarget>, required: true },
-    activeClass: { type: String, default: 'is-active' },
+    /**
+     * Class added to the anchor when its resolved path matches the current route.
+     * Pass `false` (or `''`) to disable — e.g. a language switcher that tracks the
+     * active *locale* itself, where every locale link points at the same logical
+     * page and path-matching is the wrong signal.
+     */
+    activeClass: { type: [String, Boolean] as PropType<string | false>, default: 'is-active' },
     /** Target a specific locale instead of the current one (language switchers). */
     locale: { type: String, default: undefined },
   },
@@ -66,7 +72,7 @@ export const Link = defineComponent({
         {
           href: router.normalizePath(resolved),
           ...newTab,
-          class: isActive ? props.activeClass : undefined,
+          class: (isActive && props.activeClass) || undefined,
           onClick: (event: MouseEvent) => {
             if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
             if (event.button !== 0 || openNewTab) return

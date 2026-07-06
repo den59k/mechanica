@@ -5,6 +5,7 @@
       :key="code"
       :to="page.path!"
       :locale="code"
+      :active-class="false"
       class="lang__item"
       :class="{ 'is-active': code === locale }"
     >
