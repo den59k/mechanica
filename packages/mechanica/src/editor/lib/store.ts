@@ -1,6 +1,7 @@
 import { reactive, computed, markRaw, type InjectionKey } from 'vue'
 import {
   getDefaultValue,
+  localeLabel,
   type Block,
   type ContentBlock,
   type DataEntry,
@@ -50,6 +51,18 @@ export interface EditorStore {
   locale: string | null
   /** The site's default locale (null when i18n is off) — for the Data window's context. */
   defaultLocale: string | null
+  /** Human label of the default locale, for translation reset tooltips (null when i18n is off). */
+  defaultLocaleLabel: string | null
+  /**
+   * The default-locale page's content when editing a translation (else null).
+   * Lets the props panel mark which fields override the default vs inherit it.
+   */
+  baseContent: ContentBlock[] | null
+  /**
+   * The default-locale value of a block's `data` (by id), or null when not
+   * editing a translation — for per-field override detection and reset.
+   */
+  baseDataOf(id: string): Record<string, unknown> | null
   selectedId: string | null
   /** The block currently hovered on *either* surface (page or tree), kept in sync. */
   hoverId: string | null
@@ -109,6 +122,11 @@ export function createEditorStore(
     hoverId: null as string | null,
     clipboard: null as ContentBlock | null,
   })
+
+  // The default-locale content (translation editing) — a plain reactive holder
+  // so a page/locale switch can swap it (EditorApp sets `store.baseContent`).
+  const localeState = reactive({ base: (clone(initial.baseContent) ?? null) as ContentBlock[] | null })
+  const config = initial.locales ?? null
 
   const buckets: Record<DataScope, Record<string, unknown>> = { site: siteData, folder: folderData, page: pageData }
 
@@ -183,7 +201,19 @@ export function createEditorStore(
     folder: initial.folder ?? null,
     canFolder: initial.folder != null,
     locale: initial.page?.locale ?? null,
-    defaultLocale: initial.locales?.default ?? null,
+    defaultLocale: config?.default ?? null,
+    defaultLocaleLabel: config ? localeLabel(config, config.default) : null,
+    get baseContent() {
+      return localeState.base
+    },
+    set baseContent(value: ContentBlock[] | null) {
+      localeState.base = value
+    },
+    baseDataOf(id: string): Record<string, unknown> | null {
+      if (!localeState.base) return null
+      const block = findBlock(localeState.base, id)
+      return (block?.data as Record<string, unknown>) ?? {}
+    },
     get effective() {
       return effective.value
     },

@@ -90,6 +90,16 @@ export function buildPageState(
   // Inject cached image metadata (LQIP previews, dimensions) from
   // `.mech/images.json` — page files don't carry the preview blobs.
   fillImageMeta(mechDir, content)
+  // On a non-default locale, ship the default-locale content too (normalized the
+  // same way) so the editor can mark which fields this translation overrides vs
+  // inherits, and offer a reset to the inherited value.
+  let baseContent: typeof content | undefined
+  if (localeCode && pageVersion(mechDir, pagePath) != null) {
+    const base = readPage(mechDir, pagePath).content ?? []
+    fillContentDefaults(base)
+    fillImageMeta(mechDir, base)
+    baseContent = base
+  }
   const folder = folderOf(mechDir, pagePath)
   // `localized` site/folder data resolves to the current locale (falling back to
   // the default per entry); non-localized entries come from the shared files.
@@ -113,5 +123,6 @@ export function buildPageState(
     page: pageMeta,
     version: pageVersion(mechDir, pagePath, localeCode),
     ...(config ? { locales: config } : {}),
+    ...(baseContent ? { baseContent } : {}),
   }
 }

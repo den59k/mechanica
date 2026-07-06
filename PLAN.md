@@ -24,7 +24,11 @@ localizability — this is the "auto by field type" behavior with **no per-field
 normalized base), and `createTranslation` (now seeds an **empty**, fully-inherited file). Verified
 end-to-end: the dev-app RU/JA home pages carry **no image field** yet render byte-identical banners
 (src + focal point + LQIP) to EN, in both dev shots and the static export. Backward-compatible: an
-old full-copy translation still renders and sparsifies on its next save.
+old full-copy translation still renders and sparsifies on its next save. **Editor affordance:**
+`buildPageState` ships the default-locale content as `state.baseContent` (dev only), and the props
+panel (`SchemaForm`) marks each top-level field that overrides the default with a faint accent bar +
+a ↩ reset-to-inherited, over a one-line "unedited fields inherit *{default}*" hint in
+`BlockSettings` — so the editor shows the same inherit/override model the storage uses.
 
 **Done — phase 4 (locale-aware queries):** `usePages`/`usePagination` resolve against the current
 locale. The query engine's `QueryContext.locale` threads to `QuerySource.listPages({ …, locale })`;

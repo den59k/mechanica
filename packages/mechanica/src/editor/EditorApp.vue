@@ -371,6 +371,7 @@ watch(
     store.folder = next.folder ?? null
     store.canFolder = next.folder != null
     store.locale = next.page?.locale ?? null
+    store.baseContent = next.baseContent ? clone(next.baseContent) : null
     pushStateUpdate({
       content: clone(store.content) as never,
       data: clone(store.effective),

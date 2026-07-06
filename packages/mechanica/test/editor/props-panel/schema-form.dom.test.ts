@@ -20,10 +20,12 @@ const schema = {
   },
 }
 
-function mount(data: Record<string, unknown>) {
+function mount(data: Record<string, unknown>, base?: Record<string, unknown> | null) {
   const model = reactive(data)
   const el = document.createElement('div')
-  createApp({ render: () => h(SchemaForm, { modelValue: model, schema }) }).mount(el)
+  createApp({
+    render: () => h(SchemaForm, { modelValue: model, schema, base, baseLabel: 'English' }),
+  }).mount(el)
   return { el, model }
 }
 
@@ -55,5 +57,38 @@ describe('SchemaForm', () => {
     const remove = el.querySelector<HTMLButtonElement>('.mech-array__remove')!
     remove.click()
     expect((model.tags as unknown[]).length).toBe(1)
+  })
+
+  describe('translation override markers (base provided)', () => {
+    const base = { title: 'Hi', meta: { author: 'A' }, tags: ['a'] }
+
+    it('shows no reset when a field matches the default locale', () => {
+      const { el } = mount({ title: 'Hi', meta: { author: 'A' }, tags: ['a'] }, base)
+      expect(el.querySelector('.mech-form__reset')).toBeNull()
+      expect(el.querySelector('.mech-form__row.is-overridden')).toBeNull()
+    })
+
+    it('marks an overridden field and offers a reset that re-inherits it', () => {
+      const { el, model } = mount({ title: 'Привет', meta: { author: 'A' }, tags: ['a'] }, base)
+      // Only the changed field is marked overridden.
+      expect(el.querySelectorAll('.mech-form__row.is-overridden').length).toBe(1)
+      const reset = el.querySelector<HTMLButtonElement>('.mech-form__reset')!
+      expect(reset.title).toBe('Reset to English')
+
+      reset.click()
+      // Reset restores the inherited value → equal to base → no longer overridden.
+      expect(model.title).toBe('Hi')
+    })
+
+    it('detects overrides in nested objects and arrays (whole-field)', () => {
+      const { el } = mount({ title: 'Hi', meta: { author: 'Б' }, tags: ['a', 'b'] }, base)
+      expect(el.querySelectorAll('.mech-form__row.is-overridden').length).toBe(2)
+    })
+
+    it('renders no markers without a base (normal editing)', () => {
+      const { el } = mount({ title: 'X', meta: { author: 'A' }, tags: [] })
+      expect(el.querySelector('.mech-form__row')).toBeNull()
+      expect(el.querySelector('.mech-form__reset')).toBeNull()
+    })
   })
 })

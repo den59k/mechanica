@@ -274,6 +274,13 @@ export interface State {
   pageData?: Record<string, unknown>
   /** The folder this page lives in (null at the root), so the editor can offer folder scope. */
   folder?: string | null
+  /**
+   * The default-locale page's content (dev only, on a non-default locale). Lets
+   * the editor mark which fields a translation *overrides* vs inherits, and
+   * offer a one-click reset to the inherited value. Absent when i18n is off or
+   * on the default locale.
+   */
+  baseContent?: ContentBlock[]
   /** Base URL the page is served under (for routing/link resolution). */
   baseUrl?: string
   /** Current page metadata. */
