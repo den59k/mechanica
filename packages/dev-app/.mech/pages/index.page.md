@@ -14,8 +14,8 @@ image:
   src: /@mechanica/assets/ChatGPT Image 4 дек. 2025 г., 18_38_04.png
   width: 1024
   height: 1024
-  focalX: 0.176
-  focalY: 0.684
+  focalX: 0.51
+  focalY: 0.698
 heading: Banner heading
 caption: So new banner!
 :::

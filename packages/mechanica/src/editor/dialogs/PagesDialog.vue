@@ -21,13 +21,21 @@
             @keydown="onSearchKey"
           />
         </div>
-        <label v-if="hasGenerated" class="mech-checkbox mech-pages__filter">
-          <input v-model="showGenerated" type="checkbox" />
-          <span>Show generated pages</span>
-        </label>
         <button type="button" class="mech-button is-primary" @click="startCreate">
           <VIcon name="plus" /> New page
         </button>
+      </div>
+
+      <!-- Filter / sort row — a home for sorting and toggles like generated pages. -->
+      <div class="mech-pages__filters">
+        <div class="mech-pages__sort">
+          <span class="mech-pages__sort-label">Sort</span>
+          <VSegmented v-model="sortKey" :options="sortOptions" size="sm" aria-label="Sort pages" />
+        </div>
+        <label v-if="hasGenerated" class="mech-checkbox mech-pages__toggle">
+          <input v-model="showGenerated" type="checkbox" />
+          <span>Show generated pages</span>
+        </label>
       </div>
 
       <div class="mech-pages__content">
@@ -150,6 +158,7 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onMounted, reactive, ref, useTemplateRef, watch } from 'vue'
 import VIcon from '../components/VIcon.vue'
+import VSegmented from '../components/VSegmented.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import PageFormDialog from './PageFormDialog.vue'
 import { useDialog } from '../ui/dialog'
@@ -200,6 +209,24 @@ const listedPages = computed(() =>
   showGenerated.value ? pages.value : pages.value.filter((page) => !page.generated),
 )
 
+// Sort order within each folder group. Defaults to `path` (the server's own
+// order — the folder rail is path-shaped), persisted like `showGenerated`.
+const SORT_KEY = 'mech:pages:sort'
+const sortKey = ref<'path' | 'name'>(
+  (typeof localStorage !== 'undefined' && localStorage.getItem(SORT_KEY)) === 'name' ? 'name' : 'path',
+)
+watch(sortKey, (value) => {
+  try {
+    localStorage.setItem(SORT_KEY, value)
+  } catch {
+    /* storage unavailable */
+  }
+})
+const sortOptions = [
+  { value: 'path', label: 'Path' },
+  { value: 'name', label: 'Name' },
+]
+
 const folders = computed(() => {
   const counts = new Map<string, number>()
   for (const page of listedPages.value) {
@@ -216,7 +243,15 @@ const visible = computed(() => {
   if (activeFolder.value) return listedPages.value.filter((page) => page.folderPath === activeFolder.value)
   return listedPages.value
 })
-const groups = computed(() => groupPagesByFolder(visible.value))
+// Sort within each folder group by the chosen key (grouping is preserved).
+const sorted = computed(() =>
+  [...visible.value].sort((a, b) =>
+    sortKey.value === 'name'
+      ? (a.name || a.path).localeCompare(b.name || b.path)
+      : a.path.localeCompare(b.path),
+  ),
+)
+const groups = computed(() => groupPagesByFolder(sorted.value))
 /** Flat list in render order — keyboard navigation walks this. */
 const rows = computed(() => groups.value.flatMap((group) => group.pages))
 // Inside a single folder the rail already names it; headers would be noise.
@@ -470,19 +505,39 @@ async function toggleDraft(page: PageItem) {
 
 .mech-pages__toolbar {
   display: flex;
-  align-items: center;
   gap: 8px;
-  padding: 0 24px 14px;
+  padding: 0 24px 12px;
   flex: none;
 }
 .mech-pages__search-wrap {
   position: relative;
   flex: 1;
 }
-.mech-pages__filter {
+
+// ── Filter / sort row ────────────────────────────────────────────────────────
+.mech-pages__filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 24px 14px;
+  flex: none;
+}
+.mech-pages__sort {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.mech-pages__sort-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mech-muted);
+}
+.mech-pages__toggle {
   flex: none;
   white-space: nowrap;
-  margin-right: 2px;
 }
 .mech-pages__search-icon {
   position: absolute;

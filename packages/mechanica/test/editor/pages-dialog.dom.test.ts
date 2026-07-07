@@ -204,7 +204,7 @@ describe('PagesDialog', () => {
 
     // Generated pages are shown by default, with a "Generated" badge, and the
     // count reflects the full list.
-    const checkbox = el.querySelector('.mech-pages__filter input[type="checkbox"]') as HTMLInputElement
+    const checkbox = el.querySelector('.mech-pages__toggle input[type="checkbox"]') as HTMLInputElement
     expect(checkbox).toBeTruthy()
     expect(checkbox.checked).toBe(true)
     expect(el.textContent).toContain('Arc')
@@ -231,7 +231,23 @@ describe('PagesDialog', () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => pages }) as any))
     const { el } = mount(PagesDialog)
     await flush()
-    expect(el.querySelector('.mech-pages__filter')).toBeNull()
+    expect(el.querySelector('.mech-pages__toggle')).toBeNull()
+  })
+
+  it('sorts pages within folder groups by path (default) or name', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => pages }) as any))
+    const { el } = mount(PagesDialog)
+    await flush()
+
+    const names = () => [...el.querySelectorAll('.mech-pages__row .mech-pages__name')].map((n) => n.textContent)
+    // Default sort is by path: root pages "/", "/about" → Home, About.
+    expect(names()).toEqual(['Home', 'About', 'Intro'])
+
+    const nameBtn = [...el.querySelectorAll('.mech-segmented__seg')].find((b) => b.textContent?.trim() === 'Name')!
+    nameBtn.dispatchEvent(new Event('click', { bubbles: true }))
+    await nextTick()
+    // By name the root pages flip to About, Home.
+    expect(names()).toEqual(['About', 'Home', 'Intro'])
   })
 })
 
