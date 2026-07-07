@@ -33,7 +33,7 @@ const props = defineBlock({
 })
 </script>
 
-<style lang="scss" scoped>
+<style>
 .hero {
   padding: 96px 0 72px;
   text-align: center;
@@ -71,9 +71,8 @@ const props = defineBlock({
   color: #fff;
   font-weight: 600;
   transition: background 0.15s;
-
-  &:hover {
-    background: var(--ink-2);
-  }
+}
+.hero__cta:hover {
+  background: var(--ink-2);
 }
 </style>

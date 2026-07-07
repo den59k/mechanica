@@ -1,15 +1,15 @@
 <template>
-  <textarea
-    class="mech-input mech-textarea"
-    :value="modelValue"
+  <TypographyInput
+    multiline
+    :model-value="modelValue"
     :placeholder="schema.placeholder"
-    rows="3"
-    @input="onInput"
+    :rows="3"
+    @update:model-value="emit('update:modelValue', $event)"
   />
 </template>
 
 <script setup lang="ts">
+import TypographyInput from '../../components/TypographyInput.vue'
 defineProps<{ modelValue?: string; schema: Record<string, any> }>()
 const emit = defineEmits<{ 'update:modelValue': [string] }>()
-const onInput = (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
 </script>

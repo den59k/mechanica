@@ -47,6 +47,12 @@ export const decorator = (style: Style): Record<string, unknown> | undefined => 
       return { tag: 'a', attrs: { href: style.meta?.href, target: '_blank', rel: 'noopener' } }
     case 'color':
       return { style: `color: ${style.meta?.color};` }
+    // Display-only markers for the non-breaking space / hyphen, produced by
+    // `typographyParser` at render time (never stored). See lib/typography.ts.
+    case 'nbsp':
+      return { tag: 'span', class: 'rt-nbsp' }
+    case 'nbHyphen':
+      return { tag: 'span', class: 'rt-nbhyphen' }
     default:
       return undefined
   }

@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 // Module shims so plain `tsc` (typechecking runs with tsc, not vue-tsc, so it
-// doesn't parse .vue/.scss) can resolve SFC and style imports. The `defineBlock`
+// doesn't parse .vue/.css) can resolve SFC and style imports. The `defineBlock`
 // macro is typed globally by `mechanica` itself, pulled in via the app's imports.
 declare module '*.vue' {
   import type { DefineComponent } from 'vue'
@@ -9,4 +9,3 @@ declare module '*.vue' {
   export default component
 }
 declare module '*.css' {}
-declare module '*.scss' {}

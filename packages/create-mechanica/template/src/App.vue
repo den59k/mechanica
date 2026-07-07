@@ -6,7 +6,7 @@
 import { watchEffect } from 'vue'
 import { Content } from 'mechanica'
 import { useHead } from './data/head'
-import './styles/site.scss'
+import './styles/site.css'
 
 // Site-wide chrome (header, footer) belongs here, outside <Content/> — it is
 // identical on every page, configured via shared `defineData` entries rather

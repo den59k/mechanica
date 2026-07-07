@@ -1,15 +1,13 @@
 <template>
-  <input
-    class="mech-input"
-    type="text"
-    :value="modelValue"
+  <TypographyInput
+    :model-value="modelValue"
     :placeholder="schema.placeholder"
-    @input="onInput"
+    @update:model-value="emit('update:modelValue', $event)"
   />
 </template>
 
 <script setup lang="ts">
+import TypographyInput from '../../components/TypographyInput.vue'
 defineProps<{ modelValue?: string; schema: Record<string, any> }>()
 const emit = defineEmits<{ 'update:modelValue': [string] }>()
-const onInput = (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value)
 </script>

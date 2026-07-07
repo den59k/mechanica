@@ -1,13 +1,13 @@
-// Global design tokens and a small reset. Blocks compose with these tokens;
-// block-specific styling stays scoped inside each block.
+/* Global design tokens and a small reset. Blocks compose with these tokens;
+   block-specific styling lives in each block's own <style> block. */
 
 :root {
-  // Brand
+  /* Brand */
   --brand: #5b54f0;
   --brand-strong: #4a42e4;
   --brand-soft: #efeefe;
 
-  // Ink / surfaces
+  /* Ink / surfaces */
   --ink: #14151a;
   --ink-2: #3a3d47;
   --muted: #6a6f7b;
@@ -17,7 +17,7 @@
 
   --border: #e8e9f0;
 
-  // Shape / layout
+  /* Shape / layout */
   --radius: 16px;
   --radius-sm: 10px;
   --container: 1140px;

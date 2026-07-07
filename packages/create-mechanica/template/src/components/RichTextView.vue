@@ -37,68 +37,68 @@ import { renderer, decorator, listParser } from '../utils/richtext'
 defineProps<{ value: Block[] }>()
 </script>
 
-<style scoped>
+<style>
 .richtext {
   font-size: 16px;
   line-height: 1.7;
   color: var(--ink-2);
 }
-.richtext :deep(p) {
+.richtext p {
   margin: 0 0 14px;
 }
-.richtext :deep(> :last-child) {
+.richtext > :last-child {
   margin-bottom: 0;
 }
-.richtext :deep(h1),
-.richtext :deep(h2),
-.richtext :deep(h3) {
+.richtext h1,
+.richtext h2,
+.richtext h3 {
   color: var(--ink);
   font-weight: 700;
   margin: 0.9em 0 0.35em;
 }
-.richtext :deep(h1) {
+.richtext h1 {
   font-size: 1.5em;
 }
-.richtext :deep(h2) {
+.richtext h2 {
   font-size: 1.3em;
 }
-.richtext :deep(h3) {
+.richtext h3 {
   font-size: 1.1em;
 }
-.richtext :deep(b) {
+.richtext b {
   font-weight: 700;
   color: var(--ink);
 }
-.richtext :deep(i) {
+.richtext i {
   font-style: italic;
 }
-.richtext :deep(u) {
+.richtext u {
   text-decoration: underline;
 }
-.richtext :deep(s) {
+.richtext s {
   text-decoration: line-through;
 }
-.richtext :deep(ul),
-.richtext :deep(ol) {
+.richtext ul,
+.richtext ol {
   margin: 0 0 14px;
   padding-left: 22px;
 }
-.richtext :deep(ul) {
+.richtext ul {
   list-style: disc;
 }
-.richtext :deep(ol) {
+.richtext ol {
   list-style: decimal;
 }
-.richtext :deep(li) {
+.richtext li {
   margin: 4px 0;
 }
-.richtext :deep(a) {
+.richtext a {
   color: var(--brand);
   font-weight: 500;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.richtext :deep(code) {
+.richtext code {
   font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
   font-size: 0.88em;
   background: var(--surface);
@@ -112,7 +112,7 @@ defineProps<{ value: Block[] }>()
   margin: 16px 0;
   border-radius: 8px;
 }
-.richtext :deep(.rt-callout) {
+.richtext .rt-callout {
   margin: 16px 0;
   padding: 12px 16px;
   border: 1px solid var(--c-border);
@@ -122,14 +122,14 @@ defineProps<{ value: Block[] }>()
   --c-border: #b9c8f5;
   --c-soft: #eef2fe;
 }
-.richtext :deep(.rt-callout > :last-child) {
+.richtext .rt-callout > :last-child {
   margin-bottom: 0;
 }
-.richtext :deep(.rt-callout--tip) {
+.richtext .rt-callout--tip {
   --c-border: #aee0c4;
   --c-soft: #eaf8f0;
 }
-.richtext :deep(.rt-callout--warning) {
+.richtext .rt-callout--warning {
   --c-border: #f4d39a;
   --c-soft: #fdf4e3;
 }
@@ -137,12 +137,12 @@ defineProps<{ value: Block[] }>()
   margin: 16px 0;
   overflow-x: auto;
 }
-.richtext__table :deep(.vw-table-cell) {
+.richtext__table .vw-table-cell {
   border-color: var(--border);
   padding: 8px 14px;
   font-size: 15px;
 }
-.richtext__table :deep(th.vw-table-cell) {
+.richtext__table th.vw-table-cell {
   background: var(--surface);
   color: var(--ink);
   font-weight: 600;

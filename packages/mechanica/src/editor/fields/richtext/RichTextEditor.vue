@@ -103,6 +103,7 @@
         class="mech-rte__surface"
         :renderer="renderer"
         :decorator="decorator"
+        :parser="typographyParser"
         :html-parser="htmlParser"
         @keydown="onKeyDown"
         @contextmenu="onContextMenu"
@@ -132,6 +133,7 @@
         spellcheck="false"
         :placeholder="placeholder"
         @input="onMarkdownInput"
+        @keydown="onMarkdownKeyDown"
       />
     </div>
   </div>
@@ -150,6 +152,7 @@ import WidgetBoundary from './WidgetBoundary.vue'
 import { allRichTextWidgets, type RichTextWidget } from './widgets'
 import { richTextEditorRefKey } from './keys'
 import { contextMenuKey, type ContextMenuItem } from '../../lib/context-menu'
+import { insertAtCursor, typographyCharForEvent, typographyParser } from '../../lib/typography'
 import { renderer, decorator, htmlParser, blockTypes } from './config'
 
 const props = withDefaults(
@@ -464,11 +467,34 @@ function onMarkdownInput(event: Event): void {
   nextTick(() => (fromMarkdown = false))
 }
 
+/** The nbsp / non-breaking-hyphen shortcuts in the raw Markdown view too. */
+function onMarkdownKeyDown(event: KeyboardEvent): void {
+  const char = typographyCharForEvent(event)
+  if (!char || !markdownRef.value) return
+  event.preventDefault()
+  const md = insertAtCursor(markdownRef.value, char)
+  markdown.value = md
+  fromMarkdown = true
+  model.value = markdownToBlocks(md, model.value, { softBreaks: true })
+  autosizeMarkdown()
+  nextTick(() => (fromMarkdown = false))
+}
+
 // ── Keyboard: format shortcuts + Markdown prefixes + list continuation ────────────
 
 function onKeyDown(event: KeyboardEvent): void {
   const editor = editorRef.value
   if (!editor) return
+
+  // Ctrl/Cmd+Shift+Space → nbsp, Ctrl/Cmd+Shift+Minus → non-breaking hyphen.
+  // insertText applies pending styles, so glue typed inside a bold run stays bold.
+  const nb = typographyCharForEvent(event)
+  if (nb) {
+    event.preventDefault()
+    editor.insertText(nb)
+    editor.pushHistory('insertText')
+    return
+  }
 
   if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey) {
     const style = ({ KeyB: 'bold', KeyI: 'italic', KeyU: 'underline' } as Record<string, string>)[event.code]
@@ -690,6 +716,18 @@ function onKeyDown(event: KeyboardEvent): void {
     padding: 1px 5px;
     border-radius: 4px;
     border: 1px solid var(--mech-border);
+  }
+  // Non-breaking glue, made visible (editor-only — driven by typographyParser,
+  // never stored, never rendered on the published page).
+  :deep(.rt-nbsp),
+  :deep(.rt-nbhyphen) {
+    border-radius: 3px;
+    background-color: color-mix(in srgb, var(--mech-accent) 15%, transparent);
+  }
+  :deep(.rt-nbsp) {
+    background-image: radial-gradient(circle at center, var(--mech-accent) 0 1px, transparent 1.4px);
+    background-repeat: no-repeat;
+    background-position: center;
   }
   :deep(.rt-callout) {
     margin: 0.6em 0;

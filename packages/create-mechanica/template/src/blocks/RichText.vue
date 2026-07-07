@@ -44,7 +44,7 @@ const value = computed<Block[]>(() => {
 })
 </script>
 
-<style lang="scss" scoped>
+<style>
 .richtext-block {
   padding: 32px 0;
 }

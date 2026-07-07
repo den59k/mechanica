@@ -23,7 +23,7 @@ const props = defineProps<{
 const hasTarget = computed(() => (typeof props.link === 'string' ? props.link !== '' : !!props.link?.url))
 </script>
 
-<style scoped>
+<style>
 .ui-button {
   display: inline-flex;
   align-items: center;

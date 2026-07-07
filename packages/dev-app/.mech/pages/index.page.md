@@ -22,7 +22,7 @@ caption: So new banner!
 
 ::: landing-hero #hero
 eyebrow: Vite 8 · Vue 3.5 · Bun
-title: Build Vue sites with a visual block editor
+title: Build Vue sites with a visual block editor
 primaryLabel: Start building
 primaryHref: "#get-started"
 secondary:

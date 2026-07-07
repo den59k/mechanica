@@ -26,7 +26,7 @@ npx mechanica thumbs --blocks    # regenerate palette thumbnails
 - `src/blocks/` — the site's blocks. A block is a Vue SFC whose `<script setup>` calls the global `defineBlock` macro (no import needed): props schema, `previewData` for the palette preview, optional `chunk` for code splitting. New files appear in the editor palette immediately.
 - `src/App.vue` — the app shell. Site-wide chrome (header/footer) goes here, around `<Content/>`.
 - `src/data/` — shared data entries (`defineData`), scoped `site` / `folder` / `page`. `head.ts` feeds the `{{ head.* }}` placeholders in `index.html`.
-- `src/styles/site.scss` — global design tokens + reset.
+- `src/styles/site.css` — global design tokens + reset.
 - `.mech/pages/*.page.md` — the pages: a human-readable Markdown format, equally editable by hand and by the visual editor.
 - `.mech/assets/` — uploaded files (copied to `/media/` on export).
 

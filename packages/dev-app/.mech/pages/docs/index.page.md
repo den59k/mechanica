@@ -24,16 +24,12 @@ title: How the pieces fit
 
 <callout tone="tip">**Authored by hand** — these pages are written directly in the `.page.md` format, so prose lives in clean `@content` regions with no JSON escaping to fight</callout>
 
-wewqeqwe
-
-qweeq
-
-qweeqw
-
-|  | qweeqw | qweewq |  |  |
+| Table A | Table B | Table C |  |  |
 | --- | --- | --- | --- | --- |
 |  | qwe | qweewq |  |  |
 |  |  |  |  |  |
+
+Some data
 :::
 
 ::: doc-section #get-started
