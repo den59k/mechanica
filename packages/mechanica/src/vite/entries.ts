@@ -153,6 +153,9 @@ export interface SsrEntryOptions {
   /** The site's locale config (multi-language) — rides the bundle so the export
    *  can walk translations, and gets baked into each page's `state.locales`. */
   locales?: import('mechanica-shared').LocalesConfig | null
+  /** Programmatically generated pages (plugin `generatePages`), run at build and
+   *  baked as plain data so `mechanica export` renders them without a file. */
+  generatedPages?: import('mechanica-shared').VirtualPage[]
 }
 
 /**
@@ -176,6 +179,7 @@ export function generateSsrEntry(options: SsrEntryOptions): string {
     `registerComponents(blocksMap)`,
     `export const site = ${JSON.stringify(options.site ?? {})}`,
     `export const locales = ${JSON.stringify(options.locales ?? null)}`,
+    `export const generatedPages = ${JSON.stringify(options.generatedPages ?? [])}`,
     `export const dataEntries = getDataEntries()`,
     ``,
     `export async function render(state, context = {}) {`,

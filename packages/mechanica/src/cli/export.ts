@@ -25,6 +25,7 @@ import {
   type QuerySource,
   type RenderResult,
   type SitemapEntry,
+  type VirtualPage,
 } from 'mechanica-shared'
 import { parsePage, type RichTextCodec } from 'mechanica-shared/page-format'
 import { toBlockMeta, composedBlockMeta, type BlockComponent } from '../editor/lib/block-meta'
@@ -228,6 +229,34 @@ export interface SsrBundle {
   site?: { url?: string; name?: string }
   /** The site's locale config baked in from the plugin's `locales` option. */
   locales?: LocalesConfig | null
+  /** Programmatically generated pages (plugin `generatePages`), baked as plain
+   *  data at build so they render without a `.page.md` file. */
+  generatedPages?: VirtualPage[]
+}
+
+/**
+ * Map a baked {@link VirtualPage} to an {@link ExportPage}. The provider emits
+ * one per (logical page × locale) and self-declares `locale`/`locales`, so the
+ * mapping just localizes the served `path` and carries the alternates — it never
+ * goes through the file-based `readTranslation`.
+ */
+function virtualToExportPage(v: VirtualPage, config: LocalesConfig | null): ExportPage {
+  const isDefault = !config || !v.locale || v.locale === config.default
+  const locale = config ? (v.locale ?? config.default) : undefined
+  const path = isDefault ? v.path : localePath(v.path, v.locale!, config!)
+  const name = typeof v.meta?.title === 'string' ? v.meta.title : undefined
+  return {
+    path,
+    logicalPath: v.path,
+    locale,
+    translations: v.locales,
+    content: v.content ?? [],
+    data: v.data ?? {},
+    name,
+    lastmod: v.lastmod,
+    // `state.page.path` stays the logical path so `<Link>` prefixes it per locale.
+    page: { meta: v.meta ?? {}, locale, locales: v.locales, path: v.path },
+  }
 }
 
 export interface ExportOptions {
@@ -421,6 +450,24 @@ export async function exportProject(
     }
   }
 
+  // Programmatically generated routes (plugin `generatePages`), baked into the
+  // SSR bundle as plain data. They self-declare locale/translations, so they
+  // join after the file-based i18n pass — never through `readTranslation`.
+  if (ssr.generatedPages?.length) {
+    const taken = new Set(pages.map((page) => page.path))
+    for (const vp of ssr.generatedPages) {
+      const generated = virtualToExportPage(vp, config)
+      if (taken.has(generated.path)) {
+        throw new Error(
+          `[mechanica] generatePages produced "${generated.path}", but a page already exists ` +
+            `there — change the generated path or remove the conflicting page.`,
+        )
+      }
+      taken.add(generated.path)
+      pages.push(generated)
+    }
+  }
+
   // Queries (`usePages`/`usePagination`/`useFetch`) resolve at build time
   // against the same `.mech` store, memoized per (page-number, key) across the
   // whole export — a nav query shared by 100 pages resolves once. The codec is
@@ -554,6 +601,12 @@ export async function exportProject(
       page.name ?? (page.logicalPath === '/' ? 'Home' : page.logicalPath.split('/').pop()!),
     ]),
   )
+  // Generated pages contribute their own crumb (and any generated ancestor like
+  // `/docs/api`) so the BreadcrumbList JSON-LD includes the full trail; keyed by
+  // logical path, so the per-locale variants collapse to one entry.
+  for (const vp of ssr.generatedPages ?? []) {
+    pageNames.set(vp.path, typeof vp.meta?.title === 'string' ? vp.meta.title : vp.path.split('/').pop()!)
+  }
 
   /** hreflang alternates for a translated page (each locale + x-default), at page N. */
   const alternatesFor = (source: ExportPage, pageNum = 1): { hreflang: string; path: string }[] | undefined => {

@@ -1,4 +1,4 @@
-import { parseLocalePath, mergeTranslation, type LocalesConfig, type PageMeta } from 'mechanica-shared'
+import { parseLocalePath, mergeTranslation, type LocalesConfig, type PageMeta, type VirtualPage } from 'mechanica-shared'
 import {
   readPage,
   pageVersion,
@@ -124,5 +124,44 @@ export function buildPageState(
     version: pageVersion(mechDir, pagePath, localeCode),
     ...(config ? { locales: config } : {}),
     ...(baseContent ? { baseContent } : {}),
+  }
+}
+
+/**
+ * The dev state for a programmatically generated page ({@link VirtualPage}) —
+ * the file-free counterpart of {@link buildPageState}. It replicates the same
+ * shape (content with block-prop defaults + image meta filled, the
+ * site‹folder‹page data merge, and `page.locale`/`page.locales`), but reads its
+ * content/data/meta from the baked page rather than a `.page.md`. `version` is
+ * null and `generated` is set, so the editor treats it as read-only and never
+ * queues a save against a file that doesn't exist.
+ */
+export function buildGeneratedState(mechDir: string, vp: VirtualPage, config?: LocalesConfig | null) {
+  const content = vp.content ?? []
+  fillContentDefaults(content)
+  fillImageMeta(mechDir, content)
+
+  const isDefaultLocale = !config || !vp.locale || vp.locale === config.default
+  const localeCode = isDefaultLocale ? undefined : vp.locale
+  const folder = folderOf(mechDir, vp.path)
+  const siteData = readSiteData(mechDir, localeCode)
+  const folderData = readFolderData(mechDir, folder, localeCode)
+  const pageData = vp.data ?? {}
+  const pageMeta: PageMeta = { path: vp.path, meta: vp.meta ?? {} }
+  if (config) {
+    pageMeta.locale = vp.locale ?? config.default
+    pageMeta.locales = vp.locales ?? [config.default]
+  }
+  return {
+    content,
+    data: { ...siteData, ...folderData, ...pageData },
+    siteData,
+    folderData,
+    pageData,
+    folder,
+    page: pageMeta,
+    version: null,
+    generated: true,
+    ...(config ? { locales: config } : {}),
   }
 }

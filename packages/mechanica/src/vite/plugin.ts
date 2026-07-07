@@ -2,7 +2,13 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import type { Plugin } from 'vite'
 import { parseVueRequest } from '@vitejs/plugin-vue'
-import { passDataToHTML, serializeState, normalizeLocales, type LocalesConfig } from 'mechanica-shared'
+import { passDataToHTML, serializeState, normalizeLocales, type LocalesConfig, type VirtualPage } from 'mechanica-shared'
+import {
+  collectGeneratedPages,
+  generatedServedPath,
+  type PageProvider,
+  type PageProviderCtx,
+} from './generate-pages'
 import { compileBlock } from '../compiler/compile-block'
 import { emitElementsCss } from '../elements/emit-css'
 import { parseComposerBreakpoints } from './read-breakpoints'
@@ -21,7 +27,7 @@ import { createPreviewMiddleware } from './dev/preview'
 import { createComposerMiddleware } from './dev/composer'
 import { setPageCodec, setPageBlocks, pageUrlOf } from './dev/pages-store'
 import { toBlockMeta, composedBlockMeta } from '../editor/lib/block-meta'
-import { buildPageState } from './dev/page-state'
+import { buildPageState, buildGeneratedState } from './dev/page-state'
 import { wasRecentlyMutated } from './dev/fs-utils'
 import { buildRichTextCodec } from './rich-text-codec'
 import { BLOCKS_MANIFEST_FILE } from '../cli/page-assets'
@@ -96,6 +102,14 @@ export interface MechanicaPluginOptions {
    */
   locales?: import('mechanica-shared').LocalesOption
   /**
+   * Programmatic route generation. Each provider returns a list of pages built
+   * from any source (a content glob, a CMS, …) — rendered through the normal
+   * pipeline with no `.page.md` file per route. Providers run at build (their
+   * output is baked into the static export) and at dev-server start; generated
+   * pages are read-only. See GENERATED-PAGES.md.
+   */
+  generatePages?: PageProvider[]
+  /**
    * How the production client build chunks block code.
    *
    * - `'bundled'` (default) — all blocks share one `blocks` chunk: one
@@ -138,6 +152,34 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
   // blockId → source file, captured when the lazy blocks module is generated;
   // emitted as `mechanica-blocks.json` for `mechanica export`.
   let lazyBlockFiles: Map<string, string> | null = null
+
+  // Generated pages (`generatePages`): run each provider's `list` once, cached.
+  // The output is baked into the SSR bundle for export; in dev a served-path →
+  // page map resolves navigations and a logical-path set backs the read-only
+  // save guard.
+  let generatedPagesCache: Promise<VirtualPage[]> | null = null
+  const loadGeneratedPages = (): Promise<VirtualPage[]> => {
+    if (!generatedPagesCache) {
+      const ctx: PageProviderCtx = { root, mechDir, locales }
+      generatedPagesCache = collectGeneratedPages(options.generatePages, ctx)
+    }
+    return generatedPagesCache
+  }
+  let generatedIndexCache: Promise<{ byServed: Map<string, VirtualPage>; logical: Set<string> }> | null = null
+  const loadGeneratedIndex = (): Promise<{ byServed: Map<string, VirtualPage>; logical: Set<string> }> => {
+    if (!generatedIndexCache) {
+      generatedIndexCache = loadGeneratedPages().then((pages) => {
+        const byServed = new Map<string, VirtualPage>()
+        const logical = new Set<string>()
+        for (const page of pages) {
+          byServed.set(generatedServedPath(page, locales), page)
+          logical.add(page.path)
+        }
+        return { byServed, logical }
+      })
+    }
+    return generatedIndexCache
+  }
 
   // Last compiled `blockSchema` literal per block file (normalized path), so a
   // hot update can tell schema edits (need a re-collect + reload so the editor
@@ -419,6 +461,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
           userEntry,
           site: { url: options.siteUrl, name: options.siteName },
           locales,
+          generatedPages: await loadGeneratedPages(),
         })
       }
       if (id === RESOLVED_PREVIEW_ID) {
@@ -479,6 +522,9 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         '/@mechanica',
         createDevMiddleware(mechDir, {
           locales,
+          // Resolve generated routes for `/state` and guard them read-only on
+          // `/save` — they have no file to write.
+          generated: () => loadGeneratedIndex(),
           ready: () => ensurePageCodec(server),
           // Block listing for `mechanica thumbs --blocks` — loaded fresh so a
           // re-collected blocks module (HMR add/remove) is reflected. Composed
@@ -598,10 +644,16 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
 
         // Ensure richText fields hydrate as Block[] (not raw Markdown).
         if (ctx.server) await ensurePageCodec(ctx.server)
+        // A programmatically generated route (plugin `generatePages`) has no
+        // page file — synthesize its state from the baked page instead. Falls
+        // through to the file-based resolver for authored pages.
+        const generated = (await loadGeneratedIndex()).byServed.get(urlPath)
         // Site < folder < page resolution plus the editor's scope buckets and
         // the page's on-disk version (for optimistic-concurrency saves). A
         // locale-prefixed URL (`/ru/about`) resolves to that translation.
-        const state = buildPageState(mechDir, urlPath, locales)
+        const state = generated
+          ? buildGeneratedState(mechDir, generated, locales)
+          : buildPageState(mechDir, urlPath, locales)
         const inject = [
           `<script>window.state=${serializeState(state)}</script>`,
           `<script type="module">`,

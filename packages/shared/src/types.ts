@@ -291,6 +291,36 @@ export interface State {
    * locale and build language switchers. Absent when i18n is off.
    */
   locales?: LocalesConfig
+  /**
+   * Dev only: this state belongs to a programmatically generated page
+   * ({@link VirtualPage}) that has no `.page.md` file. The editor treats it as
+   * read-only — it never queues a save against a nonexistent file.
+   */
+  generated?: boolean
+}
+
+/**
+ * A page produced programmatically (the plugin's `generatePages` option) instead
+ * of from a `.page.md` file — plain, serializable data. The plugin runs its
+ * providers at build and bakes the output into the SSR bundle for the static
+ * export; the same shape is what a future render backend consumes for on-demand
+ * / webhook regeneration. One `VirtualPage` per (logical page × locale).
+ */
+export interface VirtualPage {
+  /** Logical (unprefixed) path, e.g. `/docs/api/math/mathf`. Localized per `locale` when served. */
+  path: string
+  /** The block tree to render — usually one template block parameterized by `data`. */
+  content: ContentBlock[]
+  /** Page-scoped data (head, layout, block props). Site data still merges under it. */
+  data?: Record<string, unknown>
+  /** Page meta: `title` (breadcrumb / SEO name), `noindex`, and `{{ page.meta.* }}` hints. */
+  meta?: Record<string, unknown>
+  /** The locale this page renders in. Omit for the default locale. */
+  locale?: string
+  /** Every locale this logical page exists in — for hreflang alternates + language switchers. */
+  locales?: string[]
+  /** Sitemap `<lastmod>` (ISO date). The provider supplies it; there is no file to stat. */
+  lastmod?: string
 }
 
 /** A link target produced by the `smartLink` field type. */

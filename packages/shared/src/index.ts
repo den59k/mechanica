@@ -16,6 +16,7 @@ export type {
   PageMeta,
   State,
   PageLink,
+  VirtualPage,
 } from './types'
 
 export { normalizeClassManifest } from './composer-manifest'

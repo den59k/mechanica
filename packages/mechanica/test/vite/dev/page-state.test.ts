@@ -2,11 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import { dirname, join } from 'node:path'
-import { type Block, type LocalesConfig } from 'mechanica-shared'
+import { type Block, type LocalesConfig, type VirtualPage } from 'mechanica-shared'
 import { serializePage } from 'mechanica-shared/page-format'
 import { setPageBlocks, createTranslation, savePage } from '@/vite/dev/pages-store'
 import { mergeSiteData, mergeLocaleSiteData } from '@/vite/dev/data-store'
-import { buildPageState } from '@/vite/dev/page-state'
+import { buildPageState, buildGeneratedState } from '@/vite/dev/page-state'
 
 let mechDir: string
 
@@ -159,5 +159,48 @@ describe('buildPageState locale routing', () => {
     const ru = buildPageState(mechDir, '/ru/about', config)
     expect(ru.siteData).toEqual({ nav: { home: 'Главная' }, footer: { note: 'shared' } })
     expect(ru.data).toMatchObject({ nav: { home: 'Главная' }, footer: { note: 'shared' } })
+  })
+})
+
+describe('buildGeneratedState (programmatic routes)', () => {
+  const vp = (over: Partial<VirtualPage> = {}): VirtualPage => ({
+    path: '/docs/api/mathf',
+    content: [{ id: 'd', blockId: 'api-doc', data: { src: 'math/mathf' } }],
+    data: { head: { title: 'Mathf' } },
+    ...over,
+  })
+
+  it('synthesizes read-only state from a virtual page (no file on disk)', () => {
+    mergeSiteData(mechDir, { footer: { note: 'shared' } })
+    const state = buildGeneratedState(mechDir, vp())
+
+    expect(state.page.path).toBe('/docs/api/mathf') // logical
+    expect(state.content[0]!.data).toEqual({ src: 'math/mathf' })
+    // Site data merges under the page's own data, like an authored page.
+    expect(state.data).toMatchObject({ head: { title: 'Mathf' }, footer: { note: 'shared' } })
+    // Read-only markers the editor honors.
+    expect(state.version).toBeNull()
+    expect(state.generated).toBe(true)
+  })
+
+  it('bakes block-prop defaults like a file-backed page', () => {
+    setPageBlocks([heroMeta])
+    const state = buildGeneratedState(
+      mechDir,
+      vp({ content: [{ id: 'h', blockId: 'hero', data: { subtitle: 'kept' } }] }),
+    )
+    expect(state.content[0]!.data).toEqual({ title: 'Start here', subtitle: 'kept' })
+  })
+
+  it('carries locale + alternates on a multi-language site', () => {
+    const config: LocalesConfig = { default: 'en', all: ['en', 'ru'] }
+    const en = buildGeneratedState(mechDir, vp({ locale: 'en', locales: ['en', 'ru'] }), config)
+    expect(en.page.locale).toBe('en')
+    expect(en.page.locales).toEqual(['en', 'ru'])
+    expect(en.locales).toEqual(config)
+
+    const ru = buildGeneratedState(mechDir, vp({ locale: 'ru', locales: ['en', 'ru'] }), config)
+    expect(ru.page.locale).toBe('ru')
+    expect(ru.generated).toBe(true)
   })
 })

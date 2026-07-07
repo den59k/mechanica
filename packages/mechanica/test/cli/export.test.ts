@@ -766,3 +766,63 @@ describe('mechanica export (i18n)', () => {
     await expect(access(join(dir, 'export/ru/news/2/index.html'))).rejects.toBeTruthy()
   })
 })
+
+describe('mechanica export (generated pages)', () => {
+  it('renders programmatic routes that have no page file', async () => {
+    const generated: SsrBundle = {
+      ...ssr,
+      generatedPages: [
+        { path: '/docs/api', content: [{ id: 'g', blockId: 'hero', data: { title: 'API' } }], data: { head: { title: 'API Reference' } }, meta: { title: 'API' } },
+        { path: '/docs/api/mathf', content: [{ id: 'g', blockId: 'hero', data: { title: 'Mathf' } }], data: { head: { title: 'Mathf' } }, meta: { title: 'Mathf' }, lastmod: '2026-01-02' },
+      ],
+    }
+    const written = await exportProject(dir, generated, { onWarn: () => {} })
+    expect(written).toContain('/docs/api')
+    expect(written).toContain('/docs/api/mathf')
+
+    const page = await readFile(join(dir, 'export/docs/api/mathf/index.html'), 'utf-8')
+    expect(page).toContain('<title>Mathf</title>') // generated page's head data templated in
+    expect(page).toContain('<h1>Mathf</h1>') // its block rendered through the pipeline
+    expect(page).toContain('window.state=') // hydration state serialized like any page
+  })
+
+  it('makes generated routes valid internal-link targets (no broken-link warning)', async () => {
+    // The home page links to a generated route; without generatedPages it'd warn.
+    await writeFile(
+      join(dir, '.mech/pages/index.page.md'),
+      serializePage({
+        content: [{ id: '1', blockId: 'cta', data: { link: { id: 'x', url: '/docs/api', title: 'API' } } }],
+        data: { head: { title: 'Home' } },
+      }),
+    )
+    const warnings: string[] = []
+    await exportProject(
+      dir,
+      { ...ssr, generatedPages: [{ path: '/docs/api', content: [], data: {}, meta: { title: 'API' } }] },
+      { onWarn: (m) => warnings.push(m) },
+    )
+    expect(warnings.filter((w) => w.includes('Broken link'))).toEqual([])
+  })
+
+  it('emits hreflang alternates + localized paths for a multi-language generated route', async () => {
+    const gen: SsrBundle = {
+      ...ssr,
+      locales: { default: 'en', all: ['en', 'ru'] },
+      generatedPages: [
+        { path: '/docs/api', locale: 'en', locales: ['en', 'ru'], content: [], data: { head: { title: 'API' } }, meta: { title: 'API' } },
+        { path: '/docs/api', locale: 'ru', locales: ['en', 'ru'], content: [], data: { head: { title: 'API' } }, meta: { title: 'API' } },
+      ],
+    }
+    const written = await exportProject(dir, gen, { siteUrl: 'https://x.dev', onWarn: () => {} })
+    expect(written).toContain('/docs/api') // default locale, unprefixed
+    expect(written).toContain('/ru/docs/api') // non-default, prefixed
+    const en = await readFile(join(dir, 'export/docs/api/index.html'), 'utf-8')
+    expect(en).toContain('hreflang="ru"')
+    expect(en).toContain('/ru/docs/api')
+  })
+
+  it('throws when a generated path collides with an authored page', async () => {
+    const clash: SsrBundle = { ...ssr, generatedPages: [{ path: '/', content: [], data: {} }] }
+    await expect(exportProject(dir, clash, { onWarn: () => {} })).rejects.toThrow(/already exists/)
+  })
+})

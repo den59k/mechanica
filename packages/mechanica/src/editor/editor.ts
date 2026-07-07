@@ -45,6 +45,9 @@ const savePath = () => {
 // editor never silently clobbers e.g. Claude's edits to the .page.md.
 let pageVersion: string | null = (state as { version?: string | null }).version ?? null
 let forceNextSave = false
+// A programmatically generated page (plugin `generatePages`) has no file — the
+// editor renders it but never queues a save (the dev server would reject it).
+let readOnly = state.generated === true
 
 // `localized` data entries: their site/folder value is translated per locale, so
 // the save payload routes them to separate buckets the dev server writes to the
@@ -125,6 +128,7 @@ async function loadState(path: string): Promise<boolean> {
   pageVersion = fresh.version ?? null
   pagePath = fresh.page?.path ?? path
   pageLocale = fresh.page?.locale
+  readOnly = fresh.generated === true
   externalState.value = fresh
   return true
 }
@@ -234,7 +238,9 @@ createApp(EditorApp, {
   uploadFile,
   uploadDerived,
   listImages,
-  onChange: (snapshot: EditorSnapshot) => saveQueue.push(snapshot),
+  onChange: (snapshot: EditorSnapshot) => {
+    if (!readOnly) saveQueue.push(snapshot)
+  },
   save: saveController,
   externalState,
   navigation,
