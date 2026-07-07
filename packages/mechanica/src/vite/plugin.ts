@@ -165,8 +165,13 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
     }
     return generatedPagesCache
   }
-  let generatedIndexCache: Promise<{ byServed: Map<string, VirtualPage>; logical: Set<string> }> | null = null
-  const loadGeneratedIndex = (): Promise<{ byServed: Map<string, VirtualPage>; logical: Set<string> }> => {
+  interface GeneratedIndex {
+    pages: VirtualPage[]
+    byServed: Map<string, VirtualPage>
+    logical: Set<string>
+  }
+  let generatedIndexCache: Promise<GeneratedIndex> | null = null
+  const loadGeneratedIndex = (): Promise<GeneratedIndex> => {
     if (!generatedIndexCache) {
       generatedIndexCache = loadGeneratedPages().then((pages) => {
         const byServed = new Map<string, VirtualPage>()
@@ -175,7 +180,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
           byServed.set(generatedServedPath(page, locales), page)
           logical.add(page.path)
         }
-        return { byServed, logical }
+        return { pages, byServed, logical }
       })
     }
     return generatedIndexCache

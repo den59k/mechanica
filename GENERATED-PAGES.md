@@ -191,13 +191,18 @@ authored pages; webhook regeneration operates on generated ones.
 
 ## Phases
 
-1. **Core + export + dev + tests** — option/types, build-time bake, export merge +
-   `pageNames`, dev route map + `buildPageState` branch + state-shape replication + the
-   `generated`/read-only flag. Ships generated, i18n-correct, SEO-complete routes.
-2. **Editor + queries** — `generated` rows in `listPages`; read-only in `PagesDialog`;
-   `usePages()` lists them.
-3. **Sugar + backend hooks** — `defineCollection({ base, source, block, data })` over
-   `generatePages`; wire `resolve`/`revalidate` when the backend lands.
+1. **Core + export + dev + tests** — ✅ **done** (alpha.6/7). Option/types, build-time
+   bake, export merge + `pageNames`, dev route map + `buildPageState` branch +
+   state-shape replication + the `generated`/read-only flag.
+2. **Editor + queries** — ✅ **done**. `listPages` gains a `generated?: VirtualPage[]`
+   option (one read-only row per logical page, `generated: true`), threaded through the
+   dev `/pages` + `/query` endpoints and the export `querySource`; so generated pages
+   show in `PagesDialog` (with a "Generated" badge, no edit actions), resolve in
+   `usePages()`, and pass `mechanica shot`'s page-exists check. Every write endpoint
+   (`/save`, delete, rename/move, duplicate, draft, translation) rejects a generated
+   path (409); the editor renders them read-only (`state.generated`).
+3. **Sugar + backend hooks** — pending. `defineCollection({ base, source, block, data })`
+   over `generatePages`; wire `resolve`/`revalidate` when the backend lands.
 
 ## Tests
 

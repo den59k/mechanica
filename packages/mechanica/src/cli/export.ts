@@ -474,7 +474,7 @@ export async function exportProject(
   // installed so page data read by `listPages` matches what pages render with.
   setPageCodec(richText)
   const querySource: QuerySource = {
-    listPages: (opts) => listPages(join(cwd, '.mech'), opts),
+    listPages: (opts) => listPages(join(cwd, '.mech'), { ...opts, generated: ssr.generatedPages }),
     fetchJson: async ({ url, ...init }) => {
       const res = await fetch(url, init as RequestInit)
       if (!res.ok) throw new Error(`${url} responded ${res.status}`)

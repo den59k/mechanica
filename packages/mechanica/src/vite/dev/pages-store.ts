@@ -9,6 +9,7 @@ import {
   type Block,
   type ContentBlock,
   type LocalesConfig,
+  type VirtualPage,
 } from 'mechanica-shared'
 import { parsePage, serializePage, type PageDoc, type RichTextCodec } from 'mechanica-shared/page-format'
 import { applyImageManifest, harvestImageMeta, readImageManifest, updateImageManifest } from './assets-store'
@@ -128,6 +129,12 @@ export interface PageListItem {
    * i18n is off. Translation files never get their own list row.
    */
   locales?: string[]
+  /**
+   * True for a programmatically generated page ({@link VirtualPage} from the
+   * plugin's `generatePages`): it has no file, so the editor lists it read-only
+   * (no rename / duplicate / delete / translate).
+   */
+  generated?: boolean
   [key: string]: unknown
 }
 
@@ -451,7 +458,7 @@ export function listFolders(mechDir: string): { id: string; path: string; name: 
  */
 export function listPages(
   mechDir: string,
-  options: { data?: { id: string }[]; locales?: LocalesConfig; locale?: string } = {},
+  options: { data?: { id: string }[]; locales?: LocalesConfig; locale?: string; generated?: VirtualPage[] } = {},
 ): PageListItem[] {
   const pagesDir = join(mechDir, 'pages')
   if (!fs.existsSync(pagesDir)) return []
@@ -509,7 +516,55 @@ export function listPages(
     items.push(item)
   }
 
+  // Programmatically generated pages (plugin `generatePages`) join the listing —
+  // one read-only row per logical path — so they show in the editor's page
+  // browser, resolve in `usePages()` queries, and pass `mechanica shot`'s
+  // page-exists check, just like file pages.
+  if (options.generated?.length) items.push(...generatedPageItems(options.generated, options, config))
+
   return items.sort(comparePages)
+}
+
+/** File-less pages → list rows: one per logical path, with a `locales` union. */
+function generatedPageItems(
+  generated: VirtualPage[],
+  options: { data?: { id: string }[]; locale?: string },
+  config: LocalesConfig | null,
+): PageListItem[] {
+  const groups = new Map<string, VirtualPage[]>()
+  for (const vp of generated) {
+    const arr = groups.get(vp.path)
+    if (arr) arr.push(vp)
+    else groups.set(vp.path, [vp])
+  }
+
+  const items: PageListItem[] = []
+  for (const [path, vps] of groups) {
+    const locales = config ? (vps.map((v) => v.locale).filter(Boolean) as string[]) : []
+    // Locale-scoped listing (a translated query): skip a page absent in it.
+    if (options.locale && !locales.includes(options.locale)) continue
+    const source =
+      (options.locale ? vps.find((v) => v.locale === options.locale) : undefined) ??
+      (config ? vps.find((v) => v.locale === config.default) : undefined) ??
+      vps[0]!
+    const embedded: Record<string, unknown> = {}
+    for (const dataEntry of options.data ?? []) embedded[dataEntry.id] = source.data?.[dataEntry.id] ?? {}
+
+    const dir = path.slice(1).split('/').slice(0, -1).join('/')
+    const item: PageListItem = {
+      path,
+      name: (typeof source.meta?.title === 'string' ? source.meta.title : undefined) ?? path.split('/').pop() ?? path,
+      folderPath: dir === '' ? null : dir,
+      order: 0,
+      orderAfter: null,
+      draft: false,
+      generated: true,
+      ...embedded,
+    }
+    if (config) item.locales = config.all.filter((code) => locales.includes(code))
+    items.push(item)
+  }
+  return items
 }
 
 /** Ordering: by folder, then explicit `orderAfter`, then `order`, then path. */

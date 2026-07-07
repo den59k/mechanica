@@ -83,6 +83,7 @@
               <span class="mech-pages__cell-name">
                 <span class="mech-pages__name">{{ page.name || page.path }}</span>
                 <span v-if="page.draft" class="mech-pages__badge is-draft">Draft</span>
+                <span v-if="page.generated" class="mech-pages__badge">Generated</span>
                 <span v-if="page.path === currentLogical" class="mech-pages__badge">Current</span>
                 <span v-if="localeConfig && page.locales" class="mech-pages__locales">
                   <span
@@ -96,7 +97,8 @@
                 </span>
               </span>
               <span class="mech-pages__cell-path">{{ page.path }}</span>
-              <span class="mech-pages__actions" @click.stop>
+              <!-- Generated pages have no file — they're read-only (no edit actions). -->
+              <span v-if="!page.generated" class="mech-pages__actions" @click.stop>
                 <button type="button" title="Rename" @click="startEdit(page)"><VIcon name="pencil" /></button>
                 <button type="button" title="Duplicate" @click="startDuplicate(page)"><VIcon name="copy" /></button>
                 <button type="button" title="Delete" class="is-danger" @click="confirmRemove(page)">
@@ -275,6 +277,11 @@ const open = (page: PageItem) => openPath(page.path)
 function onRowMenu(event: MouseEvent, page: PageItem) {
   if (!contextMenu) return
   activePath.value = page.path
+  // Generated pages have no file — offer only "Open" (read-only view).
+  if (page.generated) {
+    contextMenu.openAt(event, [{ label: 'Open', onClick: () => open(page) }])
+    return
+  }
   contextMenu.openAt(event, [
     { label: 'Open', onClick: () => open(page) },
     { label: 'Rename', onClick: () => startEdit(page) },

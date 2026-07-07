@@ -10,6 +10,8 @@ export interface PageItem {
    * sites — for the language coverage badges. Absent when i18n is off.
    */
   locales?: string[]
+  /** A programmatically generated page (plugin `generatePages`) — read-only, no file. */
+  generated?: boolean
 }
 
 let pagesPromise: Promise<PageItem[]> | null = null

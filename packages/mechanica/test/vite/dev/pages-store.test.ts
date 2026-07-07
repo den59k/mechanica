@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import { dirname, join } from 'node:path'
 import { serializePage } from 'mechanica-shared/page-format'
+import type { VirtualPage, LocalesConfig } from 'mechanica-shared'
 import {
   getPagePath,
   readPage,
@@ -327,5 +328,39 @@ describe('listPages', () => {
     writePage('index.page.md', { content: [], data: { header: { title: 'Hi' } } })
     const [page] = listPages(mechDir, { data: [{ id: 'header' }] })
     expect(page!.header).toEqual({ title: 'Hi' })
+  })
+})
+
+describe('listPages with generated pages', () => {
+  const config: LocalesConfig = { default: 'ru', all: ['ru', 'en'] }
+  const gen: VirtualPage[] = [
+    { path: '/docs/api', locale: 'ru', locales: ['ru', 'en'], content: [], data: { head: { title: 'Обзор' } }, meta: { title: 'API' } },
+    { path: '/docs/api', locale: 'en', locales: ['ru', 'en'], content: [], data: { head: { title: 'Overview' } }, meta: { title: 'API' } },
+    { path: '/docs/api/mathf', locale: 'ru', locales: ['ru', 'en'], content: [], data: {}, meta: { title: 'Mathf' } },
+    { path: '/docs/api/mathf', locale: 'en', locales: ['ru', 'en'], content: [], data: {}, meta: { title: 'Mathf' } },
+  ]
+
+  it('adds one read-only row per logical generated page, merged with file pages', () => {
+    writePage('index.page.md', { name: 'Home' })
+    const byPath = Object.fromEntries(listPages(mechDir, { locales: config, generated: gen }).map((i) => [i.path, i]))
+    expect(byPath['/']!.generated).toBeUndefined() // file page, not generated
+    expect(byPath['/docs/api']).toMatchObject({ generated: true, name: 'API', folderPath: 'docs', locales: ['ru', 'en'] })
+    expect(byPath['/docs/api/mathf']).toMatchObject({ generated: true, folderPath: 'docs/api' })
+  })
+
+  it('embeds the default-locale data of a generated page', () => {
+    const page = listPages(mechDir, { locales: config, generated: gen, data: [{ id: 'head' }] }).find(
+      (i) => i.path === '/docs/api',
+    )
+    expect(page!.head).toEqual({ title: 'Обзор' }) // ru = default
+  })
+
+  it('locale-scoped listing embeds that locale and skips pages absent in it', () => {
+    const ruOnly: VirtualPage[] = [
+      { path: '/docs/api/ruonly', locale: 'ru', locales: ['ru'], content: [], data: {}, meta: { title: 'RuOnly' } },
+    ]
+    const items = listPages(mechDir, { locales: config, generated: [...gen, ...ruOnly], locale: 'en', data: [{ id: 'head' }] })
+    expect(items.find((i) => i.path === '/docs/api')!.head).toEqual({ title: 'Overview' }) // en data
+    expect(items.some((i) => i.path === '/docs/api/ruonly')).toBe(false) // not translated to en
   })
 })

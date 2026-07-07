@@ -53,11 +53,12 @@ export interface DevMiddlewareOptions {
   /** The site's locale config (multi-language sites); null/absent = i18n off. */
   locales?: LocalesConfig | null
   /**
-   * Generated routes (plugin `generatePages`): a served-path → page map (for
-   * `/state`) and the set of their logical paths (for the read-only `/save`
-   * guard). Absent when no providers are configured.
+   * Generated routes (plugin `generatePages`): the baked page list (for the
+   * `/pages` + `/query` listings), a served-path → page map (for `/state`), and
+   * the set of their logical paths (for the read-only mutation guards). Absent
+   * when no providers are configured.
    */
-  generated?: () => Promise<{ byServed: Map<string, VirtualPage>; logical: Set<string> }>
+  generated?: () => Promise<{ pages: VirtualPage[]; byServed: Map<string, VirtualPage>; logical: Set<string> }>
 }
 
 /**
@@ -105,6 +106,18 @@ export function createDevMiddleware(
     }
 
     try {
+      // Generated pages (plugin `generatePages`), resolved once (cached
+      // upstream): used to serve their state, list them, and reject writes.
+      const gen = options.generated ? await options.generated() : null
+      /** Reject a mutation targeting a file-less generated page. */
+      const blockGenerated = (path: string | null): boolean => {
+        if (path && gen?.logical.has(path)) {
+          json({ error: 'This page is generated and read-only' }, 409)
+          return true
+        }
+        return false
+      }
+
       if (pathname.startsWith('/assets/')) return serveFrom('assets', '/assets/')
       if (pathname.startsWith('/thumbs/')) {
         // Regenerated in place by `mechanica thumbs` — always revalidate.
@@ -121,7 +134,9 @@ export function createDevMiddleware(
         // `page` selects the chunk of a paginated query (variant URLs like /blog/2);
         // `locale` scopes a `getPages` listing to a translation.
         const page = Number(query.get('page') ?? '') || undefined
-        return json(await resolveDevQuery(mechDir, key, { page, locale: variantCode(query.get('locale')) }))
+        return json(
+          await resolveDevQuery(mechDir, key, { page, locale: variantCode(query.get('locale')) }, gen?.pages),
+        )
       }
 
       if (pathname === '/upload' && req.method === 'POST') {
@@ -144,13 +159,13 @@ export function createDevMiddleware(
         const pathParam = query.get('path')
         if (!pathParam) return json({ error: 'Missing path' }, 400)
         await options.ready?.()
-        const generated = (await options.generated?.())?.byServed.get(pathParam)
+        const generated = gen?.byServed.get(pathParam)
         if (generated) return json(buildGeneratedState(mechDir, generated, config))
         return json(buildPageState(mechDir, pathParam, config))
       }
 
       if (pathname === '/pages' && req.method === 'GET') {
-        return json(listPages(mechDir, config ? { locales: config } : {}))
+        return json(listPages(mechDir, { ...(config ? { locales: config } : {}), generated: gen?.pages }))
       }
 
       if (pathname === '/blocks' && req.method === 'GET') {
@@ -161,12 +176,14 @@ export function createDevMiddleware(
       if (pathname === '/pages' && req.method === 'DELETE') {
         const pathParam = query.get('path')
         if (!pathParam) return json({ error: 'Missing path' }, 400)
+        if (blockGenerated(pathParam)) return
         return json({ success: deletePage(mechDir, pathParam) })
       }
 
       if (pathname === '/pages/draft' && req.method === 'POST') {
         const pathParam = query.get('path')
         if (!pathParam) return json({ error: 'Missing path' }, 400)
+        if (blockGenerated(pathParam)) return
         const body = JSON.parse((await readBody(req)).toString('utf-8'))
         setPageDraft(mechDir, pathParam, body.draft === true, variantCode(query.get('locale')))
         return json({ success: true, draft: body.draft === true })
@@ -178,6 +195,7 @@ export function createDevMiddleware(
         const pathParam = query.get('path')
         const locale = query.get('locale')
         if (!pathParam || !locale) return json({ error: 'Missing path or locale' }, 400)
+        if (blockGenerated(pathParam)) return
         if (!config || locale === config.default || !config.all.includes(locale)) {
           return json({ error: 'Unknown locale' }, 400)
         }
@@ -194,12 +212,14 @@ export function createDevMiddleware(
         const pathParam = query.get('path')
         const locale = query.get('locale')
         if (!pathParam || !locale) return json({ error: 'Missing path or locale' }, 400)
+        if (blockGenerated(pathParam)) return
         return json({ success: deleteTranslation(mechDir, pathParam, locale) })
       }
 
       if (pathname === '/pages/duplicate' && req.method === 'POST') {
         const pathParam = query.get('path')
         if (!pathParam) return json({ error: 'Missing path' }, 400)
+        if (blockGenerated(pathParam)) return
         const body = JSON.parse((await readBody(req)).toString('utf-8'))
         if (!body.path || !body.name) return json({ error: 'path and name are required' }, 400)
         try {
@@ -214,6 +234,7 @@ export function createDevMiddleware(
         const body = JSON.parse((await readBody(req)).toString('utf-8'))
         const pathParam = query.get('path')
         if (pathParam) {
+          if (blockGenerated(pathParam)) return
           // Editing an existing page: optionally move it (new path) and/or rename it.
           try {
             const wantsMove = typeof body.path === 'string' && body.path.trim() && body.path.trim() !== pathParam
@@ -248,9 +269,7 @@ export function createDevMiddleware(
         if (!pathParam) return json({ error: 'Missing path' }, 400)
         // Generated pages (plugin `generatePages`) have no file — reject a save
         // rather than writing a stray `.page.md` at their path.
-        if ((await options.generated?.())?.logical.has(pathParam)) {
-          return json({ error: 'This page is generated and read-only' }, 409)
-        }
+        if (blockGenerated(pathParam)) return
         // A non-default `locale` writes to that translation's variant file; the
         // default locale (or i18n off) writes the base page.
         const locale = variantCode(query.get('locale'))
