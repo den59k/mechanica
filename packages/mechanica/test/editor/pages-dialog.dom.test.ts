@@ -16,6 +16,13 @@ const pages = [
   { path: '/docs/intro', name: 'Intro', folderPath: 'docs' },
 ]
 
+const pagesWithGenerated = [
+  { path: '/', name: 'Home', folderPath: null },
+  { path: '/docs/intro', name: 'Intro', folderPath: 'docs' },
+  { path: '/shop/arc', name: 'Arc', folderPath: 'shop', generated: true },
+  { path: '/shop/halo', name: 'Halo', folderPath: 'shop', generated: true },
+]
+
 function mount(component: any, store: DialogStore = createDialogStore(), props?: Record<string, unknown>) {
   const el = document.createElement('div')
   const app = createApp({ render: () => h(component, props) })
@@ -31,6 +38,7 @@ const setInput = (input: Element, value: string) => {
 
 beforeEach(() => {
   vi.restoreAllMocks()
+  localStorage.clear()
   Object.defineProperty(window, 'location', {
     value: { ...window.location, pathname: '/', assign: vi.fn() },
     writable: true,
@@ -187,6 +195,43 @@ describe('PagesDialog', () => {
     await flush()
 
     expect(fetchMock).toHaveBeenCalledWith('/@mechanica/pages?path=%2F', expect.objectContaining({ method: 'DELETE' }))
+  })
+
+  it('toggles generated pages with the "Show generated pages" checkbox', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => pagesWithGenerated }) as any))
+    const { el } = mount(PagesDialog)
+    await flush()
+
+    // Generated pages are shown by default, with a "Generated" badge, and the
+    // count reflects the full list.
+    const checkbox = el.querySelector('.mech-pages__filter input[type="checkbox"]') as HTMLInputElement
+    expect(checkbox).toBeTruthy()
+    expect(checkbox.checked).toBe(true)
+    expect(el.textContent).toContain('Arc')
+    expect(el.textContent).toContain('Generated')
+    expect(el.querySelectorAll('.mech-pages__row')).toHaveLength(4)
+    expect(el.querySelector('.mech-pages__count')?.textContent).toBe('4')
+
+    // Unchecking hides the generated rows, drops the count, and removes the
+    // now-empty "shop" folder from the rail.
+    checkbox.checked = false
+    checkbox.dispatchEvent(new Event('change'))
+    await nextTick()
+    expect(el.textContent).not.toContain('Arc')
+    expect(el.textContent).not.toContain('Halo')
+    expect(el.querySelectorAll('.mech-pages__row')).toHaveLength(2)
+    expect(el.querySelector('.mech-pages__count')?.textContent).toBe('2')
+    expect([...el.querySelectorAll('.mech-pages__rail-item')].map((i) => i.textContent?.trim())).toEqual([
+      'All pages2',
+      'docs1',
+    ])
+  })
+
+  it('hides the checkbox when there are no generated pages', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => pages }) as any))
+    const { el } = mount(PagesDialog)
+    await flush()
+    expect(el.querySelector('.mech-pages__filter')).toBeNull()
   })
 })
 

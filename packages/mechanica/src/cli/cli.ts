@@ -14,7 +14,9 @@ Usage:
                             (a site url — the plugin's siteUrl option or
                              --site-url <origin> — also turns on the automatic
                              SEO tags and emits sitemap.xml + robots.txt;
-                             --site-name <name> adds WebSite JSON-LD)
+                             --site-name <name> adds WebSite JSON-LD;
+                             --assets-url <origin> serves /assets and /media from
+                             a CDN base — files still land in export/)
   mechanica push [--key]    Upload dist/ to a backend (--key, --host, --dir)
   mechanica shot <blockId>  Screenshot one block via the dev preview route
   mechanica shot </path>    Screenshot a whole page (editor overlay stripped)
@@ -42,7 +44,11 @@ export async function run(argv: string[]): Promise<void> {
     case 'build':
       return runBuild()
     case 'export':
-      return runExport({ siteUrl: str(flags['site-url']), siteName: str(flags['site-name']) })
+      return runExport({
+        siteUrl: str(flags['site-url']),
+        siteName: str(flags['site-name']),
+        assetsUrl: str(flags['assets-url']),
+      })
     case 'images':
       return runImages({ force: flags.force === true })
     case 'push':

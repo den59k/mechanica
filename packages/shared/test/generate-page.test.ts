@@ -144,17 +144,23 @@ describe('generatePage', () => {
     expect(html).not.toContain('<link')
   })
 
-  it('rewrites asset URLs when assetsUrl is set', async () => {
+  it('prefixes build-asset URLs with assetsUrl (a CDN base), leaving structure + absolute URLs', async () => {
     const { html } = await generatePage({
-      index: '<body><div id="app"></div><img src="/assets/x.png"></body>',
+      index:
+        '<body><div id="app"></div>' +
+        '<script type="module" src="/assets/x.js"></script>' +
+        '<link rel="stylesheet" href="https://other.cdn/assets/y.css"></body>',
       blocksMap,
       dataEntries: [],
       state: { content: [], data: {} },
       render: () => '',
-      assetsUrl: '/cdn/',
+      // A trailing slash is trimmed; the `assets/` segment is preserved.
+      assetsUrl: 'https://cdn.example.com/',
     })
-    expect(html).toContain('/cdn/x.png')
-    expect(html).not.toContain('/assets/x.png')
+    expect(html).toContain('src="https://cdn.example.com/assets/x.js"')
+    expect(html).not.toContain('src="/assets/x.js"')
+    // An already-absolute asset URL is not double-prefixed.
+    expect(html).toContain('href="https://other.cdn/assets/y.css"')
   })
 })
 

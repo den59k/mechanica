@@ -189,6 +189,63 @@ describe('mechanica export (golden)', () => {
     expect(warnings.some((w) => w.includes('orphan.png'))).toBe(true)
   })
 
+  it('serves /assets and /media from a CDN base with assetsUrl, still copying files locally', async () => {
+    // A build asset referenced by the template, and an uploaded image on a page.
+    await writeFile(
+      join(dir, 'dist/index.html'),
+      '<!doctype html><html><head><title>{{ head.title }}</title>' +
+        '<script type="module" src="/assets/entry.js"></script>' +
+        '</head><body><div id="app"></div></body></html>',
+    )
+    await writeFile(join(dir, 'dist/assets/entry.js'), 'ENTRY')
+    await mkdir(join(dir, '.mech/assets'), { recursive: true })
+    await writeFile(join(dir, '.mech/assets/pic.png'), 'PIC')
+    await writeFile(
+      join(dir, '.mech/pages/gallery.page.md'),
+      serializePage({
+        content: [{ id: 'g', blockId: 'pic', data: { image: { src: '/@mechanica/assets/pic.png' } } }],
+        data: {},
+      }),
+    )
+
+    await exportProject(dir, ssr, { assetsUrl: 'https://cdn.example.com/' })
+
+    // Uploaded media points at the CDN (trailing slash trimmed, folder kept).
+    const gallery = await readFile(join(dir, 'export/gallery/index.html'), 'utf-8')
+    expect(gallery).toContain('https://cdn.example.com/media/pic.png')
+    expect(gallery).not.toContain('"/media/pic.png"') // no root-relative form left
+    // The build-asset tag is prefixed too.
+    const home = await readFile(join(dir, 'export/index.html'), 'utf-8')
+    expect(home).toContain('src="https://cdn.example.com/assets/entry.js"')
+
+    // Files still land in export/ for the CI upload step.
+    expect(await readFile(join(dir, 'export/media/pic.png'), 'utf-8')).toBe('PIC')
+    expect(await readFile(join(dir, 'export/assets/entry.js'), 'utf-8')).toBe('ENTRY')
+  })
+
+  it('reads assetsUrl baked into the SSR bundle, with the CLI flag overriding', async () => {
+    await mkdir(join(dir, '.mech/assets'), { recursive: true })
+    await writeFile(join(dir, '.mech/assets/pic.png'), 'PIC')
+    await writeFile(
+      join(dir, '.mech/pages/gallery.page.md'),
+      serializePage({
+        content: [{ id: 'g', blockId: 'pic', data: { image: { src: '/@mechanica/assets/pic.png' } } }],
+        data: {},
+      }),
+    )
+
+    const bundled: SsrBundle = { ...ssr, assetsUrl: 'https://bundled.cdn' }
+    await exportProject(dir, bundled)
+    expect(await readFile(join(dir, 'export/gallery/index.html'), 'utf-8')).toContain(
+      'https://bundled.cdn/media/pic.png',
+    )
+
+    await exportProject(dir, bundled, { assetsUrl: 'https://flag.cdn' })
+    const overridden = await readFile(join(dir, 'export/gallery/index.html'), 'utf-8')
+    expect(overridden).toContain('https://flag.cdn/media/pic.png')
+    expect(overridden).not.toContain('bundled.cdn')
+  })
+
   it('copies a referenced crop derivative and never warns about stale ones', async () => {
     await mkdir(join(dir, '.mech/assets'), { recursive: true })
     await writeFile(join(dir, '.mech/assets/hero.png'), 'HERO')

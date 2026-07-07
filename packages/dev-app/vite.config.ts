@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { mechanica, svgGlob } from 'mechanica/plugin'
+import { storePages } from './src/providers/store'
 
 const src = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 
@@ -11,6 +12,9 @@ export default defineConfig({
     // automatic SEO output (canonical/og:url tags, sitemap.xml, robots.txt).
     // `locales` turns on multi-language pages: English is the default (served
     // unprefixed), Russian and Japanese live under /ru and /jp.
+    // `generatePages` builds the /shop section from the demo store backend — one
+    // product page per (product × locale) plus a /shop index, with no .page.md
+    // files (the backend owns them; they're read-only in the editor).
     mechanica({
       siteUrl: 'https://mechanica-demo.example',
       siteName: 'Mechanica Dev App',
@@ -19,6 +23,7 @@ export default defineConfig({
         all: ['en', 'ru', 'ja'],
         labels: { en: 'English', ru: 'Русский', ja: '日本語' },
       },
+      generatePages: [storePages],
     }),
     svgGlob(),
     vue(),

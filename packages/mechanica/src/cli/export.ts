@@ -227,6 +227,8 @@ export interface SsrBundle {
   dataEntries?: { id: string; props: any }[]
   /** Site identity baked in from the plugin's `siteUrl` / `siteName` options. */
   site?: { url?: string; name?: string }
+  /** CDN base URL for static assets, baked from the plugin's `assetsUrl` option. */
+  assetsUrl?: string | null
   /** The site's locale config baked in from the plugin's `locales` option. */
   locales?: LocalesConfig | null
   /** Programmatically generated pages (plugin `generatePages`), baked as plain
@@ -268,6 +270,12 @@ export interface ExportOptions {
   siteUrl?: string
   /** Site display name (WebSite JSON-LD). Overrides the plugin's `siteName`. */
   siteName?: string
+  /**
+   * Base URL (CDN origin) to serve static assets from — prefixes both the build
+   * assets (`/assets/…`) and uploaded media (`/media/…`). Overrides the plugin's
+   * `assetsUrl`. Files still land in `export/`; upload them to the CDN yourself.
+   */
+  assetsUrl?: string
   /** Warning sink (broken links, orphaned assets). Defaults to `console.warn`. */
   onWarn?: (message: string) => void
 }
@@ -375,7 +383,8 @@ async function backfillImageMeta(
  * `<cwd>/.mech`.
  *
  * Beyond the pages it also: rewrites + copies uploaded assets
- * (`/@mechanica/assets/…` → `/media/…`), warns about dead internal links,
+ * (`/@mechanica/assets/…` → `/media/…`, or `<assetsUrl>/media/…` when a CDN
+ * base is set), warns about dead internal links,
  * orphaned uploads and page-level SEO issues, emits `404.html` when a `/404`
  * page exists, and — when a site url is known (plugin `siteUrl` option or
  * `--site-url`) — injects the automatic SEO tags (canonical, `og:url`,
@@ -393,6 +402,9 @@ export async function exportProject(
   // CLI flags win over the site config baked into the SSR bundle.
   const siteUrl = options.siteUrl ?? ssr.site?.url
   const siteName = options.siteName ?? ssr.site?.name
+  // CDN base for static assets (plugin `assetsUrl` or `--assets-url`); trim a
+  // trailing slash so we build `<base>/media/…` and `<base>/assets/…` cleanly.
+  const assetsBase = (options.assetsUrl ?? ssr.assetsUrl ?? '').replace(/\/+$/, '')
 
   // Composed blocks join the block set: their (unfolded) schemas fill placed
   // data defaults, and they count as known blocks for link/unknown checks.
@@ -536,7 +548,8 @@ export async function exportProject(
     if (typeof src !== 'string' || !src.startsWith(UPLOADS_PREFIX)) return src
     const relative = decodeURIComponent(src.slice(UPLOADS_PREFIX.length))
     referenced.add(relative)
-    return `/${MEDIA_DIR}/${relative}`
+    // `assetsBase` is a trimmed CDN origin (or '' — then this stays root-relative).
+    return `${assetsBase}/${MEDIA_DIR}/${relative}`
   }
 
   // Blocks are code-split in the client build: give each page stylesheet +
@@ -569,6 +582,9 @@ export async function exportProject(
     dataEntries: ssr.dataEntries ?? [],
     projectData,
     site: { url: siteUrl, name: siteName },
+    // Serve the build assets (`/assets/…` in the HTML) from the CDN base too, so
+    // the whole `export/` tree can be hosted there. Empty = keep them local.
+    assetsUrl: assetsBase || undefined,
     // Bake the locale config into each page's `state.locales` so the runtime
     // prefixes internal links for `state.page.locale`.
     locales: config ?? undefined,

@@ -3,7 +3,7 @@
     <div class="mech-pages__card" role="dialog" aria-modal="true">
       <header class="mech-pages__header">
         <h2 class="mech-pages__title">Pages</h2>
-        <span class="mech-pages__count">{{ pages.length }}</span>
+        <span class="mech-pages__count">{{ listedPages.length }}</span>
         <button type="button" class="mech-pages__close" aria-label="Close" @click="dialog.back()">
           <VIcon name="close" />
         </button>
@@ -21,6 +21,10 @@
             @keydown="onSearchKey"
           />
         </div>
+        <label v-if="hasGenerated" class="mech-checkbox mech-pages__filter">
+          <input v-model="showGenerated" type="checkbox" />
+          <span>Show generated pages</span>
+        </label>
         <button type="button" class="mech-button is-primary" @click="startCreate">
           <VIcon name="plus" /> New page
         </button>
@@ -36,7 +40,7 @@
           >
             <VIcon name="book" />
             <span class="mech-pages__rail-name">All pages</span>
-            <span class="mech-pages__rail-count">{{ pages.length }}</span>
+            <span class="mech-pages__rail-count">{{ listedPages.length }}</span>
           </button>
           <button
             v-for="folder in folders"
@@ -178,9 +182,27 @@ const listEl = useTemplateRef<HTMLDivElement>('listEl')
 
 const searching = computed(() => !!query.value.trim())
 
+// Generated pages (plugin `generatePages`) can be numerous — a big catalog or
+// API-doc set. This toggle hides them from the list; the preference persists per
+// dev-server origin and defaults to shown. `listedPages` is the filtered set that
+// every count, folder, and row below derives from.
+const SHOW_GENERATED_KEY = 'mech:pages:show-generated'
+const showGenerated = ref(typeof localStorage === 'undefined' || localStorage.getItem(SHOW_GENERATED_KEY) !== '0')
+watch(showGenerated, (value) => {
+  try {
+    localStorage.setItem(SHOW_GENERATED_KEY, value ? '1' : '0')
+  } catch {
+    /* storage unavailable */
+  }
+})
+const hasGenerated = computed(() => pages.value.some((page) => page.generated))
+const listedPages = computed(() =>
+  showGenerated.value ? pages.value : pages.value.filter((page) => !page.generated),
+)
+
 const folders = computed(() => {
   const counts = new Map<string, number>()
-  for (const page of pages.value) {
+  for (const page of listedPages.value) {
     if (page.folderPath) counts.set(page.folderPath, (counts.get(page.folderPath) ?? 0) + 1)
   }
   return [...counts.entries()]
@@ -190,9 +212,9 @@ const folders = computed(() => {
 
 // Search is global — it ignores the folder filter so a match can never hide.
 const visible = computed(() => {
-  if (searching.value) return filterPages(pages.value, query.value)
-  if (activeFolder.value) return pages.value.filter((page) => page.folderPath === activeFolder.value)
-  return pages.value
+  if (searching.value) return filterPages(listedPages.value, query.value)
+  if (activeFolder.value) return listedPages.value.filter((page) => page.folderPath === activeFolder.value)
+  return listedPages.value
 })
 const groups = computed(() => groupPagesByFolder(visible.value))
 /** Flat list in render order — keyboard navigation walks this. */
@@ -208,7 +230,9 @@ const monogram = computed(() =>
 onMounted(async () => {
   await load()
   searchInput.value?.focus()
-  activePath.value = pages.value.some((page) => page.path === current.value)
+  // Highlight the current page when it's in the (possibly filtered) list, else
+  // the first row — a generated current page hidden by the toggle falls back.
+  activePath.value = rows.value.some((page) => page.path === current.value)
     ? current.value
     : (rows.value[0]?.path ?? null)
 })
@@ -446,6 +470,7 @@ async function toggleDraft(page: PageItem) {
 
 .mech-pages__toolbar {
   display: flex;
+  align-items: center;
   gap: 8px;
   padding: 0 24px 14px;
   flex: none;
@@ -453,6 +478,11 @@ async function toggleDraft(page: PageItem) {
 .mech-pages__search-wrap {
   position: relative;
   flex: 1;
+}
+.mech-pages__filter {
+  flex: none;
+  white-space: nowrap;
+  margin-right: 2px;
 }
 .mech-pages__search-icon {
   position: absolute;

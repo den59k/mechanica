@@ -64,7 +64,14 @@ export interface GeneratePageOptions {
   locales?: LocalesConfig
   baseUrl?: string
   path?: string
-  /** Rewrite `/assets/` to this base when set. */
+  /**
+   * Serve build assets from this base URL (a CDN origin like
+   * `https://cdn.example.com`). Root-relative `/assets/…` references in the
+   * HTML are prefixed with it — `/assets/x.js` → `<assetsUrl>/assets/x.js` — so
+   * the built `assets/` folder can live on a CDN. A trailing slash is ignored,
+   * and an already-absolute `https://…/assets/` URL is left untouched. Uploaded
+   * media (`/media/…`) is rewritten by the export's `onFile`, not here.
+   */
   assetsUrl?: string
   /**
    * Extra `<link>` tags for this page's content, injected before `</head>` —
@@ -136,7 +143,12 @@ export async function generatePage(
   const links = options.pageLinks?.(options.state.content) ?? []
   if (links.length) index = index.replace('</head>', `${links.join('\n')}\n</head>`)
 
-  if (options.assetsUrl) index = index.replace(/\/assets\//g, options.assetsUrl)
+  if (options.assetsUrl) {
+    const base = options.assetsUrl.replace(/\/+$/, '')
+    // Prefix only genuine root-relative refs (right after a quote/paren/equals),
+    // so an already-absolute `https://…/assets/` URL is never double-prefixed.
+    index = index.replace(/(["'(=])\/assets\//g, (_, edge) => `${edge}${base}/assets/`)
+  }
 
   const stateScript = `<script>window.state=${serializeState(state)}</script>`
   return { html: index.replace('</body>', `${stateScript}\n</body>`), query }

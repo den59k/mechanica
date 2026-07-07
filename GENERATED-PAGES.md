@@ -201,8 +201,9 @@ authored pages; webhook regeneration operates on generated ones.
    `usePages()`, and pass `mechanica shot`'s page-exists check. Every write endpoint
    (`/save`, delete, rename/move, duplicate, draft, translation) rejects a generated
    path (409); the editor renders them read-only (`state.generated`).
-3. **Sugar + backend hooks** — pending. `defineCollection({ base, source, block, data })`
-   over `generatePages`; wire `resolve`/`revalidate` when the backend lands.
+3. **Sugar + backend hooks** — pending. `defineCollection` over `generatePages` (deferred —
+   spec in [DEFINE-COLLECTION.md](./DEFINE-COLLECTION.md); build only when a second collection
+   of the same shape appears); wire `resolve`/`revalidate` when the backend lands.
 
 ## Tests
 

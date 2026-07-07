@@ -93,6 +93,21 @@ export interface MechanicaPluginOptions {
   /** The site's display name — `{{ site.name }}` + WebSite JSON-LD at export. */
   siteName?: string
   /**
+   * Base URL to serve static assets from at export — a CDN origin like
+   * `https://cdn.example.com`. When set, `mechanica export` rewrites both the
+   * build assets (`/assets/…`) and uploaded media (`/media/…`) to
+   * `<assetsUrl>/assets/…` and `<assetsUrl>/media/…`. Files are still emitted
+   * into `export/` — upload them to the CDN yourself (e.g. in CI). A trailing
+   * slash is ignored. `mechanica export --assets-url <origin>` overrides it.
+   *
+   * Only affects the static export; the dev server keeps serving assets
+   * locally. For build assets referenced from inside CSS/JS chunks (fonts,
+   * `url(...)` backgrounds) on a cross-origin CDN, set Vite's `base` instead —
+   * this option rewrites HTML asset tags and uploaded media, not chunk-internal
+   * references.
+   */
+  assetsUrl?: string
+  /**
    * Multi-language configuration. Either a full config
    * (`{ default: 'en', all: ['en', 'ru'], labels? }`) or a bare list of codes
    * (`['en', 'ru']`, first = default). The default locale serves at unprefixed
@@ -465,6 +480,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         return generateSsrEntry({
           userEntry,
           site: { url: options.siteUrl, name: options.siteName },
+          assetsUrl: options.assetsUrl,
           locales,
           generatedPages: await loadGeneratedPages(),
         })
