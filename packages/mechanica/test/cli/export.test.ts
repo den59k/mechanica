@@ -907,3 +907,59 @@ describe('mechanica export (generated pages)', () => {
     await expect(exportProject(dir, clash, { onWarn: () => {} })).rejects.toThrow(/already exists/)
   })
 })
+
+describe('layout + 404 lint', () => {
+  it('warns on an unknown layout once per logical page, naming the fallback', async () => {
+    await writeFile(
+      join(dir, '.mech/pages/oops.page.md'),
+      serializePage({ content: [], data: {}, layout: 'documentation' }),
+    )
+    const warnings: string[] = []
+    await exportProject(dir, { ...ssr, layoutNames: ['site', 'docs'] }, { onWarn: (m) => warnings.push(m) })
+    const hits = warnings.filter((w) => w.includes('unknown layout'))
+    expect(hits).toHaveLength(1)
+    expect(hits[0]).toContain('/oops')
+    expect(hits[0]).toContain('"documentation"')
+    expect(hits[0]).toContain('falls back to "site"')
+    expect(hits[0]).toContain('site, docs')
+  })
+
+  it('warns when a page sets a layout but the app declares none', async () => {
+    await writeFile(
+      join(dir, '.mech/pages/oops.page.md'),
+      serializePage({ content: [], data: {}, layout: 'docs' }),
+    )
+    const warnings: string[] = []
+    await exportProject(dir, { ...ssr, layoutNames: [] }, { onWarn: (m) => warnings.push(m) })
+    expect(warnings.some((w) => w.includes('declares no layouts'))).toBe(true)
+  })
+
+  it('stays silent for known layouts, and skips the lint on pre-layouts bundles', async () => {
+    await writeFile(
+      join(dir, '.mech/pages/docs-home.page.md'),
+      serializePage({ content: [], data: {}, layout: 'docs' }),
+    )
+    const known: string[] = []
+    await exportProject(dir, { ...ssr, layoutNames: ['site', 'docs'] }, { onWarn: (m) => known.push(m) })
+    expect(known.some((w) => w.includes('layout'))).toBe(false)
+
+    // No `layoutNames` on the bundle (built before layouts) → no lint at all.
+    const legacy: string[] = []
+    await exportProject(dir, ssr, { onWarn: (m) => legacy.push(m) })
+    expect(legacy.some((w) => w.includes('layout'))).toBe(false)
+  })
+
+  it('warns when the site has no /404 page, and is satisfied by one', async () => {
+    const without: string[] = []
+    await exportProject(dir, ssr, { onWarn: (m) => without.push(m) })
+    expect(without.filter((w) => w.includes('No /404 page'))).toHaveLength(1)
+
+    await writeFile(
+      join(dir, '.mech/pages/404.page.md'),
+      serializePage({ content: [{ id: 'n', blockId: 'hero', data: { title: 'Lost?' } }], data: {} }),
+    )
+    const withPage: string[] = []
+    await exportProject(dir, ssr, { onWarn: (m) => withPage.push(m) })
+    expect(withPage.some((w) => w.includes('No /404 page'))).toBe(false)
+  })
+})

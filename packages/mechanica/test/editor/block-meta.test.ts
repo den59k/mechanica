@@ -99,6 +99,12 @@ describe('composedBlockMeta', () => {
     expect(meta.composed).toBe(true)
     expect(composedBlockMeta({ id: 'card', name: 'Card', template: [] }).hidden).toBeUndefined()
   })
+
+  it('carries the standalone flag so designer-built page blocks reach "Start this page"', () => {
+    const meta = composedBlockMeta({ id: 'coming-soon', name: 'Coming soon', standalone: true, template: [] })
+    expect(meta.standalone).toBe(true)
+    expect(composedBlockMeta({ id: 'card', name: 'Card', template: [] }).standalone).toBeUndefined()
+  })
 })
 
 describe('compareBlocks', () => {

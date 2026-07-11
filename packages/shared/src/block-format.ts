@@ -83,6 +83,7 @@ export function parseComposedBlock(text: string, fallbackId?: string): ComposedB
   if (typeof doc.icon === 'string') def.icon = doc.icon
   if (typeof doc.category === 'string') def.category = doc.category
   if (doc.hidden === true) def.hidden = true
+  if (doc.standalone === true) def.standalone = true
   if (isPlainObject(doc.props)) def.props = doc.props
   if (isPlainObject(doc.previewData)) def.previewData = doc.previewData
   return def
@@ -94,8 +95,9 @@ export function serializeComposedBlock(def: ComposedBlockDefinition): string {
   const ordered: Record<string, unknown> = { id: def.id, name: def.name }
   if (def.icon) ordered.icon = def.icon
   if (def.category) ordered.category = def.category
-  // Only emit `hidden` when true — reusable blocks stay clean (like `draft`).
+  // Only emit `hidden`/`standalone` when true — typical blocks stay clean.
   if (def.hidden) ordered.hidden = true
+  if (def.standalone) ordered.standalone = true
   if (def.props && Object.keys(def.props).length) ordered.props = def.props
   if (def.previewData && Object.keys(def.previewData).length) ordered.previewData = def.previewData
   ordered.template = def.template ?? []

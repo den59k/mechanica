@@ -93,6 +93,11 @@ describe('generateSsrEntry', () => {
     expect(code).toContain('renderToString(app)')
   })
 
+  it('exposes the layout names for the export lint', () => {
+    const code = generateSsrEntry({ userEntry: '/src/main.ts' })
+    expect(code).toContain('export const layoutNames = definition.layouts ? Object.keys(definition.layouts) : []')
+  })
+
   it('collects the queries the render resolves and returns them with the html', () => {
     const code = generateSsrEntry({ userEntry: '/src/main.ts' })
     expect(code).toContain('(query[key] = await context.resolveQuery(key))')

@@ -230,6 +230,13 @@ export interface ComposedBlockDefinition {
    */
   hidden?: boolean
   /**
+   * A whole-page block (like `Block.standalone`): offered in the empty page's
+   * "Start this page" palette group and the Page setup pane's Page-block
+   * select, never alongside content blocks. Toggled in the composer settings —
+   * a designer-built 404 or coming-soon page.
+   */
+  standalone?: boolean
+  /**
    * compact-json-schema for the props exposed out of the template (§ prop
    * bindings). Placed instances get an auto-generated settings form from this,
    * exactly like a compiled block's `props`.

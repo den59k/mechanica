@@ -42,6 +42,20 @@
           <span class="mech-composer__switch-knob" />
         </span>
       </button>
+      <!-- A whole-page block (a designer-built 404, coming-soon): offered when
+           starting a page and in Page setup, never alongside content blocks. -->
+      <button
+        type="button"
+        class="mech-composer__row mech-composer__meta-switch"
+        :aria-pressed="store.def.standalone === true"
+        :title="store.def.standalone ? 'Offered when starting a page — never alongside content blocks' : 'A regular content block, offered on any page'"
+        @click="store.setMeta({ standalone: !store.def.standalone })"
+      >
+        <span>Whole-page block</span>
+        <span class="mech-composer__switch" :class="{ 'is-on': store.def.standalone === true }" aria-hidden="true">
+          <span class="mech-composer__switch-knob" />
+        </span>
+      </button>
     </section>
 
     <PropsSection />

@@ -185,6 +185,9 @@ export function generateSsrEntry(options: SsrEntryOptions): string {
     `export const locales = ${JSON.stringify(options.locales ?? null)}`,
     `export const generatedPages = ${JSON.stringify(options.generatedPages ?? [])}`,
     `export const dataEntries = getDataEntries()`,
+    // The app's layout names, for the export's unknown-layout lint (a typo'd
+    // `layout:` frontmatter falls back to the default silently at render).
+    `export const layoutNames = definition.layouts ? Object.keys(definition.layouts) : []`,
     ``,
     `export async function render(state, context = {}) {`,
     `  const query = {}`,

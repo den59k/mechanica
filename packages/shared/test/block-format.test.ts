@@ -61,6 +61,16 @@ describe('block-format: round-trip', () => {
     expect(parseComposedBlock(serializeComposedBlock(sample)).hidden).toBeUndefined()
     expect(parseComposedBlock('id: x\nname: X\nhidden: false\ntemplate: []').hidden).toBeUndefined()
   })
+
+  it('round-trips the standalone flag, emitting it only when true', () => {
+    const pageBlock: ComposedBlockDefinition = { id: 'coming-soon', name: 'Coming soon', standalone: true, template: [] }
+    const text = serializeComposedBlock(pageBlock)
+    expect(text).toContain('standalone: true')
+    expect(parseComposedBlock(text).standalone).toBe(true)
+
+    expect(serializeComposedBlock(sample)).not.toContain('standalone')
+    expect(parseComposedBlock('id: x\nname: X\nstandalone: false\ntemplate: []').standalone).toBeUndefined()
+  })
 })
 
 describe('block-format: validation', () => {

@@ -245,6 +245,12 @@ export interface SsrBundle {
   /** Programmatically generated pages (plugin `generatePages`), baked as plain
    *  data at build so they render without a `.page.md` file. */
   generatedPages?: VirtualPage[]
+  /**
+   * The app's layout names (`defineMechanicaApp({ layouts })` keys, first =
+   * default) — for the unknown-layout lint. Absent on bundles built before
+   * layouts existed, which skips the lint entirely.
+   */
+  layoutNames?: string[]
 }
 
 /**
@@ -558,6 +564,34 @@ export async function exportProject(
     for (const id of findUnknownBlocks(page.content, blocksMap)) {
       warn(`[mechanica] Page ${page.path} references unknown block "${id}" — it renders as nothing`)
     }
+  }
+
+  // Layout lint: a typo'd `layout:` frontmatter silently falls back to the
+  // default at render — surface it here instead. Once per logical page (its
+  // translations inherit the layout), skipped on pre-layouts SSR bundles.
+  if (ssr.layoutNames) {
+    const layoutNames = ssr.layoutNames
+    const seen = new Set<string>()
+    for (const page of pages) {
+      const layout = page.page?.layout
+      if (!layout || layoutNames.includes(layout) || seen.has(page.logicalPath)) continue
+      seen.add(page.logicalPath)
+      warn(
+        layoutNames.length === 0
+          ? `[mechanica] Page ${page.logicalPath} sets layout "${layout}", but the app declares no layouts ` +
+              `(defineMechanicaApp({ layouts }))`
+          : `[mechanica] Page ${page.logicalPath} uses unknown layout "${layout}" — it falls back to ` +
+              `"${layoutNames[0]}" (declared: ${layoutNames.join(', ')})`,
+      )
+    }
+  }
+
+  // Static-host 404s: without a /404 page the host serves its own error page.
+  if (!pages.some((page) => page.logicalPath === '/404')) {
+    warn(
+      '[mechanica] No /404 page — the static host will show its own error page. ' +
+        'Create a page at /404 (it exports as 404.html and is noindexed automatically).',
+    )
   }
 
   // Dead internal links: warn (not fail) — a target may be served elsewhere.

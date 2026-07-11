@@ -55,6 +55,7 @@ export function composedBlockMeta(def: ComposedBlockDefinition): Block {
     category: def.category ?? 'Site blocks',
     icon: def.icon,
     hidden: def.hidden,
+    standalone: def.standalone,
     previewData: def.previewData,
     composed: true,
     props: def.props

@@ -122,7 +122,7 @@ export interface ComposerStore {
   addProp(id: string, key: string): void
   /** Switch a property off and delete its data keys from the base + every `$bp` layer. */
   removeProp(id: string, key: string): void
-  setMeta(patch: Partial<Pick<ComposedBlockDefinition, 'name' | 'icon' | 'category' | 'hidden'>>): void
+  setMeta(patch: Partial<Pick<ComposedBlockDefinition, 'name' | 'icon' | 'category' | 'hidden' | 'standalone'>>): void
   // ── Prop exposure (parameterization) ──────────────────────────────
   /** The prop a node's field is bound to, or null. Bindings live on base data. */
   boundPropOf(nodeId: string, key: string): string | null
@@ -519,7 +519,7 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
       if (list) this.addedProps[id] = list.filter((k) => k !== key)
     },
 
-    setMeta(patch: Partial<Pick<ComposedBlockDefinition, 'name' | 'icon' | 'category' | 'hidden'>>) {
+    setMeta(patch: Partial<Pick<ComposedBlockDefinition, 'name' | 'icon' | 'category' | 'hidden' | 'standalone'>>) {
       if (patch.name !== undefined) this.def.name = patch.name
       if (patch.icon !== undefined) this.def.icon = patch.icon || undefined
       // An empty category clears the key (falls back to "Site blocks"), rather
@@ -528,10 +528,14 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
         if (patch.category) this.def.category = patch.category
         else delete this.def.category
       }
-      // Palette visibility: only `hidden: true` persists (files stay clean).
+      // Palette visibility / whole-page flag: only `true` persists (files stay clean).
       if (patch.hidden !== undefined) {
         if (patch.hidden) this.def.hidden = true
         else delete this.def.hidden
+      }
+      if (patch.standalone !== undefined) {
+        if (patch.standalone) this.def.standalone = true
+        else delete this.def.standalone
       }
     },
 

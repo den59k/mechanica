@@ -504,6 +504,17 @@ describe('composer store: snapshot / replace', () => {
     expect(store.def.name).toBe('Renamed')
     expect(store.def.icon).toBe('star')
   })
+
+  it('setMeta toggles hidden and standalone, deleting the keys when off', () => {
+    const store = createComposerStore(base())
+    store.setMeta({ hidden: true, standalone: true })
+    expect(store.def.hidden).toBe(true)
+    expect(store.def.standalone).toBe(true)
+
+    store.setMeta({ hidden: false, standalone: false })
+    expect('hidden' in store.def).toBe(false)
+    expect('standalone' in store.def).toBe(false)
+  })
 })
 
 describe('composer store: repeat ($each)', () => {
