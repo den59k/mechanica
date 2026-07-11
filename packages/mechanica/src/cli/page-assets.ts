@@ -83,6 +83,13 @@ export interface BlockAssetLinkOptions {
    * are linked by the built index template, so re-preloading them is noise.
    */
   alreadyLinked?: (file: string) => boolean
+  /**
+   * CDN origin (trailing slash trimmed) prepended to each href, so the injected
+   * preload links point at the CDN like the rest of the build assets. Empty /
+   * omitted keeps them root-relative (`/assets/…`). Must match Vite's `base` so
+   * the preload and the actual chunk import resolve to the same URL.
+   */
+  base?: string
 }
 
 /**
@@ -107,8 +114,9 @@ export function blockAssetLinks(options: BlockAssetLinkOptions): string[] {
   }
 
   const wanted = (file: string): boolean => !options.alreadyLinked?.(file)
+  const href = (file: string): string => `${options.base ?? ''}/${file}`
   return [
-    ...assets.css.filter(wanted).map((file) => `<link rel="stylesheet" href="/${file}">`),
-    ...assets.js.filter(wanted).map((file) => `<link rel="modulepreload" href="/${file}">`),
+    ...assets.css.filter(wanted).map((file) => `<link rel="stylesheet" href="${href(file)}">`),
+    ...assets.js.filter(wanted).map((file) => `<link rel="modulepreload" href="${href(file)}">`),
   ]
 }

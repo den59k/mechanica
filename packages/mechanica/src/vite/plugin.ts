@@ -94,17 +94,19 @@ export interface MechanicaPluginOptions {
   siteName?: string
   /**
    * Base URL to serve static assets from at export — a CDN origin like
-   * `https://cdn.example.com`. When set, `mechanica export` rewrites both the
-   * build assets (`/assets/…`) and uploaded media (`/media/…`) to
-   * `<assetsUrl>/assets/…` and `<assetsUrl>/media/…`. Files are still emitted
-   * into `export/` — upload them to the CDN yourself (e.g. in CI). A trailing
-   * slash is ignored. `mechanica export --assets-url <origin>` overrides it.
+   * `https://cdn.example.com`. When set, `mechanica export` rewrites uploaded
+   * media (`/media/…` → `<assetsUrl>/media/…`), the per-page block-preload
+   * links, and any root-relative `/assets/…` tag in the HTML. Files are still
+   * emitted into `export/` — upload them to the CDN yourself (e.g. in CI). A
+   * trailing slash is ignored. `mechanica export --assets-url <origin>`
+   * overrides it. Only affects the export; the dev server serves locally.
    *
-   * Only affects the static export; the dev server keeps serving assets
-   * locally. For build assets referenced from inside CSS/JS chunks (fonts,
-   * `url(...)` backgrounds) on a cross-origin CDN, set Vite's `base` instead —
-   * this option rewrites HTML asset tags and uploaded media, not chunk-internal
-   * references.
+   * IMPORTANT for a cross-origin CDN: this rewrites HTML/emitted references
+   * only — it can't reach *inside* built JS/CSS chunks, where chunk→chunk
+   * imports and `url(...)` refs are baked at build time. Set Vite's **`base`**
+   * to the same absolute CDN URL so those bake correctly; keep `assetsUrl` in
+   * sync (it's what carries the CDN base to media + the preload hints Vite
+   * doesn't know about). See CONTRACT/README notes for the two-line recipe.
    */
   assetsUrl?: string
   /**

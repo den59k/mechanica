@@ -81,6 +81,21 @@ describe('blockAssetLinks', () => {
     ])
   })
 
+  it('prepends the CDN base to every href when set (trailing slash pre-trimmed)', () => {
+    const links = blockAssetLinks({
+      blockIds: ['hero'],
+      manifest,
+      blockFiles,
+      base: 'https://cdn.example.com/landing',
+    })
+    expect(links).toEqual([
+      '<link rel="stylesheet" href="https://cdn.example.com/landing/assets/Hero-a1.css">',
+      '<link rel="stylesheet" href="https://cdn.example.com/landing/assets/shared-x9.css">',
+      '<link rel="modulepreload" href="https://cdn.example.com/landing/assets/Hero-a1.js">',
+      '<link rel="modulepreload" href="https://cdn.example.com/landing/assets/shared-x9.js">',
+    ])
+  })
+
   it('skips files the html already references and unknown block ids', () => {
     const links = blockAssetLinks({
       blockIds: ['hero', 'retired'],

@@ -380,6 +380,30 @@ describe('mechanica export (golden)', () => {
     expect(contact).not.toContain('Hero-a1')
   })
 
+  it('points block preloads at the CDN base too, for any asset dir name', async () => {
+    // A build with a renamed assets dir (Vite `build.assetsDir: 'landing-assets'`).
+    await mkdir(join(dir, 'dist/.vite'), { recursive: true })
+    await writeFile(
+      join(dir, 'dist/.vite/manifest.json'),
+      JSON.stringify({
+        'src/blocks/Hero.vue': { file: 'landing-assets/Hero-a1.js', css: ['landing-assets/Hero-a1.css'] },
+      }),
+    )
+    await writeFile(
+      join(dir, 'dist/mechanica-blocks.json'),
+      JSON.stringify({ hero: { src: 'src/blocks/Hero.vue', chunk: 'landing-assets/Hero-a1.js' } }),
+    )
+
+    await exportProject(dir, ssr, { assetsUrl: 'https://cdn.le.codes' })
+
+    // The home page uses `hero`: its preloads point at the CDN, folder and all —
+    // not the literal `/assets/`, proving it isn't tied to the default dir name.
+    const home = await readFile(join(dir, 'export/index.html'), 'utf-8')
+    expect(home).toContain('<link rel="stylesheet" href="https://cdn.le.codes/landing-assets/Hero-a1.css">')
+    expect(home).toContain('<link rel="modulepreload" href="https://cdn.le.codes/landing-assets/Hero-a1.js">')
+    expect(home).not.toContain('href="/landing-assets/')
+  })
+
   it('splits a paginated page into real /news/2… variants, each with its own slice', async () => {
     await writePosts(5)
 

@@ -571,6 +571,9 @@ export async function exportProject(
         return blockAssetLinks({
           blockIds,
           ...blockAssets,
+          // Point the preloads at the CDN too (matches Vite's `base`), so the
+          // hint and the chunk's own import resolve to the same URL.
+          base: assetsBase || undefined,
           alreadyLinked: (file) => index.includes(file),
         })
       }
