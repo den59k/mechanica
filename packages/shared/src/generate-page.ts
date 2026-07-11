@@ -34,6 +34,8 @@ export interface PageState {
     title?: string
     path?: string
     meta?: Record<string, unknown>
+    /** The page's layout (key into the app's `layouts` map). */
+    layout?: string
     /** Set on paginated variants: which chunk of the page's paginated query this is. */
     pagination?: { page: number; pageCount?: number }
     /** The locale this page renders in (multi-language sites). */

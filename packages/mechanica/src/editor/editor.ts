@@ -76,6 +76,8 @@ function saveBody(snapshot: EditorSnapshot): Record<string, unknown> {
     folderData: folder.shared,
     siteDataI18n: site.i18n,
     folderDataI18n: folder.i18n,
+    // Base-owned (the server ignores it on translation saves): the page's layout.
+    layout: snapshot.layout ?? null,
   }
 }
 

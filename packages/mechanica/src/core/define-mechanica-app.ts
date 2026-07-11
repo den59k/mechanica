@@ -7,6 +7,13 @@ import type { BlocksMap, MechanicaMode, QueryResolver } from './state'
 export interface MechanicaAppDefinition {
   /** Root component of the site. */
   root: Component
+  /**
+   * Named layout components — each renders `<Content/>` inside its own chrome
+   * (marketing shell, docs shell, a bare page, …). The root renders the active
+   * one via `<Layout/>`; a page picks its layout with top-level `layout:`
+   * frontmatter in the `.page.md`. The map's **first entry** is the default.
+   */
+  layouts?: Record<string, Component>
   /** Optional hook to register extra Vue plugins (Pinia, i18n, …). */
   setup?: (app: App) => void
 }
@@ -49,6 +56,7 @@ export function createMechanicaApp(
       blockLoaders: options.blockLoaders,
       composed: options.composed,
       resolveQuery: options.resolveQuery,
+      layouts: definition.layouts,
     }),
   )
   definition.setup?.(app)

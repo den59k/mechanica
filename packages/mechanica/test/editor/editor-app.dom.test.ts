@@ -30,7 +30,7 @@ describe('EditorApp', () => {
     expect(el.textContent).toContain('Hero') // palette item
 
     // Tap the palette item (pointerdown + release without moving).
-    const item = el.querySelector('.mech-palette__item')!
+    const item = el.querySelector('.mech-palette__item:not(.mech-palette__item--action)')!
     const down = new Event('pointerdown', { bubbles: true })
     Object.assign(down, { clientX: 0, clientY: 0 })
     item.dispatchEvent(down)
@@ -99,7 +99,7 @@ describe('EditorApp', () => {
     app.mount(el)
 
     // Tap the Banner palette item → adds + selects it → the settings panel opens.
-    const item = el.querySelector('.mech-palette__item')!
+    const item = el.querySelector('.mech-palette__item:not(.mech-palette__item--action)')!
     const down = new Event('pointerdown', { bubbles: true })
     Object.assign(down, { clientX: 0, clientY: 0 })
     item.dispatchEvent(down)

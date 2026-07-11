@@ -21,6 +21,8 @@ export interface StateUpdateMessage {
 
 /** The runtime surface the editor drives through the bridge. */
 export interface BridgeRuntime {
+  /** The app's layout names (`defineMechanicaApp({ layouts })`), first = default. */
+  layoutNames?: string[]
   setContent(content: ContentBlock[]): void
   mergeData(data: Record<string, unknown>): void
   /** Replace the current page's metadata (in-place page switch). */
@@ -87,4 +89,15 @@ export function pushStateUpdate(payload: StateUpdatePayload): void {
 /** Whether a runtime is currently exposed (i.e. a Mechanica app is mounted). */
 export function hasRuntime(): boolean {
   return typeof window !== 'undefined' && RUNTIME_KEY in window
+}
+
+/**
+ * The app's layout names, read off the exposed runtime (the editor is a
+ * separate app and can't import the user's entry). Empty when the site
+ * declares no layouts — the editor then shows no layout picker.
+ */
+export function runtimeLayoutNames(): string[] {
+  if (typeof window === 'undefined') return []
+  const runtime = (window as unknown as Record<string, unknown>)[RUNTIME_KEY] as BridgeRuntime | undefined
+  return runtime?.layoutNames ?? []
 }

@@ -1,4 +1,4 @@
-import { shallowReactive, shallowRef, type App, type Plugin } from 'vue'
+import { shallowReactive, shallowRef, type App, type Component, type Plugin } from 'vue'
 import type { ComposedBlockDefinition, ContentBlock, PageMeta, State } from 'mechanica-shared'
 import {
   mechanicaKey,
@@ -34,6 +34,8 @@ export interface CreateMechanicaOptions {
   mode?: MechanicaMode
   /** Query resolver for server/dev modes. */
   resolveQuery?: QueryResolver
+  /** Named layout components from the app definition (see `defineMechanicaApp`). */
+  layouts?: Record<string, Component>
 }
 
 /**
@@ -99,6 +101,7 @@ export function createMechanica(options: CreateMechanicaOptions = {}): Plugin {
         resolveQuery: options.resolveQuery,
         page,
         locales: initial?.locales,
+        layouts: options.layouts,
       }
 
       app.provide(mechanicaKey, context)
@@ -106,6 +109,9 @@ export function createMechanica(options: CreateMechanicaOptions = {}): Plugin {
       // Expose the runtime so the in-page editor can drive it live.
       if (mode !== 'server') {
         exposeRuntime({
+          // The editor's layout picker enumerates these (it can't import the
+          // user's app module itself).
+          layoutNames: options.layouts ? Object.keys(options.layouts) : [],
           setContent: (next) => {
             content.value = next
           },

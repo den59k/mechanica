@@ -204,3 +204,48 @@ describe('buildGeneratedState (programmatic routes)', () => {
     expect(ru.generated).toBe(true)
   })
 })
+
+describe('page layout', () => {
+  const config: LocalesConfig = { default: 'en', all: ['en', 'ru'] }
+
+  it('rides into page.layout, absent when unset', () => {
+    writePage('docs.page.md', { layout: 'docs' })
+    writePage('home.page.md', {})
+    expect(buildPageState(mechDir, '/docs').page.layout).toBe('docs')
+    expect(buildPageState(mechDir, '/home').page.layout).toBeUndefined()
+  })
+
+  it('is base-owned: translations and locale fallbacks inherit the base layout', () => {
+    writePage('docs.page.md', { layout: 'docs' })
+    createTranslation(mechDir, '/docs', 'ru')
+    expect(buildPageState(mechDir, '/ru/docs', config).page.layout).toBe('docs')
+
+    // An untranslated page rendering the default-locale fallback keeps it too.
+    writePage('guide.page.md', { layout: 'docs' })
+    expect(buildPageState(mechDir, '/ru/guide', config).page.layout).toBe('docs')
+  })
+
+  it('savePage persists and clears it on the base file only', () => {
+    writePage('about.page.md', {})
+    savePage(mechDir, '/about', { layout: 'docs' })
+    expect(buildPageState(mechDir, '/about').page.layout).toBe('docs')
+
+    // A translation save never writes the (base-owned) layout.
+    createTranslation(mechDir, '/about', 'ru')
+    savePage(mechDir, '/about', { content: [], layout: 'site' }, 'ru')
+    expect(buildPageState(mechDir, '/about').page.layout).toBe('docs')
+    const variant = fs.readFileSync(join(mechDir, 'pages', 'about@ru.page.md'), 'utf-8')
+    expect(variant).not.toContain('layout')
+
+    // Clearing (back to the app's default layout) drops the key from the file.
+    savePage(mechDir, '/about', { layout: null })
+    expect(buildPageState(mechDir, '/about').page.layout).toBeUndefined()
+    expect(fs.readFileSync(join(mechDir, 'pages', 'about.page.md'), 'utf-8')).not.toContain('layout')
+  })
+
+  it('buildGeneratedState carries VirtualPage.layout', () => {
+    const vp: VirtualPage = { path: '/api/x', content: [], layout: 'docs' }
+    expect(buildGeneratedState(mechDir, vp).page.layout).toBe('docs')
+    expect(buildGeneratedState(mechDir, { path: '/api/y', content: [] }).page.layout).toBeUndefined()
+  })
+})

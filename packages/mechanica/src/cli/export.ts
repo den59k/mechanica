@@ -63,6 +63,8 @@ interface ExportPage {
   page?: {
     title?: string
     meta?: Record<string, unknown>
+    /** The page's layout (key into the app's `layouts` map) — carried into `state.page.layout`. */
+    layout?: string
     pagination?: { page: number; pageCount: number }
     /** The locale this page renders in — carried into `state.page.locale`. */
     locale?: string
@@ -118,7 +120,15 @@ async function readPages(
         : await stat(filePath).then((s) => s.mtime.toISOString().slice(0, 10)).catch(() => undefined)
     // The static-host 404 page is never a search result — noindex it.
     const meta = path === '/404' ? { noindex: true, ...file.meta } : file.meta
-    pages.push({ path, logicalPath: path, content: file.content ?? [], data, name: file.name, lastmod, page: { meta } })
+    pages.push({
+      path,
+      logicalPath: path,
+      content: file.content ?? [],
+      data,
+      name: file.name,
+      lastmod,
+      page: { meta, ...(file.layout ? { layout: file.layout } : {}) },
+    })
   }
   return pages
 }
@@ -189,8 +199,9 @@ async function readTranslation(
     lastmod,
     // `state.page.path` stays the *logical* path (not the /<locale>/ export path)
     // so `<Link>` / `usePagination().pathFor` prefix it for the locale exactly
-    // like the dev server does — otherwise they'd double-prefix.
-    page: { meta, locale, path: base.logicalPath },
+    // like the dev server does — otherwise they'd double-prefix. The layout is
+    // base-owned: translations inherit the base page's.
+    page: { meta, locale, path: base.logicalPath, ...(base.page?.layout ? { layout: base.page.layout } : {}) },
   }
 }
 
@@ -257,7 +268,7 @@ function virtualToExportPage(v: VirtualPage, config: LocalesConfig | null): Expo
     name,
     lastmod: v.lastmod,
     // `state.page.path` stays the logical path so `<Link>` prefixes it per locale.
-    page: { meta: v.meta ?? {}, locale, locales: v.locales, path: v.path },
+    page: { meta: v.meta ?? {}, locale, locales: v.locales, path: v.path, ...(v.layout ? { layout: v.layout } : {}) },
   }
 }
 

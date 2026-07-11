@@ -28,7 +28,9 @@ export function toBlockMeta(component: BlockComponent): Block {
     order: schema.order,
     hidden: schema.hidden,
     devOnly: schema.devOnly,
+    standalone: schema.standalone,
     folders: schema.folders,
+    layouts: schema.layouts,
     version: schema.version,
     migrate: schema.migrate,
     previewData: schema.previewData,
@@ -52,6 +54,7 @@ export function composedBlockMeta(def: ComposedBlockDefinition): Block {
     name: def.name,
     category: def.category ?? 'Site blocks',
     icon: def.icon,
+    hidden: def.hidden,
     previewData: def.previewData,
     composed: true,
     props: def.props
@@ -95,4 +98,17 @@ export function blockAvailableIn(block: Block, folder: string | null): boolean {
     const scope = entry.replace(/^\/+|\/+$/g, '')
     return normalizedFolder === scope || normalizedFolder.startsWith(scope + '/')
   })
+}
+
+/**
+ * Whether the palette offers a block on a page using `layout` (the *effective*
+ * layout name — the page's own, or the app's default). A block without
+ * `layouts` is offered everywhere; on a site that declares no layouts the
+ * filter is ignored (there is nothing to match against). Like `folders`, this
+ * only filters the palette — placed blocks always render.
+ */
+export function blockAvailableForLayout(block: Block, layout: string | null): boolean {
+  if (!block.layouts || block.layouts.length === 0) return true
+  if (!layout) return true
+  return block.layouts.includes(layout)
 }

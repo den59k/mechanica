@@ -49,6 +49,7 @@ The leading `---` … `---` block is YAML carrying **everything that is not
 ---
 name: Docs                       # editor label for the page
 draft: true                      # optional; a work-in-progress page (omit when published)
+layout: docs                     # optional; key into the app's `layouts` map (omit for the default)
 meta: { title: "Docs — Mechanica" }   # build-time <head> hints
 data:                            # page-scoped data overrides (defineData)
   head:
@@ -65,7 +66,14 @@ Omit keys that are absent. `data: {}` is written when a page has no overrides.
 the dev server, but is **hidden from queries** (`usePages`/`usePagination`) and
 **skipped by the static export** (no HTML file, no sitemap entry). It is only
 ever written when `true`; publishing a page removes the key. Serialized order:
-`name`, `draft`, `meta`, `data`, `order`, `orderAfter`, `path`.
+`name`, `draft`, `layout`, `meta`, `data`, `order`, `orderAfter`, `path`.
+
+**`layout`** picks the page's shell — a key into the app's
+`defineMechanicaApp({ layouts })` map (rendered by the core `<Layout/>`
+component). Omit it for the default layout (the map's first entry); an unknown
+key also falls back to the default. The layout is **base-owned** on
+multi-language sites: translation files never carry it and always inherit the
+base page's.
 
 Two `meta` keys carry export-time SEO semantics: **`meta.noindex: true`**
 injects `<meta name="robots" content="noindex">` and drops the page from

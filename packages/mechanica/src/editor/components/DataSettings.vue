@@ -1,7 +1,21 @@
 <template>
   <div class="mech-data">
-    <!-- Left rail: one row per data entry, with its current scope. -->
+    <!-- Left rail: page setup (pinned), then one row per data entry. -->
     <nav class="mech-data__rail">
+      <!-- Set-once page properties (layout, page block) live in their own pinned
+           section — page metadata, not a defineData entry. -->
+      <template v-if="hasPageSetup">
+        <button
+          type="button"
+          class="mech-data__entry mech-data__entry--setup"
+          :class="{ 'is-active': activeId === PAGE_SETUP }"
+          @click="activeId = PAGE_SETUP"
+        >
+          <VIcon name="frame" class="mech-data__entry-icon" />
+          <span class="mech-data__entry-name">Page setup</span>
+        </button>
+        <div v-if="store.dataEntries.length" class="mech-data__divider" aria-hidden="true" />
+      </template>
       <button
         v-for="entry in store.dataEntries"
         :key="entry.id"
@@ -23,8 +37,14 @@
       </button>
     </nav>
 
-    <!-- Right pane: scope switch + the entry's form. -->
-    <section v-if="active" class="mech-data__pane">
+    <!-- Right pane: the page-setup section, or a data entry's scope switch + form. -->
+    <section v-if="activeId === PAGE_SETUP && hasPageSetup" class="mech-data__pane">
+      <header class="mech-data__head">
+        <h3 class="mech-data__title">Page setup</h3>
+      </header>
+      <PageSettings />
+    </section>
+    <section v-else-if="active" class="mech-data__pane">
       <header class="mech-data__head">
         <h3 class="mech-data__title">{{ active.title ?? active.id }}</h3>
         <VSegmented
@@ -65,9 +85,11 @@
 import { computed, inject, ref } from 'vue'
 import { localeLabel, type DataScope, type LocalesConfig, type State } from 'mechanica-shared'
 import { editorStoreKey } from '../lib/store'
+import { runtimeLayoutNames } from '../lib/bridge'
 import SchemaForm from '../props-panel/SchemaForm.vue'
 import VSegmented, { type SegmentedOption } from './VSegmented.vue'
 import VIcon from './VIcon.vue'
+import PageSettings from './PageSettings.vue'
 
 const store = inject(editorStoreKey)!
 
@@ -75,9 +97,17 @@ const store = inject(editorStoreKey)!
 const localeConfig = ((window as { state?: State }).state?.locales ?? null) as LocalesConfig | null
 const localeName = (code: string | null) => (code ? localeLabel(localeConfig, code) : '')
 
-const activeId = ref<string | null>(store.dataEntries[0]?.id ?? null)
-const active = computed(
-  () => store.dataEntries.find((entry) => entry.id === activeId.value) ?? store.dataEntries[0] ?? null,
+// The pinned page-setup section exists when the app gives it something to
+// offer: several layouts, or standalone (whole-page) blocks.
+const PAGE_SETUP = '$page-setup'
+const hasPageSetup =
+  runtimeLayoutNames().length > 1 || store.blocks.some((block) => block.standalone && !block.hidden)
+
+const activeId = ref<string | null>(store.dataEntries[0]?.id ?? (hasPageSetup ? PAGE_SETUP : null))
+const active = computed(() =>
+  activeId.value === PAGE_SETUP
+    ? null
+    : (store.dataEntries.find((entry) => entry.id === activeId.value) ?? store.dataEntries[0] ?? null),
 )
 const currentScope = computed<DataScope>(() => (active.value ? store.scopeOf(active.value.id) : 'page'))
 
@@ -145,6 +175,24 @@ const localeNote = computed<string | null>(() => {
     background: var(--mech-accent-soft);
     color: var(--mech-fg);
   }
+}
+.mech-data__entry-icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--mech-muted);
+
+  .is-active & {
+    color: var(--mech-accent);
+  }
+}
+.mech-data__entry--setup {
+  justify-content: flex-start;
+}
+.mech-data__divider {
+  height: 1px;
+  margin: 6px 2px;
+  background: var(--mech-border);
 }
 .mech-data__entry-name {
   font-size: 13px;

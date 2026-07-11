@@ -354,6 +354,21 @@ describe('page-format: envelope', () => {
     // A literal `draft: false` on disk parses as a published page (no flag).
     expect(parsePage(['---', 'draft: false', 'data: {}', '---'].join('\n')).draft).toBeUndefined()
   })
+
+  it('round-trips the layout key, omitting it when unset', () => {
+    const text = serializePage({ content: [], data: {}, name: 'Docs home', layout: 'docs' })
+    expect(text).toContain('layout: docs')
+    expect(parsePage(text).layout).toBe('docs')
+
+    // The default layout is stored as "no layout" — canonical files stay clean.
+    const plain = serializePage({ content: [], data: {}, name: 'Home' })
+    expect(plain).not.toContain('layout')
+    expect(parsePage(plain).layout).toBeUndefined()
+
+    // An empty or non-string value parses as unset, not as a layout named ''.
+    expect(parsePage(['---', 'layout: ""', 'data: {}', '---'].join('\n')).layout).toBeUndefined()
+    expect(parsePage(['---', 'layout: 3', 'data: {}', '---'].join('\n')).layout).toBeUndefined()
+  })
 })
 
 describe('page-format: block schema versions', () => {

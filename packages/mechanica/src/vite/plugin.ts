@@ -558,7 +558,11 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
               const meta = toBlockMeta(component)
               return { id: meta.id, name: meta.name, hidden: meta.hidden }
             })
-            const composed = loadComposedDefinitions(composedDir).map((def) => ({ id: def.id, name: def.name }))
+            const composed = loadComposedDefinitions(composedDir).map((def) => ({
+              id: def.id,
+              name: def.name,
+              hidden: def.hidden,
+            }))
             return [...compiled, ...composed]
           },
         }),

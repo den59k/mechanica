@@ -15,6 +15,19 @@
     <div v-for="group in displayGroups" :key="group.name" class="mech-palette__group">
       <div v-if="group.name" class="mech-palette__group-title">{{ group.name }}</div>
       <div class="mech-palette__grid">
+        <!-- The empty page's "Start this page" group leads with a one-off page
+             design: a palette-hidden composed block placed as the page's sole
+             content, opened straight in the composer. -->
+        <button
+          v-if="group.action"
+          type="button"
+          class="mech-palette__item mech-palette__item--action"
+          title="Create a block just for this page and design it in the composer"
+          @click="designPage"
+        >
+          <span class="mech-palette__thumb mech-palette__thumb--action"><VIcon name="frame" /></span>
+          <span class="mech-palette__name">Design this page</span>
+        </button>
         <button
           v-for="block in group.blocks"
           :key="block.id"
@@ -61,7 +74,7 @@
 
     <p v-if="!groups.length" class="mech-tree__empty">No blocks match “{{ search }}”.</p>
     <p v-if="scopedOut > 0" class="mech-palette__scoped">
-      {{ scopedOut }} {{ scopedOut === 1 ? 'block is' : 'blocks are' }} limited to other folders.
+      {{ scopedOut }} {{ scopedOut === 1 ? 'block is' : 'blocks are' }} limited to other folders or layouts.
     </p>
 
     <BlockPreview
@@ -81,17 +94,36 @@ import type { Block } from 'mechanica-shared'
 import type { BlocksMap } from '../../core/state'
 import { editorStoreKey } from '../lib/store'
 import { dragKey } from '../lib/drag-controller'
-import { blockAvailableIn, compareBlocks } from '../lib/block-meta'
+import { blockAvailableIn, blockAvailableForLayout, compareBlocks } from '../lib/block-meta'
+import { runtimeLayoutNames } from '../lib/bridge'
+import { navigationKey, fallbackNavigation } from '../lib/navigation'
+import { createRootFrame } from '../composer/lib/normalize-template'
+import { uid } from '../lib/content-tree'
 import VIcon from './VIcon.vue'
 import BlockPreview from './BlockPreview.vue'
 
 const store = inject(editorStoreKey)!
 const drag = inject(dragKey)!
+const navigation = inject(navigationKey, null) ?? fallbackNavigation()
 const search = ref('')
 
-// Folder-scoped blocks: only offer what this page's folder allows.
-const available = computed(() => store.blocks.filter((block) => blockAvailableIn(block, store.folder)))
-const scopedOut = computed(() => store.blocks.length - available.value.length)
+const pageEmpty = computed(() => store.content.length === 0)
+
+// The effective layout this page renders with — its own, or the app's default.
+const layoutNames = runtimeLayoutNames()
+const currentLayout = computed(() => store.layout ?? layoutNames[0] ?? null)
+
+// Scope filters (folder + layout) apply to everything the palette offers.
+const inScope = (block: Block) =>
+  blockAvailableIn(block, store.folder) && blockAvailableForLayout(block, currentLayout.value)
+
+// What the palette could ever offer here: no hidden blocks, and standalone
+// (whole-page) blocks only while the page is still empty.
+const offerable = computed(() =>
+  store.blocks.filter((block) => !block.hidden && (!block.standalone || pageEmpty.value)),
+)
+const available = computed(() => offerable.value.filter(inScope))
+const scopedOut = computed(() => offerable.value.length - available.value.length)
 
 const filtered = useSearch(
   search,
@@ -99,30 +131,60 @@ const filtered = useSearch(
   (block: Block) => `${block.name} ${block.category ?? ''}`,
 )
 
-const groups = computed(() => {
+interface PaletteGroup {
+  name: string
+  blocks: Block[]
+  /** The empty-page starter group: leads with the "Design this page" card. */
+  action?: boolean
+}
+
+const START_GROUP = 'Start this page'
+
+const groups = computed<PaletteGroup[]>(() => {
   const byCategory = new Map<string, Block[]>()
+  // Standalone (whole-page) blocks group under the empty page's starter section
+  // (`offerable` already dropped them on non-empty pages).
   for (const block of filtered.value) {
-    const category = block.category ?? ''
+    const category = block.standalone ? START_GROUP : (block.category ?? '')
     if (!byCategory.has(category)) byCategory.set(category, [])
     byCategory.get(category)!.push(block)
   }
   // Within a category: explicit `order` first, then alphabetical (see compareBlocks).
-  return [...byCategory.entries()].map(([name, blocks]) => ({ name, blocks: [...blocks].sort(compareBlocks) }))
+  const list: PaletteGroup[] = [...byCategory.entries()].map(([name, blocks]) => ({
+    name,
+    blocks: [...blocks].sort(compareBlocks),
+  }))
+  const at = list.findIndex((group) => group.name === START_GROUP)
+  const start = at === -1 ? undefined : list.splice(at, 1)[0]
+  // An empty page always opens with the starter group — the "Design this page"
+  // card plus the site's standalone page blocks. While searching, only matching
+  // page blocks remain (relevance rules; the action card steps back).
+  if (pageEmpty.value && !search.value) {
+    list.unshift({ name: START_GROUP, blocks: start?.blocks ?? [], action: true })
+  } else if (start) {
+    list.unshift(start)
+  }
+  return list
 })
 
-// Recently inserted blocks lead the palette (kept in insertion order, not
-// compareBlocks order) — hidden while searching, where relevance rules.
+// Recently inserted blocks lead the regular groups (kept in insertion order,
+// not compareBlocks order) — hidden while searching, where relevance rules.
 const recent = computed(() => {
   if (search.value) return []
   return store.recentBlockIds
     .map((id) => store.blocksById.get(id))
-    .filter((block): block is Block => !!block && blockAvailableIn(block, store.folder))
+    .filter((block): block is Block => !!block && !block.hidden && !block.standalone && inScope(block))
     .slice(0, 6)
 })
 
-const displayGroups = computed(() =>
-  recent.value.length ? [{ name: 'Recent', blocks: recent.value }, ...groups.value] : groups.value,
-)
+const displayGroups = computed<PaletteGroup[]>(() => {
+  if (!recent.value.length) return groups.value
+  const list = [...groups.value]
+  // Recent slots in after the starter section, never above it.
+  const after = list[0]?.action ? 1 : 0
+  list.splice(after, 0, { name: 'Recent', blocks: recent.value })
+  return list
+})
 
 const monogram = (block: Block) => block.name.charAt(0).toUpperCase()
 
@@ -178,6 +240,36 @@ onBeforeUnmount(clearHover)
 // pending save first, so edits are never lost.
 function newBlock() {
   window.location.assign('/@mechanica/composer/~new')
+}
+// "Design this page": a one-off composed block bound to this page. It's created
+// `hidden: true` (never offered under "Site blocks" elsewhere — untick in the
+// composer settings to promote it), placed as the page's sole content, and
+// opened in the composer; the placement save flushes via the unload beacon.
+async function designPage() {
+  const path = navigation.path.value.replace(/\/+$/, '') || '/'
+  const slug =
+    (path === '/' ? 'home' : path.slice(1).replace(/\//g, '-'))
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'home'
+  const base = `${slug}-page`
+  let id = base
+  for (let n = 2; store.blocksById.has(id); n++) id = `${base}-${n}`
+  const name = slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, ' ') + ' page'
+  const def = { id, name, hidden: true, template: [createRootFrame()] }
+  const res = await fetch('/@mechanica/composed/create', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(def),
+  })
+  if (!res.ok) {
+    const err = (await res.json().catch(() => null)) as { error?: { id?: string } | string } | null
+    const message = typeof err?.error === 'object' ? err?.error?.id : err?.error
+    window.alert(`Could not create the block: ${message ?? res.status}`)
+    return
+  }
+  store.content.push({ id: uid(), blockId: id, data: {} })
+  window.location.assign(`/@mechanica/composer/${encodeURIComponent(id)}`)
 }
 function editBlock(block: Block) {
   clearHover()
@@ -254,6 +346,25 @@ async function deleteBlock(block: Block) {
     border-color: var(--mech-border-strong);
   }
 }
+// The "Design this page" starter card: same tile shape, dashed and calm until
+// hovered — an invitation, not another block.
+.mech-palette__item--action {
+  border-style: dashed;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--mech-accent);
+
+    .mech-palette__thumb--action {
+      color: var(--mech-accent);
+    }
+  }
+}
+.mech-palette__thumb--action {
+  background: var(--mech-bg);
+  border: 1px dashed var(--mech-border-strong);
+}
+
 .mech-palette__thumb {
   position: relative;
   display: flex;

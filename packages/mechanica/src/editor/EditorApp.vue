@@ -30,7 +30,10 @@
         <button type="button" class="mech-icon-button" title="Move up" @click="store.move(selected.id, -1)"><VIcon name="arrow-up" /></button>
         <button type="button" class="mech-icon-button" title="Move down" @click="store.move(selected.id, 1)"><VIcon name="arrow-down" /></button>
         <button type="button" class="mech-icon-button" title="Duplicate" @click="store.duplicate(selected.id)"><VIcon name="copy" /></button>
-        <button type="button" class="mech-icon-button" title="Save as a reusable block" @click="saveAsBlock"><VIcon name="frame" /></button>
+        <!-- A composed block is edited in the composer (the only entry point for
+             palette-hidden one-off page designs); anything else can become one. -->
+        <button v-if="selectedComposed" type="button" class="mech-icon-button" title="Edit in the composer" @click="editInComposer"><VIcon name="pencil" /></button>
+        <button v-else type="button" class="mech-icon-button" title="Save as a reusable block" @click="saveAsBlock"><VIcon name="frame" /></button>
         <button type="button" class="mech-icon-button is-danger" title="Delete" @click="store.remove(selected.id)"><VIcon name="trash" /></button>
       </div>
 
@@ -70,10 +73,10 @@
 
         <div class="mech-editor__toolbar">
           <button
-            v-if="store.dataEntries.length"
+            v-if="hasPageDialog"
             type="button"
             class="mech-editor__data"
-            title="Edit this page's data"
+            title="Edit this page's data and setup (layout, page block)"
             @click="openData"
           >
             <VIcon name="sliders" />
@@ -160,7 +163,7 @@ import { cloneBlock } from './lib/content-tree'
 import { createDragController, dragKey } from './lib/drag-controller'
 import { createHistory } from './lib/history'
 import { resolveShortcut } from './lib/shortcuts'
-import { pushStateUpdate } from './lib/bridge'
+import { pushStateUpdate, runtimeLayoutNames } from './lib/bridge'
 import { useBlockFrames } from './lib/use-block-frames'
 import type { BlockComponent } from './lib/block-meta'
 import type { EditorSnapshot, SaveController } from './lib/types'
@@ -216,6 +219,14 @@ provide(dragKey, drag)
 const dialog = createDialogStore()
 provide(dialogKey, dialog)
 const openData = () => dialog.open(DataDialog)
+// The dialog also hosts the page-setup section (layout, page block), so it
+// opens even on sites without any defineData entries.
+const hasPageDialog = computed(
+  () =>
+    store.dataEntries.length > 0 ||
+    runtimeLayoutNames().length > 1 ||
+    store.blocks.some((block) => block.standalone && !block.hidden),
+)
 
 const navigation = props.navigation ?? fallbackNavigation()
 provide(navigationKey, navigation)
@@ -320,6 +331,14 @@ const { hovered, selected } = useBlockFrames(store, {
 const selectedName = computed(() =>
   store.selected ? store.blocksById.get(store.selected.blockId)?.name : '',
 )
+const selectedComposed = computed(
+  () => !!store.selected && store.blocksById.get(store.selected.blockId)?.composed === true,
+)
+// Leaving for the composer flushes pending edits via the beforeunload beacon.
+function editInComposer(): void {
+  if (!store.selected) return
+  window.location.assign(`/@mechanica/composer/${encodeURIComponent(store.selected.blockId)}`)
+}
 // Toolbar sits above the block, or just inside it when near the viewport top.
 const toolbarTop = computed(() => {
   if (!selected.value) return 0
@@ -341,13 +360,26 @@ const toolbarLeft = computed(() => {
 // report the snapshot (split into scope buckets) for the dev server to persist.
 // Suppressed while applying an external (on-disk) change — that state came
 // *from* the server, echoing it back as a save would be noise.
+// A layout change also pushes the page meta (the runtime's <Layout/> reads
+// `page.layout`), but only then — replacing the meta on every keystroke would
+// ripple through everything watching it.
 let applyingExternal = false
+let currentPageMeta = props.state.page ? clone(props.state.page) : undefined
+let lastPushedLayout = store.layout
 watch(
-  () => [store.content, store.siteData, store.folderData, store.pageData],
+  () => [store.content, store.siteData, store.folderData, store.pageData, store.layout],
   () => {
     if (applyingExternal) return
     const snapshot: EditorSnapshot = store.snapshot() as EditorSnapshot
-    pushStateUpdate({ content: snapshot.content as never, data: clone(store.effective) })
+    let page: typeof currentPageMeta
+    if (store.layout !== lastPushedLayout) {
+      lastPushedLayout = store.layout
+      page = { ...currentPageMeta }
+      if (store.layout) page.layout = store.layout
+      else delete page.layout
+      currentPageMeta = page
+    }
+    pushStateUpdate({ content: snapshot.content as never, data: clone(store.effective), page })
     props.onChange?.(snapshot)
   },
   { deep: true },
@@ -367,11 +399,14 @@ watch(
       siteData: clone(next.siteData ?? {}),
       folderData: clone(next.folderData ?? {}),
       pageData: clone(next.pageData ?? {}),
+      layout: next.page?.layout ?? null,
     })
     store.folder = next.folder ?? null
     store.canFolder = next.folder != null
     store.locale = next.page?.locale ?? null
     store.baseContent = next.baseContent ? clone(next.baseContent) : null
+    currentPageMeta = next.page ? clone(next.page) : undefined
+    lastPushedLayout = store.layout
     pushStateUpdate({
       content: clone(store.content) as never,
       data: clone(store.effective),

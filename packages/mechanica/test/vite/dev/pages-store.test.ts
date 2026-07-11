@@ -315,6 +315,14 @@ describe('listPages', () => {
     expect(listPages(mechDir).map((p) => p.path)).toEqual(['/', '/b', '/a'])
   })
 
+  it('reports an explicit layout, absent on default-layout pages', () => {
+    writePage('index.page.md', { content: [], data: {}, name: 'Home' })
+    writePage('404.page.md', { content: [], data: {}, name: 'Not found', layout: 'bare' })
+    const byPath = new Map(listPages(mechDir).map((p) => [p.path, p]))
+    expect(byPath.get('/404')?.layout).toBe('bare')
+    expect(byPath.get('/')?.layout).toBeUndefined()
+  })
+
   it('groups folder pages after root pages', () => {
     writePage('index.page.md', { content: [], data: {} })
     writePage('docs/index.page.md', { content: [], data: {} })

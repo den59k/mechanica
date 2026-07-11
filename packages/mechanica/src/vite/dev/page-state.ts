@@ -62,17 +62,22 @@ export function buildPageState(
   // content when the page isn't translated yet (the editor flags it).
   let fallback = false
   let page = readPage(mechDir, pagePath, localeCode)
+  // The layout is base-owned: a translation file never carries one, so on a
+  // non-default locale it resolves from the base page below.
+  let layout = page.layout
   if (localeCode) {
     const hasTranslation = pageVersion(mechDir, pagePath, localeCode) != null
     const hasBase = pageVersion(mechDir, pagePath) != null
     if (!hasTranslation) {
       page = readPage(mechDir, pagePath)
       fallback = true
+      layout = page.layout
     } else if (hasBase) {
       // Overlay the sparse translation on the default-locale page: the base owns
       // the block structure, and every field the translation doesn't override
       // (images, links, colors, layout) inherits automatically.
       const base = readPage(mechDir, pagePath)
+      layout = base.layout
       const merged = mergeTranslation(
         { content: base.content ?? [], data: base.data ?? {}, meta: base.meta ?? {} },
         { content: page.content ?? [], data: page.data ?? {}, meta: page.meta ?? {} },
@@ -107,6 +112,7 @@ export function buildPageState(
   const folderData = readFolderData(mechDir, folder, localeCode)
   const pageData = page.data ?? {}
   const pageMeta: PageMeta = { path: pagePath, meta: page.meta ?? {} }
+  if (layout) pageMeta.layout = layout
   if (variant) pageMeta.pagination = { page: variant.page }
   if (config) {
     pageMeta.locale = locale
@@ -148,6 +154,7 @@ export function buildGeneratedState(mechDir: string, vp: VirtualPage, config?: L
   const folderData = readFolderData(mechDir, folder, localeCode)
   const pageData = vp.data ?? {}
   const pageMeta: PageMeta = { path: vp.path, meta: vp.meta ?? {} }
+  if (vp.layout) pageMeta.layout = vp.layout
   if (config) {
     pageMeta.locale = vp.locale ?? config.default
     pageMeta.locales = vp.locales ?? [config.default]

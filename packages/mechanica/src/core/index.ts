@@ -16,6 +16,7 @@ export { getDataEntries, registerDataEntry, clearDataEntries, type DataEntryInpu
 
 // Rendering
 export { Content } from './content'
+export { Layout, useLayout, resolveLayoutName, type UseLayout } from './layout'
 export { renderBlocks } from './render-blocks'
 export { loadBlocks, usedBlockIds, type BlockLoader, type BlockLoaders } from './load-blocks'
 export { createComposedComponent } from './composed'

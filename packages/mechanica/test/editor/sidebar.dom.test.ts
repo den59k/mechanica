@@ -51,8 +51,29 @@ describe('editor sidebar', () => {
     const store = createEditorStore({ content: [], data: {} }, components)
     const el = mount(BlockPalette, store)
     expect(el.textContent).toContain('Content') // category title
-    tap(el.querySelector('.mech-palette__item')!)
+    tap(el.querySelector('.mech-palette__item:not(.mech-palette__item--action)')!)
     expect(store.content).toHaveLength(1)
+  })
+
+  it('palette leads an empty page with the starter group, gone once content exists', async () => {
+    const withStandalone = [
+      ...components,
+      { blockId: 'not-found', __name: 'NotFound', blockSchema: { name: 'Not found page', standalone: true } },
+    ]
+    const store = createEditorStore({ content: [], data: {} }, withStandalone)
+    const el = mount(BlockPalette, store)
+
+    // Empty page: "Start this page" leads with the design card + standalone blocks.
+    expect(el.textContent).toContain('Start this page')
+    expect(el.querySelector('.mech-palette__item--action')).not.toBeNull()
+    expect(el.textContent).toContain('Not found page')
+
+    // With content placed, the starter group and its whole-page blocks retire.
+    store.addBlock('hero')
+    await nextTick()
+    expect(el.textContent).not.toContain('Start this page')
+    expect(el.querySelector('.mech-palette__item--action')).toBeNull()
+    expect(el.textContent).not.toContain('Not found page')
   })
 
   it('hierarchy lists blocks and selects on tap', () => {

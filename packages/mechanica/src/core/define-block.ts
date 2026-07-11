@@ -19,6 +19,23 @@ declare global {
     /** Available only in dev; stripped from production output. */
     devOnly?: boolean
     /**
+     * A block that *is* a whole page (a feedback form, a 404, a legal page).
+     * Offered under a "Pages" palette group only while the page is empty —
+     * page-shaped blocks stop polluting the palette on every other page.
+     */
+    standalone?: boolean
+    /**
+     * Offer this block only on pages under these folders (paths relative to
+     * `pages/`, nested folders match by prefix). Palette filter only — placed
+     * blocks always render.
+     */
+    folders?: string[]
+    /**
+     * Offer this block only on pages using these layouts (keys of the app's
+     * `layouts` map). Palette filter only — placed blocks always render.
+     */
+    layouts?: string[]
+    /**
      * Output chunk group for the production client build. Blocks sharing a
      * name are emitted as one `blocks-<name>` chunk; unmarked blocks follow
      * the plugin's `blockChunks` setting (one shared `blocks` chunk by

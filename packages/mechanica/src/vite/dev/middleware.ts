@@ -289,7 +289,12 @@ export function createDevMiddleware(
         // folderDataI18n) go to the current locale's override file — or the base
         // when editing the default locale.
         const folder = folderOf(mechDir, pathParam)
-        const version = savePage(mechDir, pathParam, { content: body.content, data: body.pageData ?? {} }, locale)
+        const version = savePage(
+          mechDir,
+          pathParam,
+          { content: body.content, data: body.pageData ?? {}, layout: body.layout },
+          locale,
+        )
         const siteI18n = (body.siteDataI18n ?? {}) as Record<string, unknown>
         const folderI18n = (body.folderDataI18n ?? {}) as Record<string, unknown>
         if (locale) {

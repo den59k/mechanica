@@ -62,7 +62,7 @@ export function createHistory(store: EditorStore, delay = 350): History {
 
   let timer: ReturnType<typeof setTimeout> | undefined
   const stop = watch(
-    () => [store.content, store.siteData, store.folderData, store.pageData],
+    () => [store.content, store.siteData, store.folderData, store.pageData, store.layout],
     () => {
       clearTimeout(timer)
       timer = setTimeout(commit, delay)

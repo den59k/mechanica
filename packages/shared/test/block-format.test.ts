@@ -49,6 +49,18 @@ describe('block-format: round-trip', () => {
     expect(text).not.toContain('previewData')
     expect(parseComposedBlock(text)).toEqual(minimal)
   })
+
+  it('round-trips the hidden flag, emitting it only when true', () => {
+    const oneOff: ComposedBlockDefinition = { id: 'feedback-page', name: 'Feedback page', hidden: true, template: [] }
+    const text = serializeComposedBlock(oneOff)
+    expect(text).toContain('hidden: true')
+    expect(parseComposedBlock(text).hidden).toBe(true)
+
+    // Reusable blocks omit the key; a literal `hidden: false` parses as unset.
+    expect(serializeComposedBlock(sample)).not.toContain('hidden')
+    expect(parseComposedBlock(serializeComposedBlock(sample)).hidden).toBeUndefined()
+    expect(parseComposedBlock('id: x\nname: X\nhidden: false\ntemplate: []').hidden).toBeUndefined()
+  })
 })
 
 describe('block-format: validation', () => {

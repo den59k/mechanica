@@ -15,6 +15,13 @@ export interface PageMeta {
   path?: string
   meta?: Record<string, unknown>
   /**
+   * The page's layout — a key into the app's `layouts` map (`defineMechanicaApp`).
+   * Authored as top-level `layout:` frontmatter in the `.page.md`. Absent = the
+   * default layout (the map's first entry). Base-owned on multi-language sites:
+   * translations always inherit it.
+   */
+  layout?: string
+  /**
    * Set on paginated variants of a page (`/blog/2`, …): which chunk of its
    * paginated query this URL shows. Page 1 is the base path and carries none.
    */
@@ -50,6 +57,19 @@ export interface Block {
   hidden?: boolean
   /** Available only in dev, stripped from production output. */
   devOnly?: boolean
+  /**
+   * A block that *is* a whole page (a feedback form, a 404, a legal page).
+   * Offered under a "Pages" palette group only while the page is still empty,
+   * and never on a page that already has content — so page-shaped blocks stop
+   * polluting the palette everywhere else. Placed blocks always keep rendering.
+   */
+  standalone?: boolean
+  /**
+   * Restrict the block to pages using these layouts (keys of the app's
+   * `layouts` map). Omitted = offered on every layout. Like `folders`, this
+   * only filters the palette — placed blocks always render.
+   */
+  layouts?: string[]
   /**
    * Restrict the block to pages under these folders (folder paths relative to
    * `pages/`, e.g. `'docs'`; nested folders match by prefix). Omitted = offered
@@ -203,6 +223,13 @@ export interface ComposedBlockDefinition {
   /** Palette grouping; defaults to a "Site blocks" group in the editor. */
   category?: string
   /**
+   * Hidden from the palette (like `Block.hidden`). Set on one-off blocks —
+   * e.g. a block created to design a single page in the composer — so they
+   * don't appear under "Site blocks" on every other page. Placed instances
+   * keep rendering; untick in the composer settings to promote it to reusable.
+   */
+  hidden?: boolean
+  /**
    * compact-json-schema for the props exposed out of the template (§ prop
    * bindings). Placed instances get an auto-generated settings form from this,
    * exactly like a compiled block's `props`.
@@ -311,10 +338,12 @@ export interface VirtualPage {
   path: string
   /** The block tree to render — usually one template block parameterized by `data`. */
   content: ContentBlock[]
-  /** Page-scoped data (head, layout, block props). Site data still merges under it. */
+  /** Page-scoped data (head, block props). Site data still merges under it. */
   data?: Record<string, unknown>
   /** Page meta: `title` (breadcrumb / SEO name), `noindex`, and `{{ page.meta.* }}` hints. */
   meta?: Record<string, unknown>
+  /** The page's layout (key into the app's `layouts` map); absent = default. */
+  layout?: string
   /** The locale this page renders in. Omit for the default locale. */
   locale?: string
   /** Every locale this logical page exists in — for hreflang alternates + language switchers. */

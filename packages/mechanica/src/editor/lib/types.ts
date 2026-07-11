@@ -10,6 +10,8 @@ export interface EditorSnapshot {
   siteData: Record<string, unknown>
   folderData: Record<string, unknown>
   pageData: Record<string, unknown>
+  /** The page's layout key (null clears back to the app's default layout). */
+  layout?: string | null
 }
 
 /** The save surface exposed to the editor UI (toolbar indicator + actions). */

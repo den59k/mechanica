@@ -27,6 +27,8 @@ export interface EditableState {
   siteData: Record<string, unknown>
   folderData: Record<string, unknown>
   pageData: Record<string, unknown>
+  /** The page's layout key (null = the app's default layout). */
+  layout: string | null
 }
 
 export interface EditorStore {
@@ -35,6 +37,13 @@ export interface EditorStore {
   siteData: Record<string, unknown>
   folderData: Record<string, unknown>
   pageData: Record<string, unknown>
+  /**
+   * The page's layout key (null = the app's default). Editable via the layout
+   * picker; part of the undoable snapshot and the save payload.
+   */
+  layout: string | null
+  /** All block metas, `hidden` included — placed hidden blocks still need names
+   *  and settings. The palette filters what it offers. */
   blocks: Block[]
   blocksById: Map<string, Block>
   /** The live block components keyed by id, for rendering hover previews. */
@@ -102,7 +111,10 @@ export function createEditorStore(
   components: BlockComponent[],
   entries: DataEntry[] = [],
 ): EditorStore {
-  const blocks = components.map(toBlockMeta).filter((block) => !block.hidden)
+  // Hidden blocks stay in the meta set — a placed hidden block (e.g. a one-off
+  // composed page design) still needs its name, settings form and slots. Only
+  // the palette filters on `hidden`.
+  const blocks = components.map(toBlockMeta)
   const blocksById = new Map(blocks.map((block) => [block.id, block]))
   // Keep the raw components so the palette can mount live previews. `markRaw`
   // keeps Vue from proxying them — they're rendered as components, not data.
@@ -121,6 +133,7 @@ export function createEditorStore(
     selectedId: null as string | null,
     hoverId: null as string | null,
     clipboard: null as ContentBlock | null,
+    layout: (initial.page?.layout ?? null) as string | null,
   })
 
   // The default-locale content (translation editing) — a plain reactive holder
@@ -232,6 +245,12 @@ export function createEditorStore(
     setHover(id: string | null) {
       ui.hoverId = id
     },
+    get layout() {
+      return ui.layout
+    },
+    set layout(value: string | null) {
+      ui.layout = value
+    },
     selected,
     selectedSchema,
     get canPaste() {
@@ -298,6 +317,7 @@ export function createEditorStore(
         siteData: clone(siteData),
         folderData: clone(folderData),
         pageData: clone(pageData),
+        layout: ui.layout,
       }
     },
     replace(snapshot: EditableState) {
@@ -305,6 +325,7 @@ export function createEditorStore(
       replaceInto(siteData, snapshot.siteData)
       replaceInto(folderData, snapshot.folderData)
       replaceInto(pageData, snapshot.pageData)
+      ui.layout = snapshot.layout ?? null
       ui.selectedId = null
     },
   })

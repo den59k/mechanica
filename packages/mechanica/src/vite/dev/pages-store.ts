@@ -124,6 +124,11 @@ export interface PageListItem {
   /** A work-in-progress page — hidden from queries and the static export. */
   draft: boolean
   /**
+   * The page's explicit layout (base file's `layout:` frontmatter). Absent for
+   * pages on the default layout — so its presence alone marks the exceptions.
+   */
+  layout?: string
+  /**
    * The locales this logical page is available in (multi-language sites only) —
    * the default plus every translation present, in config order. Absent when
    * i18n is off. Translation files never get their own list row.
@@ -241,6 +246,7 @@ export function duplicatePage(
     content: source.content ?? [],
     data: source.data ?? {},
     meta: source.meta,
+    ...(source.layout ? { layout: source.layout } : {}),
     name: input.name,
     path: input.path,
     // A copy of a draft starts as a draft too; publish it when it's ready.
@@ -370,13 +376,20 @@ export function movePage(mechDir: string, fromPath: string, toPath: string): { p
 export function savePage(
   mechDir: string,
   urlPath: string,
-  patch: { content?: unknown[]; data?: Record<string, unknown> },
+  patch: { content?: unknown[]; data?: Record<string, unknown>; layout?: string | null },
   locale?: string,
 ): string | null {
   const file = getPagePath(mechDir, urlPath, locale)
   const page = fs.existsSync(file) ? readFile(file) : emptyPage()
   if (patch.content !== undefined) page.content = patch.content as ContentBlock[]
   if (patch.data !== undefined) page.data = patch.data
+  // The layout is base-owned (translations inherit it): only the default-locale
+  // save applies it. `null`/'' clears the key (back to the default layout);
+  // undefined leaves the file untouched.
+  if (patch.layout !== undefined && !locale) {
+    if (patch.layout) page.layout = patch.layout
+    else delete page.layout
+  }
   // Derived image metadata (LQIP previews) moves to `.mech/images.json` on the
   // way to disk — `.page.md` stays free of base64 blobs, and the state builder
   // injects the entries back (fillImageMeta). This is also how client-side
@@ -507,6 +520,8 @@ export function listPages(
       order: page.order ?? 0,
       orderAfter: page.orderAfter ?? null,
       draft: source.draft === true,
+      // The layout is base-owned, like ordering.
+      ...(page.layout ? { layout: page.layout } : {}),
       ...embedded,
     }
     if (config) {

@@ -16,9 +16,22 @@ const dataEntries: DataEntry[] = [
 ]
 
 describe('editor store', () => {
-  it('exposes visible block metadata only', () => {
+  it('exposes every block meta, hidden included (the palette filters, so placed hidden blocks keep names/settings)', () => {
     const store = createEditorStore({ content: [], data: {} }, components)
-    expect(store.blocks.map((b) => b.id)).toEqual(['hero', 'section'])
+    expect(store.blocks.map((b) => b.id)).toEqual(['hero', 'spacer', 'section'])
+    expect(store.blocksById.get('spacer')?.hidden).toBe(true)
+  })
+
+  it('tracks the page layout through snapshot and replace', () => {
+    const store = createEditorStore({ content: [], data: {}, page: { layout: 'docs' } }, components)
+    expect(store.layout).toBe('docs')
+
+    store.layout = null
+    const snapshot = store.snapshot()
+    expect(snapshot.layout).toBeNull()
+
+    store.replace({ ...snapshot, layout: 'docs' })
+    expect(store.layout).toBe('docs')
   })
 
   it('adds, selects and removes blocks', () => {

@@ -150,6 +150,11 @@
       <div v-if="previewPage" class="mech-pages__preview-caption">
         <span class="mech-pages__preview-name">{{ previewPage.name || previewPage.path }}</span>
         <span class="mech-pages__preview-path">{{ previewPage.path }}</span>
+        <!-- Rows stay clean: the layout only surfaces here, and only for pages
+             that deviate from the default (an explicit `layout:` on the file). -->
+        <span v-if="previewPage.layout" class="mech-pages__preview-tag" title="This page uses a non-default layout">
+          <VIcon name="frame" />{{ humanize(previewPage.layout) }} layout
+        </span>
       </div>
     </aside>
   </div>
@@ -164,6 +169,7 @@ import PageFormDialog from './PageFormDialog.vue'
 import { useDialog } from '../ui/dialog'
 import { contextMenuKey } from '../lib/context-menu'
 import { filterPages, groupPagesByFolder, pageThumbUrl, type PageItem } from '../lib/page-list'
+import { humanize } from '../props-panel/humanize'
 import { navigationKey, fallbackNavigation } from '../lib/navigation'
 import { recordRecent } from '../lib/recents'
 import { parseLocalePath, localeLabel, type LocalesConfig, type State } from 'mechanica-shared'
@@ -875,6 +881,27 @@ async function toggleDraft(page: PageItem) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+// Layout tag — a quiet chip shown only for pages off the default layout.
+.mech-pages__preview-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  margin-top: 7px;
+  padding: 3px 8px;
+  border: 1px solid var(--mech-border);
+  border-radius: var(--mech-radius-pill);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mech-fg-alt);
+  background: var(--mech-active);
+
+  .vicon {
+    width: 12px;
+    height: 12px;
+    color: var(--mech-muted);
+  }
 }
 
 @media (max-width: 1160px) {

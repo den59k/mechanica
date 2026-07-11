@@ -1,21 +1,18 @@
 <template>
-  <SiteHeader />
-  <Content />
-  <SiteFooter />
+  <Layout />
 </template>
 
 <script setup lang="ts">
 import { watchEffect } from 'vue'
-import { Content } from 'mechanica'
-import SiteHeader from './components/SiteHeader.vue'
-import SiteFooter from './components/SiteFooter.vue'
+import { Layout } from 'mechanica'
 import { useSiteSettings } from './data/site'
 import { useHead } from './data/head'
 import './styles/site.scss'
 
-// Site chrome (header, footer) is identical on every page, so it lives here —
-// outside <Content/> — configured via shared `defineData` (navbar/footer) rather
-// than as content blocks placed on each page.
+// The root only carries site-global concerns (styles, title sync); the page
+// chrome lives in layouts (src/layouts, declared in main.ts) — <Layout/>
+// renders the one the current page picks via `layout:` frontmatter, with the
+// site shell (header + footer) as the default.
 const site = useSiteSettings()
 const head = useHead()
 

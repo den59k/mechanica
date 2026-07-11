@@ -31,6 +31,11 @@ export interface MechanicaContext {
   page: PageMeta
   /** The site's locale config (multi-language sites); absent when i18n is off. */
   locales?: LocalesConfig
+  /**
+   * The app's named layout components (`defineMechanicaApp({ layouts })`);
+   * absent when the site declares none. The first entry is the default.
+   */
+  layouts?: Record<string, Component>
 }
 
 /** Vue injection key for the {@link MechanicaContext}. */

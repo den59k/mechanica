@@ -14,6 +14,11 @@ export interface PageDoc {
    * static export. Absent/false for published pages.
    */
   draft?: boolean
+  /**
+   * The page's layout — a key into the app's `layouts` map. Absent = the
+   * default layout. Base-owned: translation files never carry it.
+   */
+  layout?: string
   meta?: Record<string, unknown>
   /** Page-scoped data overrides (defineData). */
   data: Record<string, unknown>
@@ -239,6 +244,7 @@ export function parsePage(text: string, options?: PageCodecOptions): PageDoc {
   return {
     ...(typeof envelope.name === 'string' ? { name: envelope.name } : {}),
     ...(envelope.draft === true ? { draft: true } : {}),
+    ...(typeof envelope.layout === 'string' && envelope.layout !== '' ? { layout: envelope.layout } : {}),
     ...(envelope.meta !== undefined ? { meta: envelope.meta as Record<string, unknown> } : {}),
     ...(typeof envelope.order === 'number' ? { order: envelope.order } : {}),
     ...(envelope.orderAfter != null ? { orderAfter: envelope.orderAfter as string } : {}),
@@ -302,6 +308,7 @@ export function serializePage(doc: PageDoc, options?: PageCodecOptions): string 
   if (doc.name !== undefined) envelope.name = doc.name
   // Only emit `draft` when true — published pages stay clean (like `order`).
   if (doc.draft) envelope.draft = true
+  if (doc.layout) envelope.layout = doc.layout
   if (doc.meta !== undefined) envelope.meta = doc.meta
   envelope.data = doc.data ?? {}
   if (doc.order !== undefined) envelope.order = doc.order
