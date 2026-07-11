@@ -34,6 +34,7 @@ export {
 export {
   resolveComposedTemplate,
   resolveBindings,
+  lookupBinding,
   templateBlockIds,
   isBinding,
 } from './compose'

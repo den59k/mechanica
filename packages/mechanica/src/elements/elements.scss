@@ -16,7 +16,7 @@
 // resolve to the var() fallback. (Old browsers without @property support degrade
 // to the previous inheriting behavior.)
 $el-props: 'dir', 'gap', 'align', 'justify', 'wrap', 'pad', 'margin', 'w', 'h', 'maxw', 'maxh', 'grow', 'self', 'text-align',
-  'fs', 'fw', 'lh', 'color', 'bg', 'radius', 'minw', 'minh', 'shadow', 'fit', 'ratio';
+  'fs', 'fw', 'lh', 'color', 'bg', 'radius', 'minw', 'minh', 'shadow', 'fit', 'ratio', 'display', 'bgimg', 'bgpos', 'bgoverlay';
 $el-bps: '', '-md', '-sm';
 @each $p in $el-props {
   @each $bp in $el-bps {
@@ -42,6 +42,22 @@ $el-bps: '', '-md', '-sm';
   &[style*='--el-maxw'] {
     margin-inline: auto;
   }
+
+  // A background-image fill covers the frame. Scoped to frames that set the var
+  // (any breakpoint) so a site class's own background sizing is never touched.
+  &[style*='--el-bgimg'] {
+    background-size: cover;
+    background-repeat: no-repeat;
+  }
+}
+
+// A link on an element is behavior, not styling: the anchor inherits the text's
+// color/decoration so linking a card or a heading never turns it blue/underlined.
+// Site CSS can still opt into link styling via a class on the element.
+a.mxel-frame,
+.mxel-text a {
+  color: inherit;
+  text-decoration: inherit;
 }
 
 .mxel-image {

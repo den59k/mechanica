@@ -16,7 +16,8 @@ const isElementBlock = (blockId: string): boolean => blockId.startsWith('mech:')
  * same — paginated variants of a page use this to re-run mount-time queries.
  *
  * A non-element block placed in a composed template can carry **placement**
- * data — `margin` and/or absolute `$abs`. Those are layout, not component props,
+ * data — `margin`, per-breakpoint `hide`, and/or absolute `$abs`. Those are
+ * layout, not component props,
  * and a component's own root can't be styled from here, so such a block is
  * wrapped in a `.mxel` positioning div that owns the placement style + the
  * editor `data-block-id`. Elements handle their own placement inline, so they
@@ -43,6 +44,7 @@ export function renderBlocks(
       // component sees a clean prop set; the wrapper carries them instead.
       delete props.margin
       delete props.$abs
+      delete props.hide
     } else {
       // Lets the editor map a rendered element back to its content node.
       props['data-block-id'] = item.id

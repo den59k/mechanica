@@ -127,10 +127,27 @@ export interface ComposerStore {
   /** The prop a node's field is bound to, or null. Bindings live on base data. */
   boundPropOf(nodeId: string, key: string): string | null
   /** Bind a field to a prop: replace its value with `{ $bind }`, add the prop
-   *  schema (default = current value) + previewData. Returns the prop name. */
+   *  schema (default = current value) + previewData. Inside a repeated (`$each`)
+   *  subtree the field becomes a per-item field (`$bind: '$item.<name>'`) on the
+   *  repeat's array prop instead. Returns the binding name. */
   exposeProp(nodeId: string, key: string, schema: Record<string, unknown>, name?: string): string | null
   /** Unbind a prop everywhere it's used, restoring the previewData value. */
   unexposeProp(propName: string): void
+  /** Unbind one field, item-binding-aware (the ⚡ chip's ✕). A `$item.*` binding
+   *  restores the first preview item's value and drops the item field when no
+   *  other field in the repeat scope still binds it; a plain prop binding
+   *  delegates to {@link unexposeProp}. */
+  unbindField(nodeId: string, key: string): void
+  // ── Repeat ($each) ─────────────────────────────────────────────────
+  /** The `$each` array-prop name a node repeats over, or null. */
+  eachPropOf(node: ContentBlock): string | null
+  /** Turn repetition on/off. On: creates an array prop (+ 3 preview items) and
+   *  marks the node `$each`. Off: restores `$item.*` bindings in the subtree to
+   *  the first preview item's values and drops the prop (unless another node
+   *  still repeats over it). */
+  setEach(id: string, on: boolean): void
+  /** Resize the repeat's preview list (clones the last item to grow). */
+  setEachCount(id: string, count: number): void
   /** Rename an exposed prop (updates every binding + the schema/previewData). */
   renameProp(from: string, to: string): boolean
   /** Set an exposed prop's default (schema default + previewData). */
@@ -154,18 +171,11 @@ function replaceBinding(
   propName: string,
   replace: (binding: unknown) => unknown,
 ): void {
-  const visit = (obj: Record<string, unknown>): void => {
+  visitDataLayers(node, (obj) => {
     for (const [key, value] of Object.entries(obj)) {
       if (isBinding(value) && value.$bind === propName) obj[key] = replace(value)
     }
-  }
-  visit(node.data)
-  const bp = node.data.$bp
-  if (bp && typeof bp === 'object') {
-    for (const layer of Object.values(bp as Record<string, unknown>)) {
-      if (layer && typeof layer === 'object') visit(layer as Record<string, unknown>)
-    }
-  }
+  })
 }
 
 /** Deep-clone a definition and enforce the root-frame invariant. */
@@ -173,6 +183,39 @@ function normalizedClone(def: ComposedBlockDefinition): ComposedBlockDefinition 
   const c = clone(def)
   c.template = normalizeTemplate(c.template ?? [])
   return c
+}
+
+/** A `$item` / `$item.field` binding name → the field name ('' for the whole item). */
+function itemFieldOf(name: string): string | null {
+  if (name === '$item') return ''
+  return name.startsWith('$item.') ? name.slice('$item.'.length) : null
+}
+
+/**
+ * Walk a repeat scope: the `$each` node's subtree, *skipping* nested nodes that
+ * declare their own `$each` (their `$item` bindings belong to the inner scope).
+ */
+function walkEachScope(root: ContentBlock, visit: (node: ContentBlock) => void): void {
+  const walk = (node: ContentBlock, isRoot: boolean): void => {
+    if (!isRoot && typeof node.data?.$each === 'string') return
+    visit(node)
+    const children = node.children
+    if (!children) return
+    const lists = Array.isArray(children) ? [children] : Object.values(children)
+    for (const list of lists) for (const child of list) walk(child, false)
+  }
+  walk(root, true)
+}
+
+/** Visit every data layer (base + `$bp` overrides) of a node. */
+function visitDataLayers(node: ContentBlock, visit: (obj: Record<string, unknown>) => void): void {
+  visit(node.data)
+  const bp = node.data.$bp
+  if (bp && typeof bp === 'object') {
+    for (const layer of Object.values(bp as Record<string, unknown>)) {
+      if (layer && typeof layer === 'object') visit(layer as Record<string, unknown>)
+    }
+  }
 }
 
 /** Create the reactive editor store for one composed block. */
@@ -453,10 +496,15 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
     addProp(id: string, key: string) {
       // Position's "on" state is the `$abs` object itself, so adding it writes data.
       if (key === 'position') return this.setAbsolute(id, true)
+      // Repeat's "on" state is the `$each` key + its array prop — bookkept by setEach.
+      if (key === 'repeat') return this.setEach(id, true)
       const list = (this.addedProps[id] ??= [])
       if (!list.includes(key)) list.push(key)
     },
     removeProp(id: string, key: string) {
+      // Repeat off must restore $item bindings + drop the array prop, not just
+      // delete the `$each` key — route through setEach.
+      if (key === 'repeat') return this.setEach(id, false)
       const prop = optionalProp(key)
       const node = findBlock(this.def.template, id)
       if (!prop || !node) return
@@ -487,11 +535,64 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
       const value = node?.data[key]
       return isBinding(value) ? value.$bind : null
     },
+    /** The nearest `$each` node covering `nodeId` (itself included), or null. */
+    eachScopeOf(nodeId: string): { node: ContentBlock; propName: string } | null {
+      let current = findBlock(this.def.template, nodeId)
+      while (current) {
+        const each = current.data?.$each
+        if (typeof each === 'string') return { node: current, propName: each }
+        const parent = findParentSlot(this.def.template, current.id)
+        current = parent?.parent ?? null
+      }
+      return null
+    },
+    /** The repeat's array prop schema, normalized to `{ items: { properties } }`. */
+    eachItemsSchema(propName: string): Record<string, unknown> {
+      const props = (this.def.props ??= {}) as Record<string, Record<string, unknown>>
+      const arr = (props[propName] ??= { type: 'array', title: humanize(propName) })
+      const items = (arr.items ??= { type: 'object', properties: {} }) as Record<string, unknown>
+      items.properties ??= {}
+      return items.properties as Record<string, unknown>
+    },
+    /** The repeat's preview items (created on demand so binding always lands). */
+    eachPreviewItems(propName: string): Record<string, unknown>[] {
+      const preview = (this.def.previewData ??= {}) as Record<string, unknown>
+      if (!Array.isArray(preview[propName]) || !(preview[propName] as unknown[]).length) {
+        preview[propName] = [{}, {}, {}]
+      }
+      const list = preview[propName] as unknown[]
+      for (let i = 0; i < list.length; i++) if (!isObject(list[i])) list[i] = {}
+      return list as Record<string, unknown>[]
+    },
+    /** Mirror the preview items into the array prop's default, so a freshly
+     *  placed instance starts with the example items. */
+    syncEachDefault(propName: string) {
+      const props = this.def.props as Record<string, Record<string, unknown>> | undefined
+      const preview = (this.def.previewData as Record<string, unknown> | undefined)?.[propName]
+      if (props?.[propName] && Array.isArray(preview)) props[propName].default = clone(preview)
+    },
     exposeProp(nodeId: string, key: string, schema: Record<string, unknown>, name?: string): string | null {
       const node = findBlock(this.def.template, nodeId)
       if (!node) return null
       const current = node.data[key]
       if (isBinding(current)) return current.$bind // already bound
+
+      // Inside a repeated subtree, the field becomes a per-item field of the
+      // repeat's array prop: `$bind: '$item.<field>'`, schema on `items`, and
+      // the current value seeds every preview item.
+      const scope = this.eachScopeOf(nodeId)
+      if (scope) {
+        const fields = this.eachItemsSchema(scope.propName)
+        const fieldName = uniquePropName(name || key, fields)
+        fields[fieldName] = { ...schema, title: humanize(fieldName) }
+        for (const item of this.eachPreviewItems(scope.propName)) {
+          if (!(fieldName in item)) item[fieldName] = clone(current)
+        }
+        this.syncEachDefault(scope.propName)
+        node.data[key] = { $bind: `$item.${fieldName}` }
+        return `$item.${fieldName}`
+      }
+
       const props = (this.def.props ??= {}) as Record<string, unknown>
       const propName = uniquePropName(name || key, props)
       props[propName] = { ...schema, title: humanize(propName), default: current }
@@ -499,6 +600,91 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
       preview[propName] = current
       node.data[key] = { $bind: propName }
       return propName
+    },
+    unbindField(nodeId: string, key: string) {
+      const node = findBlock(this.def.template, nodeId)
+      const value = node?.data[key]
+      if (!node || !isBinding(value)) return
+      const field = itemFieldOf(value.$bind)
+      if (field === null) return this.unexposeProp(value.$bind)
+
+      const scope = this.eachScopeOf(nodeId)
+      const items = scope ? this.eachPreviewItems(scope.propName) : []
+      const first = items[0] ?? {}
+      const fallback = field === '' ? first : first[field]
+      if (fallback === undefined) delete node.data[key]
+      else node.data[key] = clone(fallback)
+
+      // Drop the item field when nothing else in this repeat scope binds it.
+      if (!scope || field === '') return
+      let stillUsed = false
+      walkEachScope(scope.node, (n) =>
+        visitDataLayers(n, (obj) => {
+          for (const v of Object.values(obj)) {
+            if (isBinding(v) && v.$bind === value.$bind) stillUsed = true
+          }
+        }),
+      )
+      if (stillUsed) return
+      delete this.eachItemsSchema(scope.propName)[field]
+      for (const item of items) delete item[field]
+      this.syncEachDefault(scope.propName)
+    },
+
+    eachPropOf(node: ContentBlock): string | null {
+      const each = node.data?.$each
+      return typeof each === 'string' ? each : null
+    },
+    setEach(id: string, on: boolean) {
+      const node = findBlock(this.def.template, id)
+      if (!node || id === this.rootId) return
+      const current = this.eachPropOf(node)
+      if (on) {
+        if (current) return
+        const props = (this.def.props ??= {}) as Record<string, unknown>
+        const propName = uniquePropName('items', props)
+        node.data.$each = propName
+        this.eachItemsSchema(propName) // creates the array prop shell
+        this.eachPreviewItems(propName) // seeds 3 preview items
+        this.syncEachDefault(propName)
+        return
+      }
+      if (!current) return
+      delete node.data.$each
+      // Restore every `$item.*` binding in the (former) scope to the first
+      // preview item's value, so the subtree keeps what it showed.
+      const preview = (this.def.previewData as Record<string, unknown> | undefined)?.[current]
+      const first = Array.isArray(preview) && isObject(preview[0]) ? (preview[0] as Record<string, unknown>) : {}
+      walkEachScope(node, (n) =>
+        visitDataLayers(n, (obj) => {
+          for (const [k, v] of Object.entries(obj)) {
+            if (!isBinding(v)) continue
+            const field = itemFieldOf(v.$bind)
+            if (field === null) continue
+            const restored = field === '' ? first : first[field]
+            if (restored === undefined) delete obj[k]
+            else obj[k] = clone(restored)
+          }
+        }),
+      )
+      // Drop the array prop unless another node still repeats over it.
+      let stillUsed = false
+      walkTree(this.def.template, (n) => {
+        if (n.data?.$each === current) stillUsed = true
+      })
+      if (stillUsed) return
+      if (this.def.props) delete (this.def.props as Record<string, unknown>)[current]
+      if (this.def.previewData) delete (this.def.previewData as Record<string, unknown>)[current]
+    },
+    setEachCount(id: string, count: number) {
+      const node = findBlock(this.def.template, id)
+      const propName = node ? this.eachPropOf(node) : null
+      if (!propName) return
+      const target = Math.max(1, Math.min(12, Math.round(count)))
+      const items = this.eachPreviewItems(propName)
+      while (items.length > target) items.pop()
+      while (items.length < target) items.push(clone(items[items.length - 1] ?? {}))
+      this.syncEachDefault(propName)
     },
     unexposeProp(propName: string) {
       const fallback = (this.def.previewData as Record<string, unknown> | undefined)?.[propName]
@@ -511,7 +697,10 @@ export function createComposerStore(initial: ComposedBlockDefinition): ComposerS
       const props = this.def.props as Record<string, unknown> | undefined
       if (!clean || !props || !(from in props) || (clean !== from && clean in props)) return false
       if (clean === from) return true
-      walkTree(this.def.template, (node) => replaceBinding(node, from, () => ({ $bind: clean })))
+      walkTree(this.def.template, (node) => {
+        replaceBinding(node, from, () => ({ $bind: clean }))
+        if (node.data?.$each === from) node.data.$each = clean // repeat props rename too
+      })
       props[clean] = { ...(props[from] as Record<string, unknown>), title: humanize(clean) }
       delete props[from]
       const preview = this.def.previewData as Record<string, unknown> | undefined

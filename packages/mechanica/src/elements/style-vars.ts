@@ -60,6 +60,35 @@ interface VarSpec {
   to: (value: unknown) => string | null
 }
 
+/** One data key may emit several vars (`bgImage` → image url + focal position). */
+export type VarSpecs = Record<string, VarSpec | VarSpec[]>
+
+/** `hide: true` → `display: none`; an explicit `false` restores the kind's
+ *  default display (how a base-hidden element un-hides at a breakpoint). */
+const hideValue =
+  (shown: string) =>
+  (v: unknown): string | null =>
+    v === true ? 'none' : v === false ? shown : null
+
+// A CSS url() value from an image-field-shaped object ({ src, croppedSrc?, … }).
+// Quotes + escapes so a hostile src can never break out of the declaration.
+const bgUrl = (v: unknown): string | null => {
+  if (typeof v !== 'object' || v === null) return null
+  const img = v as Record<string, unknown>
+  const src = typeof img.croppedSrc === 'string' && img.croppedSrc ? img.croppedSrc : img.src
+  if (typeof src !== 'string' || !src) return null
+  return `url("${src.replace(/[\\"]/g, '\\$&').replace(/\n/g, '')}")`
+}
+
+// The focal point of a background image → a background-position value.
+const bgPosition = (v: unknown): string | null => {
+  if (typeof v !== 'object' || v === null) return null
+  const img = v as Record<string, unknown>
+  if (typeof img.focalX !== 'number' && typeof img.focalY !== 'number') return null
+  const pct = (n: unknown): string => `${Math.round((typeof n === 'number' ? n : 0.5) * 100)}%`
+  return `${pct(img.focalX)} ${pct(img.focalY)}`
+}
+
 /** Named shadow presets (`shadow: 'md'`), resolved into the `--el-shadow` var. */
 export const SHADOWS: Record<string, string> = {
   sm: '0 1px 2px rgba(0, 0, 0, 0.06)',
@@ -68,7 +97,7 @@ export const SHADOWS: Record<string, string> = {
 }
 
 /** Frame layout + visual knobs that participate in breakpoint overrides. */
-export const FRAME_VARS: Record<string, VarSpec> = {
+export const FRAME_VARS: VarSpecs = {
   direction: { cssVar: '--el-dir', to: enumMap({ row: 'row', column: 'column' }) },
   gap: { cssVar: '--el-gap', to: px },
   align: { cssVar: '--el-align', to: alignValue },
@@ -91,12 +120,22 @@ export const FRAME_VARS: Record<string, VarSpec> = {
   maxHeight: { cssVar: '--el-maxh', to: px },
   // Visual style — variables too, so Fill/Radius/… take per-breakpoint overrides.
   background: { cssVar: '--el-bg', to: str },
+  // Background image fill: one data key (an image-field-shaped object) emits the
+  // url + the focal-point position; `bgOverlay` is a color painted over the
+  // image (a linear-gradient composed in the generated CSS — see emit-css.ts).
+  bgImage: [
+    { cssVar: '--el-bgimg', to: bgUrl },
+    { cssVar: '--el-bgpos', to: bgPosition },
+  ],
+  bgOverlay: { cssVar: '--el-bgoverlay', to: str },
   radius: { cssVar: '--el-radius', to: px },
   shadow: { cssVar: '--el-shadow', to: enumMap(SHADOWS) },
+  // Per-breakpoint visibility ("hide on mobile") — see hideValue above.
+  hide: { cssVar: '--el-display', to: hideValue('flex') },
 }
 
 /** Size/grow knobs shared by leaf elements (text, image, button). */
-export const SIZE_VARS: Record<string, VarSpec> = {
+export const SIZE_VARS: VarSpecs = {
   w: FRAME_VARS.w!,
   h: FRAME_VARS.h!,
   grow: FRAME_VARS.grow!,
@@ -107,10 +146,11 @@ export const SIZE_VARS: Record<string, VarSpec> = {
   maxHeight: FRAME_VARS.maxHeight!,
   align: { cssVar: '--el-self', to: alignValue },
   textAlign: { cssVar: '--el-text-align', to: enumMap({ left: 'left', center: 'center', right: 'right' }) },
+  hide: { cssVar: '--el-display', to: hideValue('block') },
 }
 
 /** Text knobs: size/grow/limits plus typography, all breakpoint-capable. */
-export const TEXT_VARS: Record<string, VarSpec> = {
+export const TEXT_VARS: VarSpecs = {
   ...SIZE_VARS,
   size: { cssVar: '--el-fs', to: px },
   weight: { cssVar: '--el-fw', to: numeric },
@@ -119,7 +159,7 @@ export const TEXT_VARS: Record<string, VarSpec> = {
 }
 
 /** Image knobs: size/grow plus fit/ratio/radius, all breakpoint-capable. */
-export const IMAGE_VARS: Record<string, VarSpec> = {
+export const IMAGE_VARS: VarSpecs = {
   ...SIZE_VARS,
   fit: { cssVar: '--el-fit', to: str },
   ratio: { cssVar: '--el-ratio', to: numeric },
@@ -130,13 +170,15 @@ export const IMAGE_VARS: Record<string, VarSpec> = {
  * Build the inline CSS-variable style for an element: base values plus, for each
  * breakpoint present in `data.$bp`, the overriding `--<var>-<bp>` variables.
  */
-export function responsiveVars(data: Record<string, unknown>, specs: Record<string, VarSpec>): Style {
+export function responsiveVars(data: Record<string, unknown>, specs: VarSpecs): Style {
   const out: Style = {}
   const apply = (source: Record<string, unknown>, suffix: string): void => {
-    for (const [key, spec] of Object.entries(specs)) {
+    for (const [key, entry] of Object.entries(specs)) {
       if (!(key in source)) continue
-      const value = spec.to(source[key])
-      if (value != null) out[spec.cssVar + suffix] = value
+      for (const spec of Array.isArray(entry) ? entry : [entry]) {
+        const value = spec.to(source[key])
+        if (value != null) out[spec.cssVar + suffix] = value
+      }
     }
   }
   apply(data, '')
@@ -200,21 +242,24 @@ export function absStyle(abs: unknown): Style {
  * component (an arbitrary SFC whose root we can't style) is wrapped in a `.mxel`
  * div that carries this style instead (see `renderBlocks`).
  */
-const PLACEMENT_VARS: Record<string, VarSpec> = { margin: FRAME_VARS.margin! }
+const PLACEMENT_VARS: VarSpecs = {
+  margin: FRAME_VARS.margin!,
+  hide: { cssVar: '--el-display', to: hideValue('block') },
+}
 
 /**
- * The placement style (responsive margin vars + `$abs` position) for a block, or
- * `null` when it carries none — so the renderer only wraps blocks that need it.
- * The `--el-margin*` vars pair with the `.mxel` rules in `elements.scss`.
+ * The placement style (responsive margin/visibility vars + `$abs` position) for
+ * a block, or `null` when it carries none — so the renderer only wraps blocks
+ * that need it. The `--el-*` vars pair with the `.mxel` rules in `elements.scss`.
  */
 export function placementStyle(data: unknown): Style | null {
   if (!isObject(data)) return null
-  const marginVars = responsiveVars(data, PLACEMENT_VARS)
+  const vars = responsiveVars(data, PLACEMENT_VARS)
   const abs = absStyle(data.$abs)
-  const hasMargin = Object.keys(marginVars).length > 0
+  const hasVars = Object.keys(vars).length > 0
   const hasAbs = isObject(data.$abs)
-  if (!hasMargin && !hasAbs) return null
-  return compactStyle(marginVars, abs)
+  if (!hasVars && !hasAbs) return null
+  return compactStyle(vars, abs)
 }
 
 /** Merge helper: drop null/undefined entries so callers can spread freely. */

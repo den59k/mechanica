@@ -24,7 +24,7 @@ import type { ComposerBreakpoints } from 'mechanica-shared'
 /** The default element breakpoints (max-widths, px) when the site sets none. */
 export const DEFAULT_ELEMENT_BREAKPOINTS: ComposerBreakpoints = { md: 1024, sm: 640 }
 
-type Selector = '.mxel' | '.mxel-frame' | '.mxel-text' | '.mxel-image'
+type Selector = '.mxel' | '.mxel-frame' | '.mxel-text' | '.mxel-image' | '.mxel-slot'
 type Suffix = '' | '-md' | '-sm'
 
 interface Binding {
@@ -39,11 +39,19 @@ interface Binding {
   /** `yield` = classes may override it (layered floor + knob rung); `hard` = a
    *  plain unlayered floor, no rung (structural / flex model). */
   tier: 'yield' | 'hard'
-  /** Wrap the resolved value (only the image max-width cap uses this). */
-  wrap?: (expr: string) => string
+  /** Wrap the resolved value (the image max-width cap, the bg-image overlay). */
+  wrap?: (expr: string, suffix: Suffix) => string
 }
 
 const capImage = (expr: string): string => `min(${expr}, 100%)`
+
+// The background image composes with the optional `--el-bgoverlay` color: a
+// same-color gradient painted over the url. Unset overlay = transparent (a
+// no-op); overlay without an image paints a plain translucent layer.
+const withOverlay = (expr: string, suffix: Suffix): string => {
+  const overlay = fallbackChain('el-bgoverlay', suffix, 'transparent')
+  return `linear-gradient(${overlay}, ${overlay}), ${expr}`
+}
 
 /**
  * The single source of truth for the elements' responsive property rules — the
@@ -70,7 +78,17 @@ const BINDINGS: Binding[] = [
   { selector: '.mxel-frame', prop: 'padding', varBase: 'el-pad', fallback: '0px', tier: 'yield' },
   { selector: '.mxel-frame', prop: 'max-width', varBase: 'el-maxw', fallback: 'none', tier: 'yield' },
   { selector: '.mxel-frame', prop: 'background', varBase: 'el-bg', fallback: 'none', tier: 'yield' },
+  // Background-image fill — MUST come after the `background` shorthand so the
+  // image (and its overlay gradient) survives a color fill set alongside it.
+  { selector: '.mxel-frame', prop: 'background-image', varBase: 'el-bgimg', fallback: 'none', tier: 'yield', wrap: withOverlay },
+  { selector: '.mxel-frame', prop: 'background-position', varBase: 'el-bgpos', fallback: '50% 50%', tier: 'yield' },
   { selector: '.mxel-frame', prop: 'box-shadow', varBase: 'el-shadow', fallback: 'none', tier: 'yield' },
+  // ── visibility (the `hide` knob) — the floor restates each kind's static
+  // display, so only an actually-set `--el-display` knob changes anything. ────
+  { selector: '.mxel-frame', prop: 'display', varBase: 'el-display', fallback: 'flex', tier: 'yield' },
+  { selector: '.mxel-text', prop: 'display', varBase: 'el-display', fallback: 'block', tier: 'yield' },
+  { selector: '.mxel-image', prop: 'display', varBase: 'el-display', fallback: 'block', tier: 'yield' },
+  { selector: '.mxel-slot', prop: 'display', varBase: 'el-display', fallback: 'block', tier: 'yield' },
   // ── .mxel-text ───────────────────────────────────────────────────────
   { selector: '.mxel-text', prop: 'text-align', varBase: 'el-text-align', fallback: 'left', tier: 'yield' },
   { selector: '.mxel-text', prop: 'font-size', varBase: 'el-fs', fallback: 'revert', tier: 'yield' },
@@ -84,10 +102,11 @@ const BINDINGS: Binding[] = [
   { selector: '.mxel-image', prop: 'aspect-ratio', varBase: 'el-ratio', fallback: 'auto', tier: 'yield' },
 ]
 
-const SELECTOR_ORDER: Selector[] = ['.mxel', '.mxel-frame', '.mxel-text', '.mxel-image']
+const SELECTOR_ORDER: Selector[] = ['.mxel', '.mxel-frame', '.mxel-text', '.mxel-image', '.mxel-slot']
 
-/** The var-name bases the emitted CSS reads — exported for the style-vars drift test. */
-export const ELEMENT_CSS_VAR_BASES: string[] = BINDINGS.map((b) => b.varBase)
+/** The var-name bases the emitted CSS reads — exported for the style-vars drift test.
+ *  `el-bgoverlay` has no binding of its own (it rides inside the bg-image wrap). */
+export const ELEMENT_CSS_VAR_BASES: string[] = [...BINDINGS.map((b) => b.varBase), 'el-bgoverlay']
 
 /** `var(--el-x[-bp], var(--el-x, fallback))` — narrower breakpoints fall back to wider. */
 function fallbackChain(varBase: string, suffix: Suffix, fallback: string): string {
@@ -102,7 +121,7 @@ function floorRules(suffix: Suffix, tier: 'yield' | 'hard', indent: string): str
   for (const selector of SELECTOR_ORDER) {
     const decls = BINDINGS.filter((b) => b.selector === selector && b.tier === tier).map((b) => {
       const expr = fallbackChain(b.varBase, suffix, b.fallback)
-      return `${indent}  ${b.prop}: ${b.wrap ? b.wrap(expr) : expr};`
+      return `${indent}  ${b.prop}: ${b.wrap ? b.wrap(expr, suffix) : expr};`
     })
     if (decls.length) out.push(`${indent}${selector} {\n${decls.join('\n')}\n${indent}}`)
   }
@@ -114,7 +133,7 @@ function knobRules(suffix: Suffix, indent: string): string {
   return BINDINGS.filter((b) => b.tier === 'yield')
     .map((b) => {
       const value = `var(--${b.varBase}${suffix})`
-      const wrapped = b.wrap ? b.wrap(value) : value
+      const wrapped = b.wrap ? b.wrap(value, suffix) : value
       return `${indent}${b.selector}[style*='--${b.varBase}${suffix}:'] { ${b.prop}: ${wrapped}; }`
     })
     .join('\n')

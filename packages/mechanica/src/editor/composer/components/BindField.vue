@@ -1,8 +1,8 @@
 <template>
   <div class="mech-composer__bindfield">
-    <span v-if="bound" class="mech-composer__bind-chip" :title="`Bound to prop “${bound}”`">
-      <VIcon name="bolt" />
-      <span class="mech-composer__bind-name">{{ bound }}</span>
+    <span v-if="bound" class="mech-composer__bind-chip" :title="chipTitle">
+      <VIcon :name="isItemBinding ? 'repeat' : 'bolt'" />
+      <span class="mech-composer__bind-name">{{ boundLabel }}</span>
       <button type="button" class="mech-composer__bind-x" title="Unbind (make a fixed value)" @click="unbind">
         <VIcon name="close" />
       </button>
@@ -35,8 +35,17 @@ const props = defineProps<{
 
 const store = inject(composerStoreKey)!
 const bound = computed(() => store.boundPropOf(props.nodeId, props.fieldKey))
+// A `$item.<field>` binding (inside a repeated subtree) reads as the field name;
+// the repeat icon on the chip marks it as per-item.
+const isItemBinding = computed(() => !!bound.value?.startsWith('$item'))
+const boundLabel = computed(() =>
+  bound.value === '$item' ? 'item' : bound.value?.replace(/^\$item\./, '') ?? '',
+)
+const chipTitle = computed(() =>
+  isItemBinding.value
+    ? `Per-item field “${boundLabel.value}” (repeat)`
+    : `Bound to prop “${bound.value}”`,
+)
 const expose = () => store.exposeProp(props.nodeId, props.fieldKey, props.schema, props.name)
-const unbind = () => {
-  if (bound.value) store.unexposeProp(bound.value)
-}
+const unbind = () => store.unbindField(props.nodeId, props.fieldKey)
 </script>

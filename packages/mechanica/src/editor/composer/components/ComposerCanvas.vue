@@ -64,7 +64,7 @@ import type { BlocksMap } from '../../../core/state'
 import { composerStoreKey, composerInsertDndKey, composerHistoryKey } from '../lib/keys'
 import { findBlock } from '../../lib/content-tree'
 import { blockLabel, elementKind } from '../lib/elements-meta'
-import { resolveForCanvas } from '../lib/canvas'
+import { resolveForCanvas, templateNodeId } from '../lib/canvas'
 import { zoomAround, fitView, wheelZoomFactor, type View } from '../lib/canvas-view'
 import { marqueeRect, rectsIntersect } from '../lib/marquee'
 import { anchorSigns } from '../lib/abs'
@@ -156,7 +156,9 @@ function onPointerDown(event: PointerEvent) {
   // The floating zoom bar lives inside the viewport — don't treat its clicks as canvas.
   if ((event.target as HTMLElement).closest('.mech-composer__zoombar')) return
   const el = (event.target as HTMLElement).closest('[data-block-id]') as HTMLElement | null
-  const id = el?.getAttribute('data-block-id') ?? null
+  // A repeated ($each) ghost instance maps back to its template node.
+  const raw = el?.getAttribute('data-block-id')
+  const id = raw ? templateNodeId(raw) : null
   const additive = event.shiftKey || event.metaKey || event.ctrlKey
 
   // Empty space (grey viewport or the root frame's own area) → rubber-band select.
@@ -245,7 +247,7 @@ function collectMarqueeHits(rect: Box, base: string[]): string[] {
   if (!world) return base
   const ids = new Set(base)
   for (const el of world.querySelectorAll<HTMLElement>('[data-block-id]')) {
-    const id = el.getAttribute('data-block-id')!
+    const id = templateNodeId(el.getAttribute('data-block-id')!)
     if (id === store.rootId) continue // the marquee selects children, not the whole block
     const r = el.getBoundingClientRect()
     if (rectsIntersect(rect, { left: r.left, top: r.top, width: r.width, height: r.height })) ids.add(id)
@@ -260,14 +262,15 @@ function onHoverMove(event: PointerEvent) {
     return
   }
   const el = (document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null)?.closest('[data-block-id]')
-  hoverId.value = el?.getAttribute('data-block-id') ?? null
+  const raw = el?.getAttribute('data-block-id')
+  hoverId.value = raw ? templateNodeId(raw) : null
 }
 
 // ── Inline text editing (double-click) ────────────────────────────────────────
 function onCanvasDblClick(event: MouseEvent) {
   const el = (event.target as HTMLElement).closest('[data-block-id]') as HTMLElement | null
   if (!el) return
-  const id = el.getAttribute('data-block-id')!
+  const id = templateNodeId(el.getAttribute('data-block-id')!)
   const node = findBlock(store.template, id)
   // Only plain (unbound) text edits inline — a $bind value is a variable.
   if (!node || elementKind(node.blockId) !== 'text' || isBinding(node.data.content)) return

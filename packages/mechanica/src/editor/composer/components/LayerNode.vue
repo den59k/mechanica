@@ -4,6 +4,7 @@
     :class="{
       'is-selected': store.isSelected(node.id),
       'is-dragging': dnd.dragId === node.id,
+      'is-hidden': hidden,
       'drop-before': dropPos === 'before',
       'drop-after': dropPos === 'after',
       'drop-inside': dropPos === 'inside',
@@ -15,6 +16,19 @@
   >
     <VIcon :name="icon" class="mech-composer__layer-icon" />
     <span class="mech-composer__layer-label">{{ label }}</span>
+    <VIcon v-if="repeats" name="repeat" class="mech-composer__layer-badge" title="Repeats per item" />
+    <!-- A hidden element is invisible on canvas — the tree is where it stays
+         reachable, so the eye toggle lives here (visible while hidden). -->
+    <button
+      v-if="hidden"
+      type="button"
+      class="mech-composer__layer-eye"
+      :title="`Hidden${store.breakpoint === 'base' ? '' : ` on ${store.breakpoint}`} — click to show`"
+      @pointerdown.stop
+      @click.stop="unhide"
+    >
+      <VIcon name="eye-off" />
+    </button>
     <button
       v-if="!isRoot"
       type="button"
@@ -34,6 +48,7 @@ import { computed, inject } from 'vue'
 import type { Block, ContentBlock } from 'mechanica-shared'
 import { composerStoreKey, composerLayerDndKey } from '../lib/keys'
 import { blockIcon, blockLabel, elementKind } from '../lib/elements-meta'
+import { effectiveData } from '../lib/canvas'
 import VIcon from '../../components/VIcon.vue'
 
 const props = defineProps<{ node: ContentBlock; depth: number }>()
@@ -52,6 +67,17 @@ const label = computed(() =>
   isRoot.value ? store.def.name || 'Block' : component.value?.name ?? blockLabel(props.node),
 )
 const dropPos = computed(() => (dnd.target?.id === props.node.id ? dnd.target.position : null))
+
+// Hidden at the breakpoint the canvas previews (the `hide` knob) — the row dims
+// and grows an eye toggle, since the canvas shows nothing to click.
+const hidden = computed(() => effectiveData(props.node, store.breakpoint).hide === true)
+const repeats = computed(() => !!store.eachPropOf(props.node))
+const unhide = () => {
+  // At base, "shown" is the default — drop the key; at a breakpoint write the
+  // explicit un-hide override.
+  if (store.breakpoint === 'base') store.setData(props.node.id, { hide: undefined })
+  else store.setData(props.node.id, { hide: false }, { responsive: true })
+}
 
 // A drag ending over this row should not also select it. Shift/Ctrl/Cmd add the
 // row to a multi-selection.

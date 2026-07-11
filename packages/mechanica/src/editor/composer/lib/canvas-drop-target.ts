@@ -1,5 +1,6 @@
 import { findBlock, type DropPosition } from '../../lib/content-tree'
 import { isContainerBlock } from './elements-meta'
+import { templateNodeId } from './canvas'
 import { computeInsertion, type Axis, type Rect } from './canvas-drop'
 import type { ComposerStore } from './composer-store'
 
@@ -52,10 +53,14 @@ export function resolveCanvasDrop(
     '[data-block-id]',
   ) as HTMLElement | null
 
+  // Repeated ($each) ghost instances carry an `@<i>` id suffix — normalize every
+  // DOM id back to its template node so drops resolve against the template.
+  const domId = (el: Element): string => templateNodeId(el.getAttribute('data-block-id')!)
+
   let containerEl: HTMLElement
   let containerId: string | null
   if (hit) {
-    const hitId = hit.getAttribute('data-block-id')!
+    const hitId = domId(hit)
     const node = findBlock(store.template, hitId)
     const isContainer = !!node && (isContainerBlock(node.blockId) || node.children != null)
     if (isContainer) {
@@ -64,7 +69,7 @@ export function resolveCanvasDrop(
     } else {
       const parent = hit.parentElement?.closest('[data-block-id]') as HTMLElement | null
       containerEl = parent ?? canvas
-      containerId = parent?.getAttribute('data-block-id') ?? null
+      containerId = parent ? domId(parent) : null
     }
   } else {
     const r = canvas.getBoundingClientRect()
@@ -75,9 +80,9 @@ export function resolveCanvasDrop(
   }
 
   const childEls = [...containerEl.querySelectorAll<HTMLElement>('[data-block-id]')].filter((el) => {
-    if (excludeId && el.getAttribute('data-block-id') === excludeId) return false
+    if (excludeId && domId(el) === excludeId) return false
     const parent = el.parentElement?.closest('[data-block-id]') as HTMLElement | null
-    return (parent?.getAttribute('data-block-id') ?? null) === containerId
+    return (parent ? domId(parent) : null) === containerId
   })
   const axis: Axis = containerId ? flexAxis(containerEl) : 'column'
   const ins = computeInsertion(childEls.map(toRect), axis, clientX, clientY)
@@ -92,8 +97,8 @@ export function resolveCanvasDrop(
 
   const drop: DropPosition =
     ins.index === 0
-      ? { anchorId: childEls[0]!.getAttribute('data-block-id'), position: 'before' }
-      : { anchorId: childEls[ins.index - 1]!.getAttribute('data-block-id'), position: 'after' }
+      ? { anchorId: domId(childEls[0]!), position: 'before' }
+      : { anchorId: domId(childEls[ins.index - 1]!), position: 'after' }
 
   const line = ins.line!
   const indicator: DropIndicator = line.vertical

@@ -121,4 +121,97 @@ describe('element blocks', () => {
     expect(node.style.top).toBe('8px')
     expect(node.style.right).toBe('12px')
   })
+
+  it('a linked frame renders as an <a> carrying the frame class/style/children', () => {
+    const el = mount({
+      content: [
+        {
+          id: 'f',
+          blockId: 'mech:frame',
+          data: { gap: 8, link: { url: '/pricing', title: 'Pricing' } },
+          children: [{ id: 't', blockId: 'mech:text', data: { content: 'Go' } }],
+        },
+      ],
+      data: {},
+    })
+    const anchor = el.querySelector('a.mxel-frame') as HTMLAnchorElement
+    expect(anchor).toBeTruthy()
+    expect(anchor.getAttribute('href')).toBe('/pricing')
+    expect(anchor.style.getPropertyValue('--el-gap')).toBe('8px')
+    expect(anchor.getAttribute('data-block-id')).toBe('f')
+    expect(anchor.querySelector('.mxel-text')?.textContent).toBe('Go')
+  })
+
+  it('a linked external frame renders a plain <a>, new tab when asked', () => {
+    const el = mount({
+      content: [
+        {
+          id: 'f',
+          blockId: 'mech:frame',
+          data: { link: { url: 'https://example.com', external: true, openNewTab: true } },
+        },
+      ],
+      data: {},
+    })
+    const anchor = el.querySelector('a.mxel-frame') as HTMLAnchorElement
+    expect(anchor.getAttribute('href')).toBe('https://example.com')
+    expect(anchor.getAttribute('target')).toBe('_blank')
+  })
+
+  it('a linked text keeps its tag and wraps the content in the anchor', () => {
+    const el = mount({
+      content: [
+        { id: 't', blockId: 'mech:text', data: { tag: 'h2', content: 'Docs', link: { url: '/docs' } } },
+      ],
+      data: {},
+    })
+    const heading = el.querySelector('h2.mxel-text') as HTMLElement
+    const anchor = heading.querySelector('a') as HTMLAnchorElement
+    expect(anchor.getAttribute('href')).toBe('/docs')
+    expect(anchor.textContent).toBe('Docs')
+  })
+
+  it('an empty or binding-shaped link renders no anchor', () => {
+    const el = mount({
+      content: [
+        { id: 'f', blockId: 'mech:frame', data: { link: { url: '' } } },
+        { id: 't', blockId: 'mech:text', data: { content: 'x', link: 'nope' } },
+      ],
+      data: {},
+    })
+    expect(el.querySelector('a')).toBeNull()
+  })
+
+  it('the hide knob rides the display variable (never inline display)', () => {
+    const el = mount({
+      content: [
+        { id: 'f', blockId: 'mech:frame', data: { hide: true } },
+        { id: 't', blockId: 'mech:text', data: { content: 'x', $bp: { sm: { hide: true } } } },
+      ],
+      data: {},
+    })
+    const frame = el.querySelector('.mxel-frame') as HTMLElement
+    expect(frame.style.getPropertyValue('--el-display')).toBe('none')
+    expect(frame.style.display).toBe('')
+    const text = el.querySelector('.mxel-text') as HTMLElement
+    expect(text.style.getPropertyValue('--el-display-sm')).toBe('none')
+  })
+
+  it('frame background image emits url + focal position vars', () => {
+    const el = mount({
+      content: [
+        {
+          id: 'f',
+          blockId: 'mech:frame',
+          data: { bgImage: { src: '/hero.jpg', focalX: 0, focalY: 1 }, bgOverlay: 'rgba(0,0,0,0.35)' },
+        },
+      ],
+      data: {},
+    })
+    const frame = el.querySelector('.mxel-frame') as HTMLElement
+    expect(frame.style.getPropertyValue('--el-bgimg')).toBe('url("/hero.jpg")')
+    expect(frame.style.getPropertyValue('--el-bgpos')).toBe('0% 100%')
+    expect(frame.style.getPropertyValue('--el-bgoverlay')).toBe('rgba(0,0,0,0.35)')
+    expect(frame.style.backgroundImage).toBe('')
+  })
 })

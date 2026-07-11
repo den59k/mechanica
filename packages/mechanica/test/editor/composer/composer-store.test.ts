@@ -505,3 +505,129 @@ describe('composer store: snapshot / replace', () => {
     expect(store.def.icon).toBe('star')
   })
 })
+
+describe('composer store: repeat ($each)', () => {
+  const makeStore = () => {
+    const store = createComposerStore(base())
+    store.insertItem(item('column')) // the card frame
+    const cardId = store.selectedId!
+    store.insertItem(item('text')) // text inside the card
+    const textId = store.selectedId!
+    return { store, cardId, textId }
+  }
+
+  it('setEach on: creates an array prop with 3 preview items and marks the node', () => {
+    const { store, cardId } = makeStore()
+    store.setEach(cardId, true)
+    const card = findBlock(store.template, cardId)!
+    expect(card.data.$each).toBe('items')
+    const prop = (store.def.props as Record<string, any>).items
+    expect(prop.type).toBe('array')
+    expect(prop.items).toEqual({ type: 'object', properties: {} })
+    expect((store.def.previewData as Record<string, any>).items).toHaveLength(3)
+    expect(prop.default).toHaveLength(3)
+  })
+
+  it('never repeats the root frame', () => {
+    const store = createComposerStore(base())
+    store.setEach(store.rootId, true)
+    expect(store.rootFrame.data.$each).toBeUndefined()
+  })
+
+  it('exposeProp inside a repeated subtree binds a per-item field and seeds every preview item', () => {
+    const { store, cardId, textId } = makeStore()
+    store.setEach(cardId, true)
+    store.setData(textId, { content: 'Fast' })
+    const bound = store.exposeProp(textId, 'content', { type: 'string' }, 'title')
+    expect(bound).toBe('$item.title')
+    const text = findBlock(store.template, textId)!
+    expect(text.data.content).toEqual({ $bind: '$item.title' })
+    const itemsSchema = (store.def.props as Record<string, any>).items.items.properties
+    expect(itemsSchema.title).toMatchObject({ type: 'string' })
+    const preview = (store.def.previewData as Record<string, any>).items
+    expect(preview.every((p: Record<string, unknown>) => p.title === 'Fast')).toBe(true)
+  })
+
+  it('unbindField on an item field restores the first preview value and prunes the field', () => {
+    const { store, cardId, textId } = makeStore()
+    store.setEach(cardId, true)
+    store.setData(textId, { content: 'Fast' })
+    store.exposeProp(textId, 'content', { type: 'string' }, 'title')
+    ;(store.def.previewData as Record<string, any>).items[0].title = 'Quick'
+    store.unbindField(textId, 'content')
+    const text = findBlock(store.template, textId)!
+    expect(text.data.content).toBe('Quick')
+    expect((store.def.props as Record<string, any>).items.items.properties.title).toBeUndefined()
+  })
+
+  it('setEach off restores $item bindings from the first item and drops the prop', () => {
+    const { store, cardId, textId } = makeStore()
+    store.setEach(cardId, true)
+    store.setData(textId, { content: 'Fast' })
+    store.exposeProp(textId, 'content', { type: 'string' }, 'title')
+    store.setEach(cardId, false)
+    const card = findBlock(store.template, cardId)!
+    expect(card.data.$each).toBeUndefined()
+    expect(findBlock(store.template, textId)!.data.content).toBe('Fast')
+    expect((store.def.props as Record<string, any>).items).toBeUndefined()
+    expect((store.def.previewData as Record<string, any>).items).toBeUndefined()
+  })
+
+  it('setEachCount grows by cloning the last item and shrinks the list', () => {
+    const { store, cardId } = makeStore()
+    store.setEach(cardId, true)
+    store.setEachCount(cardId, 5)
+    expect((store.def.previewData as Record<string, any>).items).toHaveLength(5)
+    store.setEachCount(cardId, 2)
+    expect((store.def.previewData as Record<string, any>).items).toHaveLength(2)
+    expect((store.def.props as Record<string, any>).items.default).toHaveLength(2)
+    store.setEachCount(cardId, 0) // clamped to 1
+    expect((store.def.previewData as Record<string, any>).items).toHaveLength(1)
+  })
+
+  it('renameProp follows the $each key and the $item bindings stay intact', () => {
+    const { store, cardId, textId } = makeStore()
+    store.setEach(cardId, true)
+    store.exposeProp(textId, 'content', { type: 'string' }, 'title')
+    expect(store.renameProp('items', 'cards')).toBe(true)
+    const card = findBlock(store.template, cardId)!
+    expect(card.data.$each).toBe('cards')
+    expect((store.def.props as Record<string, any>).cards).toBeTruthy()
+    // The per-item binding is scoped to the node, not the prop name.
+    expect(findBlock(store.template, textId)!.data.content).toEqual({ $bind: '$item.title' })
+  })
+
+  it('nested $each: an inner item field lands on the inner prop, not the outer', () => {
+    const { store, cardId, textId } = makeStore()
+    store.setEach(cardId, true)
+    // Give the card an inner repeated text of its own.
+    store.select(cardId)
+    store.insertItem(item('text'))
+    const innerId = store.selectedId!
+    store.setEach(innerId, true)
+    store.setData(innerId, { content: 'tag' })
+    const boundInner = store.exposeProp(innerId, 'content', { type: 'string' }, 'label')
+    expect(boundInner).toBe('$item.label')
+    const props = store.def.props as Record<string, any>
+    expect(props.items.items.properties.label).toBeUndefined()
+    expect(props.items2.items.properties.label).toBeTruthy()
+    // Outer text binding still resolves against the outer prop.
+    store.setData(textId, { content: 'Fast' })
+    store.exposeProp(textId, 'content', { type: 'string' }, 'title')
+    expect(props.items.items.properties.title).toBeTruthy()
+  })
+})
+
+describe('composer store: repeat via the Properties switches', () => {
+  it('addProp/removeProp route the repeat key through setEach', () => {
+    const store = createComposerStore(base())
+    store.insertItem(item('column'))
+    const cardId = store.selectedId!
+    store.addProp(cardId, 'repeat')
+    expect(findBlock(store.template, cardId)!.data.$each).toBe('items')
+    expect(store.hasProp(findBlock(store.template, cardId)!, 'repeat')).toBe(true)
+    store.removeProp(cardId, 'repeat')
+    expect(findBlock(store.template, cardId)!.data.$each).toBeUndefined()
+    expect((store.def.props as Record<string, any> | undefined)?.items).toBeUndefined()
+  })
+})

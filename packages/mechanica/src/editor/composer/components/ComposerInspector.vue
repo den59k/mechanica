@@ -215,17 +215,38 @@
         </div>
       </PropToggle>
 
-      <!-- Fill -->
+      <!-- Fill: color + optional background image (focal point, color overlay) -->
       <PropToggle
         v-if="avail('background')"
         title="Fill"
         icon="fill"
         :active="active('background')"
-        :overridden="overridden('background')"
+        :overridden="overridden('background') || overridden('bgImage') || overridden('bgOverlay')"
         @toggle="toggle('background')"
-        @reset="resetKey('background')"
+        @reset="resetKeys('background', 'bgImage', 'bgOverlay')"
       >
         <ColorField :model-value="val('background')" placeholder="none" @update:model-value="set('background', $event, true)" />
+        <div v-if="!bgImg" class="mech-composer__row mech-composer__bgimg-add">
+          <span>Image</span>
+          <button type="button" class="mech-button" @click="pickBgImage">Add image…</button>
+        </div>
+        <template v-else>
+          <div class="mech-composer__bgimg">
+            <div class="mech-composer__image-preview" :style="bgImgPreview" />
+            <div class="mech-composer__bgimg-side">
+              <button type="button" class="mech-button" @click="pickBgImage">Replace…</button>
+              <button type="button" class="mech-button" @click="set('bgImage', undefined, true)">Remove</button>
+            </div>
+          </div>
+          <div class="mech-composer__row mech-composer__row--top">
+            <span title="The image point that stays in view as the frame crops it">Focus</span>
+            <AnchorGrid :model-value="bgFocalAnchor" @update:model-value="setBgFocal" />
+          </div>
+          <div class="mech-composer__row mech-composer__row--top">
+            <OverrideLabel :overridden="overridden('bgOverlay')" @reset="resetKey('bgOverlay')">Overlay</OverrideLabel>
+            <ColorField :model-value="val('bgOverlay')" placeholder="none" @update:model-value="set('bgOverlay', $event, true)" />
+          </div>
+        </template>
       </PropToggle>
 
       <!-- Radius -->
@@ -242,6 +263,51 @@
           <span>Corner</span>
           <NumInput icon="corner" :model-value="num('radius')" :min="0" @update:model-value="set('radius', $event, true)" />
         </div>
+      </PropToggle>
+
+      <!-- Link (frame becomes an <a>; text content wraps in one) -->
+      <PropToggle v-if="avail('link')" title="Link" icon="link" :active="active('link')" @toggle="toggle('link')">
+        <BindField :node-id="node.id" field-key="link" :schema="{ type: 'smartLink' }" name="link">
+          <SmartLinkField :model-value="linkValue" :schema="{}" @update:model-value="set('link', $event)" />
+        </BindField>
+      </PropToggle>
+
+      <!-- Visibility (per breakpoint — "hide on mobile") -->
+      <PropToggle
+        v-if="avail('visibility')"
+        title="Visibility"
+        icon="eye"
+        :active="active('visibility')"
+        :overridden="overridden('hide')"
+        @toggle="toggle('visibility')"
+        @reset="resetKey('hide')"
+      >
+        <div class="mech-composer__row">
+          <span>{{ store.breakpoint === 'base' ? 'Element' : `On ${store.breakpoint === 'md' ? 'tablet' : 'mobile'}` }}</span>
+          <SegControl :options="visibilityOptions" :model-value="val('hide') === true ? 'hide' : 'show'" @update:model-value="setVisibility($event)" />
+        </div>
+      </PropToggle>
+
+      <!-- Repeat ($each over an array prop) -->
+      <PropToggle v-if="avail('repeat')" title="Repeat" icon="repeat" :active="active('repeat')" @toggle="toggle('repeat')">
+        <template v-if="eachProp">
+          <div class="mech-composer__row">
+            <span>Items prop</span>
+            <input
+              class="mech-composer__input"
+              :value="eachProp"
+              aria-label="Repeat items prop name"
+              @change="renameEach(($event.target as HTMLInputElement).value)"
+            />
+          </div>
+          <div class="mech-composer__row">
+            <span>Preview items</span>
+            <NumInput :model-value="eachCount" :min="1" @update:model-value="store.setEachCount(node.id, $event || 1)" />
+          </div>
+          <p class="mech-composer__hint">
+            This element repeats per item. Click ⚡ on a field inside to make it a per-item field.
+          </p>
+        </template>
       </PropToggle>
 
       <!-- Position (absolute) -->
@@ -273,9 +339,11 @@ import { elementKind, blockLabel, blockIcon } from '../lib/elements-meta'
 import { availableProps } from '../lib/inspector-props'
 import { classGroupsFor, selectedClass, setGroupClass, type ClassGroup } from '../lib/class-groups'
 import { absAxisLabels, reanchorOffset } from '../lib/abs'
+import { ANCHOR_H, ANCHOR_V } from '../../../elements/style-vars'
 import type { Block, ComposerClassDef } from 'mechanica-shared'
 import VIcon from '../../components/VIcon.vue'
 import VSelect, { type SelectOption } from '../../components/VSelect.vue'
+import SmartLinkField from '../../fields/editors/SmartLinkField.vue'
 import ComponentFields from './ComponentFields.vue'
 import ClassStylePreview from './ClassStylePreview.vue'
 import SegControl, { type SegOption } from './SegControl.vue'
@@ -463,7 +531,7 @@ const previewBg = computed(() => {
   const src = val('src')
   return typeof src === 'string' && src ? { backgroundImage: `url("${src}")` } : {}
 })
-async function pickImage() {
+function pickFile(onPicked: (src: string) => void) {
   if (!uploader) return
   const input = document.createElement('input')
   input.type = 'file'
@@ -472,9 +540,73 @@ async function pickImage() {
     const file = input.files?.[0]
     if (!file) return
     const { src } = await uploader(file)
-    set('src', src)
+    onPicked(src)
   }
   input.click()
+}
+const pickImage = () => pickFile((src) => set('src', src))
+
+// ── Fill: background image + focal point + overlay ───────────────────
+const bgImg = computed(() => {
+  const v = val('bgImage')
+  return typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null
+})
+const bgImgPreview = computed(() => {
+  const src = bgImg.value?.src
+  return typeof src === 'string' && src ? { backgroundImage: `url("${src}")` } : {}
+})
+// Keep the focal point when replacing the image — reframing is usually intact.
+const pickBgImage = () => pickFile((src) => set('bgImage', { ...(bgImg.value ?? {}), src }, true))
+
+// The 9-point AnchorGrid doubles as a focal-point picker: anchor ↔ focalX/Y
+// thirds (0 / 0.5 / 1), sharing the `$abs` anchor vocabulary.
+const FOCAL_H: Record<string, number> = { left: 0, center: 0.5, right: 1 }
+const FOCAL_V: Record<string, number> = { top: 0, center: 0.5, bottom: 1 }
+const bgFocalAnchor = computed(() => {
+  const x = typeof bgImg.value?.focalX === 'number' ? (bgImg.value.focalX as number) : 0.5
+  const y = typeof bgImg.value?.focalY === 'number' ? (bgImg.value.focalY as number) : 0.5
+  const h = x <= 0.25 ? 'left' : x >= 0.75 ? 'right' : 'center'
+  const v = y <= 0.25 ? 'top' : y >= 0.75 ? 'bottom' : 'center'
+  if (v === 'center' && h === 'center') return 'center'
+  if (v === 'center') return h
+  if (h === 'center') return v
+  return `${v}-${h}`
+})
+function setBgFocal(anchor: string) {
+  if (!bgImg.value) return
+  const focalX = FOCAL_H[ANCHOR_H[anchor] ?? 'center'] ?? 0.5
+  const focalY = FOCAL_V[ANCHOR_V[anchor] ?? 'center'] ?? 0.5
+  set('bgImage', { ...bgImg.value, focalX, focalY }, true)
+}
+
+// ── Link ─────────────────────────────────────────────────────────────
+const linkValue = computed(() => {
+  const v = node.value.data.link
+  return typeof v === 'object' && v !== null && !isBinding(v) ? (v as Record<string, unknown>) : undefined
+})
+
+// ── Visibility ───────────────────────────────────────────────────────
+const visibilityOptions: SegOption[] = [
+  { value: 'show', label: 'Shown' },
+  { value: 'hide', label: 'Hidden' },
+]
+function setVisibility(value: string | number) {
+  const hidden = value === 'hide'
+  // "Shown" at base is the default — delete the key instead of writing `false`
+  // (an explicit `false` only matters as a breakpoint un-hide override).
+  if (!hidden && store.breakpoint === 'base') set('hide', undefined)
+  else set('hide', hidden, true)
+}
+
+// ── Repeat ($each) ───────────────────────────────────────────────────
+const eachProp = computed(() => store.eachPropOf(node.value))
+const eachCount = computed(() => {
+  const prop = eachProp.value
+  const items = prop ? (store.def.previewData as Record<string, unknown> | undefined)?.[prop] : null
+  return Array.isArray(items) ? items.length : 1
+})
+const renameEach = (to: string) => {
+  if (eachProp.value) store.renameProp(eachProp.value, to)
 }
 
 // ── Option sets ──────────────────────────────────────────────────────

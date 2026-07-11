@@ -139,6 +139,54 @@ describe('visual style vars (breakpoint-capable)', () => {
   })
 })
 
+describe('visibility (hide knob)', () => {
+  it('maps hide to display none / the kind default', () => {
+    expect(responsiveVars({ hide: true }, FRAME_VARS)['--el-display']).toBe('none')
+    expect(responsiveVars({ hide: false }, FRAME_VARS)['--el-display']).toBe('flex')
+    expect(responsiveVars({ hide: true }, TEXT_VARS)['--el-display']).toBe('none')
+    expect(responsiveVars({ hide: false }, IMAGE_VARS)['--el-display']).toBe('block')
+  })
+
+  it('takes per-breakpoint overrides (hide on mobile / un-hide at a breakpoint)', () => {
+    expect(responsiveVars({ $bp: { sm: { hide: true } } }, FRAME_VARS)).toEqual({ '--el-display-sm': 'none' })
+    expect(responsiveVars({ hide: true, $bp: { md: { hide: false } } }, FRAME_VARS)).toEqual({
+      '--el-display': 'none',
+      '--el-display-md': 'flex',
+    })
+  })
+
+  it('ignores non-boolean values', () => {
+    expect(responsiveVars({ hide: 'yes' }, FRAME_VARS)).toEqual({})
+  })
+})
+
+describe('background image fill (bgImage / bgOverlay)', () => {
+  it('emits the image url and focal position from one data key', () => {
+    const vars = responsiveVars({ bgImage: { src: '/img/hero.jpg', focalX: 1, focalY: 0 } }, FRAME_VARS)
+    expect(vars['--el-bgimg']).toBe('url("/img/hero.jpg")')
+    expect(vars['--el-bgpos']).toBe('100% 0%')
+  })
+
+  it('omits the position when no focal point is set, prefers croppedSrc, escapes quotes', () => {
+    expect(responsiveVars({ bgImage: { src: '/a.jpg' } }, FRAME_VARS)).toEqual({ '--el-bgimg': 'url("/a.jpg")' })
+    expect(responsiveVars({ bgImage: { src: '/a.jpg', croppedSrc: '/a.crop.webp' } }, FRAME_VARS)['--el-bgimg']).toBe(
+      'url("/a.crop.webp")',
+    )
+    expect(responsiveVars({ bgImage: { src: '/a".jpg' } }, FRAME_VARS)['--el-bgimg']).toBe('url("/a\\".jpg")')
+    expect(responsiveVars({ bgImage: { src: '' } }, FRAME_VARS)).toEqual({})
+    expect(responsiveVars({ bgImage: 'nope' }, FRAME_VARS)).toEqual({})
+  })
+
+  it('maps the overlay color and takes $bp overrides', () => {
+    const vars = responsiveVars(
+      { bgImage: { src: '/a.jpg' }, bgOverlay: 'rgba(0,0,0,0.4)', $bp: { sm: { bgOverlay: 'rgba(0,0,0,0.6)' } } },
+      FRAME_VARS,
+    )
+    expect(vars['--el-bgoverlay']).toBe('rgba(0,0,0,0.4)')
+    expect(vars['--el-bgoverlay-sm']).toBe('rgba(0,0,0,0.6)')
+  })
+})
+
 describe('absStyle', () => {
   it('returns nothing for a non-object', () => {
     expect(absStyle(undefined)).toEqual({})
@@ -228,5 +276,10 @@ describe('placementStyle (component / composed placement wrapper)', () => {
       '--el-margin': '8px',
       position: 'absolute',
     })
+  })
+
+  it('carries per-breakpoint visibility (hide) so a placed component can hide too', () => {
+    expect(placementStyle({ hide: true })).toEqual({ '--el-display': 'none' })
+    expect(placementStyle({ $bp: { sm: { hide: true } } })).toEqual({ '--el-display-sm': 'none' })
   })
 })

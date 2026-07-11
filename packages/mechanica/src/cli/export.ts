@@ -302,6 +302,37 @@ async function readBlockAssets(
 /** Where uploaded assets land in the static export. */
 const MEDIA_DIR = 'media'
 
+/**
+ * Rewrite the uploaded-asset URLs a composed-block template carries — a
+ * `mech:image` node's `src`, any node's `bgImage` fill — through `onFile`, in
+ * the base data and every `$bp` layer. Page data goes through `collectFiles`
+ * (schema-driven); templates live in the block definition, so they need their
+ * own pass. Mutates the defs in place: they are the same objects the SSR
+ * runtime's registered components render from.
+ */
+function rewriteComposedAssets(defs: ComposedBlockDefinition[], onFile: (src: string) => string): void {
+  const isRecord = (v: unknown): v is Record<string, unknown> =>
+    typeof v === 'object' && v !== null && !Array.isArray(v)
+  const rewriteLayer = (blockId: string, layer: Record<string, unknown>): void => {
+    if (blockId === 'mech:image' && typeof layer.src === 'string') layer.src = onFile(layer.src)
+    const bg = layer.bgImage
+    if (isRecord(bg)) {
+      if (typeof bg.src === 'string') bg.src = onFile(bg.src)
+      if (typeof bg.croppedSrc === 'string') bg.croppedSrc = onFile(bg.croppedSrc)
+    }
+  }
+  for (const def of defs) {
+    walkTree(def.template ?? [], (node) => {
+      if (!node.data) return
+      rewriteLayer(node.blockId, node.data)
+      const bp = node.data.$bp
+      if (isRecord(bp)) {
+        for (const layer of Object.values(bp)) if (isRecord(layer)) rewriteLayer(node.blockId, layer)
+      }
+    })
+  }
+}
+
 /** An image field value, as stored in page data. */
 interface ImageFieldValue {
   src: string
@@ -551,6 +582,12 @@ export async function exportProject(
     // `assetsBase` is a trimmed CDN origin (or '' — then this stays root-relative).
     return `${assetsBase}/${MEDIA_DIR}/${relative}`
   }
+
+  // Composed-block templates reference uploads too (`mech:image` src, a frame's
+  // `bgImage` fill) — outside any page's data, so `collectFiles` never sees
+  // them. Rewrite them in place: `ssr.composedList` holds the same def objects
+  // the SSR runtime renders from, so every placement picks up the new URLs.
+  rewriteComposedAssets(composedDefs, onFile)
 
   // Blocks are code-split in the client build: give each page stylesheet +
   // modulepreload links for exactly the block chunks its content uses.

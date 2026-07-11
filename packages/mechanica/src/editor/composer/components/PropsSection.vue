@@ -13,7 +13,13 @@
         @change="rename(prop.name, ($event.target as HTMLInputElement).value)"
       />
       <span class="mech-composer__var-type">{{ typeLabel(prop.schema) }}</span>
+      <!-- A list prop (a Repeat's items) has structured defaults — edited through
+           the repeated elements + preview count, not a text box. -->
+      <span v-if="prop.schema.type === 'array'" class="mech-composer__var-default mech-composer__var-default--info">
+        {{ itemCount(prop.schema) }}
+      </span>
       <input
+        v-else
         class="mech-composer__var-default"
         :value="defaultOf(prop.schema)"
         placeholder="default"
@@ -40,12 +46,18 @@ const rename = (from: string, to: string) => {
 
 const typeLabel = (schema: Record<string, unknown>) => {
   if (schema.format === 'image') return 'image'
-  if (schema.format === 'smartLink') return 'link'
+  if (schema.format === 'smartLink' || schema.type === 'smartLink') return 'link'
   if (schema.format === 'text') return 'text'
+  if (schema.type === 'array') return 'list'
   return String(schema.type ?? 'string')
 }
 const defaultOf = (schema: Record<string, unknown>) => {
   const d = schema.default
-  return d == null ? '' : String(d)
+  if (d == null) return ''
+  return typeof d === 'object' ? '' : String(d)
+}
+const itemCount = (schema: Record<string, unknown>) => {
+  const d = schema.default
+  return Array.isArray(d) ? `${d.length} item${d.length === 1 ? '' : 's'}` : 'items'
 }
 </script>

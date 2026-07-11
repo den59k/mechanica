@@ -1655,3 +1655,67 @@ $margin: #f97316; // translucent orange for margin editing (distinct from paddin
   white-space: nowrap;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
+
+// ── Fill: background image + focal + overlay ─────────────────────────────────
+.mech-composer__bgimg {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+
+  .mech-composer__image-preview {
+    flex: 1;
+    height: 64px;
+  }
+}
+.mech-composer__bgimg-side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  .mech-button {
+    font-size: 12px;
+    padding: 4px 10px;
+  }
+}
+.mech-composer__bgimg-add {
+  margin-top: 8px;
+}
+
+// ── Layers: hidden / repeat markers ──────────────────────────────────────────
+.mech-composer__layer.is-hidden {
+  .mech-composer__layer-icon,
+  .mech-composer__layer-label {
+    opacity: 0.42;
+  }
+}
+.mech-composer__layer-badge {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  opacity: 0.5;
+}
+.mech-composer__layer-eye {
+  border: none;
+  background: none;
+  padding: 2px;
+  color: inherit;
+  opacity: 0.55;
+  cursor: pointer;
+
+  .vicon {
+    width: 13px;
+    height: 13px;
+  }
+  &:hover {
+    opacity: 1;
+    color: var(--mech-accent);
+  }
+}
+
+// A list variable's default is structured (edited via the repeat), not typed.
+.mech-composer__var-default--info {
+  background: none;
+  color: var(--mech-muted);
+  font-size: 12px;
+  padding: 4px 7px;
+}

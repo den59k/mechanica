@@ -1,5 +1,7 @@
-import { defineComponent, h, type Component } from 'vue'
+import { defineComponent, h, type Component, type VNode } from 'vue'
+import type { PageLink } from 'mechanica-shared'
 import type { BlocksMap } from '../core/state'
+import { Link } from '../core/link'
 import { responsiveVars, absStyle, compactStyle, FRAME_VARS, TEXT_VARS, IMAGE_VARS } from './style-vars'
 import './elements.scss'
 
@@ -38,6 +40,20 @@ function classAttr(base: string, cls: unknown): string {
   return tokens.length ? `${base} ${tokens.join(' ')}` : base
 }
 
+/**
+ * The element's link target — a `smartLink`-shaped object with a non-empty url
+ * (`{ url, title?, external?, openNewTab? }`). A linked frame renders as the
+ * runtime `<Link>` (an `<a>` with SPA navigation + locale prefixing); a linked
+ * text wraps its content in one. Behavior only — `a.mxel-frame` / `.mxel-text a`
+ * inherit color/decoration (elements.scss) so linking never restyles.
+ */
+function linkTarget(data: Data): Partial<PageLink> | null {
+  const link = data.link
+  if (typeof link !== 'object' || link === null || Array.isArray(link)) return null
+  const url = (link as Record<string, unknown>).url
+  return typeof url === 'string' && url !== '' ? (link as Partial<PageLink>) : null
+}
+
 // Visual style (background/radius/size/color/…) rides the same CSS-variable
 // indirection as layout — see FRAME_VARS/TEXT_VARS/IMAGE_VARS — so every knob
 // takes `$bp` breakpoint overrides. Only the rare compound knobs that have no
@@ -60,11 +76,14 @@ const Frame = defineComponent({
     return () => {
       const data = attrs as Data
       const style = compactStyle(responsiveVars(data, FRAME_VARS), frameStyle(data), absStyle(data.$abs))
-      return h(
-        'div',
-        { class: classAttr('mxel mxel-frame', data.cls), style, 'data-block-id': blockId(data) },
-        slots.default ? slots.default() : undefined,
-      )
+      const props = { class: classAttr('mxel mxel-frame', data.cls), style, 'data-block-id': blockId(data) }
+      const children = slots.default ? slots.default() : undefined
+      const link = linkTarget(data)
+      // A linked frame *is* the anchor (a clickable card / CTA): <Link> renders
+      // an <a>, and Vue's attr fallthrough merges class/style/data-block-id onto
+      // it, so layout and editor mapping are identical to the <div> form.
+      if (link) return h(Link, { to: link, activeClass: false, ...props }, () => children)
+      return h('div', props, children)
     }
   },
 })
@@ -80,10 +99,15 @@ const Text = defineComponent({
       const data = attrs as Data
       const tag = typeof data.tag === 'string' && TEXT_TAGS.has(data.tag) ? data.tag : 'p'
       const style = compactStyle(responsiveVars(data, TEXT_VARS), absStyle(data.$abs))
+      const content = String(data.content ?? '')
+      const link = linkTarget(data)
+      // A linked text keeps its tag (an <h2> stays an <h2>) and wraps the
+      // content in the anchor, so heading semantics and typography knobs hold.
+      const children: string | VNode = link ? h(Link, { to: link, activeClass: false }, () => content) : content
       return h(
         tag,
         { class: classAttr('mxel mxel-text', data.cls), style, 'data-block-id': blockId(data) },
-        String(data.content ?? ''),
+        children,
       )
     }
   },

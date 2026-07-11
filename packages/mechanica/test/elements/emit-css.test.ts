@@ -47,8 +47,40 @@ describe('emitElementsCss', () => {
   it('covers every style-vars CSS variable (no drift)', () => {
     const bases = new Set(ELEMENT_CSS_VAR_BASES)
     const specVars = [FRAME_VARS, SIZE_VARS, TEXT_VARS, IMAGE_VARS].flatMap((specs) =>
-      Object.values(specs).map((spec) => spec.cssVar.replace(/^--/, '')),
+      Object.values(specs)
+        .flatMap((entry) => (Array.isArray(entry) ? entry : [entry]))
+        .map((spec) => spec.cssVar.replace(/^--/, '')),
     )
     for (const varBase of specVars) expect(bases).toContain(varBase)
+  })
+
+  it('emits display knob rungs per kind (the hide knob), floors restating the defaults', () => {
+    expect(css).toContain(".mxel-frame[style*='--el-display:'] { display: var(--el-display); }")
+    expect(css).toContain(".mxel-text[style*='--el-display:'] { display: var(--el-display); }")
+    expect(css).toContain(".mxel-slot[style*='--el-display:'] { display: var(--el-display); }")
+    expect(css).toContain(".mxel-frame[style*='--el-display-sm:'] { display: var(--el-display-sm); }")
+    // Floors sit in the layer with the kind's own default as fallback.
+    expect(css).toContain('display: var(--el-display, flex);')
+    expect(css).toContain('display: var(--el-display, block);')
+  })
+
+  it('composes the background image with the overlay gradient, after the bg shorthand', () => {
+    // Floor: gradient(overlay, overlay) over the image url, per suffix chain.
+    expect(css).toContain(
+      'background-image: linear-gradient(var(--el-bgoverlay, transparent), var(--el-bgoverlay, transparent)), var(--el-bgimg, none);',
+    )
+    // Knob rung, breakpoint-suffixed overlay chain inside the -sm block.
+    expect(css).toContain(
+      ".mxel-frame[style*='--el-bgimg-sm:'] { background-image: linear-gradient(var(--el-bgoverlay-sm, var(--el-bgoverlay-md, var(--el-bgoverlay, transparent))), var(--el-bgoverlay-sm, var(--el-bgoverlay-md, var(--el-bgoverlay, transparent)))), var(--el-bgimg-sm); }",
+    )
+    // The bg-image knob rung must come after the background shorthand's, so a
+    // color + image fill keeps the image (the shorthand resets background-image).
+    const bg = css.indexOf(".mxel-frame[style*='--el-bg:']")
+    const bgimg = css.indexOf(".mxel-frame[style*='--el-bgimg:']")
+    expect(bg).toBeGreaterThan(-1)
+    expect(bgimg).toBeGreaterThan(bg)
+    // Focal position floor + rung.
+    expect(css).toContain('background-position: var(--el-bgpos, 50% 50%);')
+    expect(css).toContain(".mxel-frame[style*='--el-bgpos:'] { background-position: var(--el-bgpos); }")
   })
 })

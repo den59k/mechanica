@@ -35,8 +35,17 @@ export const OPTIONAL_PROPS: OptionalProp[] = [
   // mode. `maxWidth` on a frame also centers it (the content-column pattern). The
   // root frame carries a default minHeight so it's never zero-height.
   { key: 'limits', title: 'Limits', icon: 'limits', kinds: ['frame', 'text', 'image'], dataKeys: ['minWidth', 'maxWidth', 'minHeight', 'maxHeight'] },
-  { key: 'background', title: 'Fill', icon: 'fill', kinds: ['frame'], dataKeys: ['background'] },
+  // Fill = color + optional background image (with focal point + color overlay).
+  { key: 'background', title: 'Fill', icon: 'fill', kinds: ['frame'], dataKeys: ['background', 'bgImage', 'bgOverlay'] },
   { key: 'radius', title: 'Radius', icon: 'corner', kinds: ['frame', 'image'], dataKeys: ['radius'] },
+  // A smartLink target: a linked frame renders as an <a>, a linked text wraps
+  // its content in one. Behavior, not styling — base-only, never responsive.
+  { key: 'link', title: 'Link', icon: 'link', kinds: ['frame', 'text'], dataKeys: ['link'] },
+  // Per-breakpoint visibility — `hide: true` in a `$bp` layer is "hide on mobile".
+  { key: 'visibility', title: 'Visibility', icon: 'eye', kinds: ['frame', 'text', 'image'], dataKeys: ['hide'], component: true },
+  // Repeat the node per item of an array prop (`$each`). Its on/off transitions
+  // run through store.setEach (prop bookkeeping), not plain data writes.
+  { key: 'repeat', title: 'Repeat', icon: 'repeat', kinds: ['frame', 'text', 'image'], dataKeys: ['$each'], notRoot: true, component: true },
   { key: 'position', title: 'Position', icon: 'position', kinds: ['frame', 'text', 'image'], dataKeys: ['$abs'], notRoot: true, component: true },
 ]
 

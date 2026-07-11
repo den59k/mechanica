@@ -44,6 +44,15 @@ describe('renderBlocks: placement wrapper for non-element blocks', () => {
     expect((v.props as any)['data-block-id']).toBe('b3')
   })
 
+  it('wraps a component that hides per breakpoint, stripping the hide prop', () => {
+    const v = render({ id: 'b6', blockId: 'badge', data: { text: 'Hi', hide: true } })
+    expect(v.type).toBe('div')
+    expect((v.props as any).style).toMatchObject({ '--el-display': 'none' })
+    const inner = (v.children as VNode[])[0]!
+    expect((inner.props as any).text).toBe('Hi')
+    expect('hide' in (inner.props as any)).toBe(false)
+  })
+
   it('never wraps a built-in element — it applies its own placement inline', () => {
     const v = render({ id: 'b4', blockId: 'mech:frame', data: { margin: 16, $abs: { anchor: 'top-left' } } })
     expect(v.type).toBe(Frame)
