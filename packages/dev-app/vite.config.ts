@@ -29,12 +29,13 @@ export default defineConfig({
     vue(),
   ],
   resolve: {
-    // The published package resolves to dist/ (the `import` condition), but
-    // dev-app develops mechanica itself: alias the browser-side entry points
-    // back to workspace source so editor/runtime changes are live (HMR), with
-    // no dist build required. Node-side resolution (this config's own
-    // 'mechanica/plugin' import, the CLI) is live via the `bun` export
-    // condition — the repo always runs under Bun.
+    // The package resolves to dist/ (the `import` condition), but dev-app
+    // develops mechanica itself: alias the browser-side entry points back to
+    // workspace source so editor/runtime changes are live (HMR), with no dist
+    // build required. Node-side code differs: this config's own
+    // 'mechanica/plugin' import loads from dist/ (Vite's config loader uses
+    // the `import` condition), while the CLI runs live from source under Bun
+    // (bin/mechanica.js picks src/ when present + tsconfig `paths` for shared).
     alias: [
       { find: /^mechanica$/, replacement: src('../mechanica/src/index.ts') },
       { find: /^mechanica\/editor$/, replacement: src('../mechanica/src/editor/editor.ts') },

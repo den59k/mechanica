@@ -1,6 +1,6 @@
 {
   "name": "mechanica",
-  "version": "2.0.0-alpha.10",
+  "version": "2.0.0-alpha.12",
   "description": "Build Vue 3 websites with a visual block editor",
   "license": "MIT",
   "repository": {
@@ -25,7 +25,6 @@
   },
   "files": [
     "bin",
-    "src",
     "dist"
   ],
   "bin": {
@@ -34,12 +33,10 @@
   "exports": {
     ".": {
       "types": "./dist/types/index.d.ts",
-      "bun": "./src/index.ts",
       "import": "./dist/index.js"
     },
     "./plugin": {
       "types": "./dist/types/vite/index.d.ts",
-      "bun": "./src/vite/index.ts",
       "import": "./dist/plugin.js"
     },
     "./editor": {

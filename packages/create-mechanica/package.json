@@ -1,6 +1,6 @@
 {
   "name": "create-mechanica",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Scaffold a new Mechanica site — a Vue 3 website with a visual block editor",
   "license": "MIT",
   "type": "module",

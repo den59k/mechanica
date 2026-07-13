@@ -10,7 +10,8 @@
       "mechanica/plugin": ["../mechanica/src/vite/index.ts"],
       "mechanica/widgets": ["../mechanica/src/editor/widget-api.ts"],
       "mechanica-shared": ["../shared/src/index.ts"],
-      "mechanica-shared/page-format": ["../shared/src/page-format.ts"]
+      "mechanica-shared/page-format": ["../shared/src/page-format.ts"],
+      "mechanica-shared/block-format": ["../shared/src/block-format.ts"]
     }
   },
   "include": ["src"]
