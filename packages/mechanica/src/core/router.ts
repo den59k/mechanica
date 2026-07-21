@@ -1,4 +1,4 @@
-import { inject, shallowReactive, type ShallowRef } from 'vue'
+import { inject, nextTick, shallowReactive, type ShallowRef } from 'vue'
 import type { ContentBlock, State } from 'mechanica-shared'
 import { mechanicaKey, type MechanicaMode } from './state'
 
@@ -44,10 +44,21 @@ export function createRouter(
 
   const isBrowser = options.mode !== 'server' && typeof window !== 'undefined'
 
+  /** Split `/about#faq` into its path and its fragment (`faq`, no `#`). */
+  const splitHash = (path: string): { path: string; hash: string } => {
+    const index = path.indexOf('#')
+    if (index === -1) return { path, hash: '' }
+    return { path: path.slice(0, index), hash: path.slice(index + 1) }
+  }
+
   const normalizePath = (path: string): string => {
-    let next = baseUrl + path
+    // Normalize the path part only, then put the fragment back: a bare `#faq`
+    // stays `#faq` (a same-page anchor), and `/about/#faq` still loses the
+    // trailing slash. `currentRoute.path` is always the fragment-less form.
+    const { path: bare, hash } = splitHash(path)
+    let next = baseUrl + bare
     if (next.endsWith('/') && next !== '/') next = next.slice(0, -1)
-    return next
+    return hash ? `${next}#${hash}` : next
   }
 
   const stripBase = (path: string): string => {
@@ -107,14 +118,56 @@ export function createRouter(
     }
   }
 
+  /**
+   * Where a completed navigation lands. A real browser jumps to the top of a
+   * new document, or to the `#id` element when the URL carries a fragment —
+   * SPA navigation has to do both by hand.
+   *
+   * `'instant'` is deliberate: a site-wide `scroll-behavior: smooth` would
+   * otherwise animate the jump *after* the new content is already swapped in.
+   */
+  const settleScroll = async (hash: string, swapped: boolean): Promise<void> => {
+    if (!isBrowser) return
+    // The content swap renders on the next tick — the anchor doesn't exist yet.
+    await nextTick()
+
+    if (hash) {
+      const el = document.getElementById(hash)
+      if (el) {
+        el.scrollIntoView({ behavior: 'instant', block: 'start' })
+        return
+      }
+      // A dead anchor on the page we're already on leaves the view alone, the
+      // way the browser does; on a fresh page we still land at the top.
+      if (!swapped) return
+    }
+
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }
+
   const push = async (path: string): Promise<void> => {
     const target = normalizePath(path)
+    const { path: bare, hash } = splitHash(target)
     if (isBrowser) window.history.pushState({}, '', target)
-    await openPage(target)
+    // A bare `#faq`, or a fragment on the page we're already on, is an in-page
+    // jump: no fetch, no content swap.
+    const swapped = Boolean(bare) && bare !== currentRoute.path
+    if (swapped) await openPage(bare)
+    await settleScroll(hash, swapped)
   }
 
   if (isBrowser) {
-    window.addEventListener('popstate', () => void openPage(window.location.pathname))
+    window.addEventListener('popstate', () => {
+      const target = normalizePath(stripBase(window.location.pathname))
+      const hash = window.location.hash.slice(1)
+      void (async () => {
+        const swapped = target !== currentRoute.path
+        if (swapped) await openPage(target)
+        // Only a fragment is honored here — for a plain back/forward the
+        // browser restores the position it recorded for that history entry.
+        if (hash) await settleScroll(hash, false)
+      })()
+    })
   }
 
   return { currentRoute, push, normalizePath }

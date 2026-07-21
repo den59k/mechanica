@@ -38,6 +38,8 @@ const BlogList = defineComponent({
 
 function mount() {
   setups = 0
+  // The router scrolls the new page to the top; jsdom doesn't implement it.
+  vi.stubGlobal('scrollTo', vi.fn())
   const el = document.createElement('div')
   document.body.appendChild(el)
   let ctx!: MechanicaContext
