@@ -166,6 +166,7 @@ import { resolveShortcut } from './lib/shortcuts'
 import { pushStateUpdate, runtimeLayoutNames } from './lib/bridge'
 import { useBlockFrames } from './lib/use-block-frames'
 import type { BlockComponent } from './lib/block-meta'
+import { dataEntryAvailableIn } from './lib/data-meta'
 import type { EditorSnapshot, SaveController } from './lib/types'
 import { navigationKey, fallbackNavigation, type PageNavigation } from './lib/navigation'
 import { createDialogStore, dialogKey } from './ui/dialog'
@@ -223,7 +224,7 @@ const openData = () => dialog.open(DataDialog)
 // opens even on sites without any defineData entries.
 const hasPageDialog = computed(
   () =>
-    store.dataEntries.length > 0 ||
+    store.dataEntries.some((entry) => dataEntryAvailableIn(entry, store.folder)) ||
     runtimeLayoutNames().length > 1 ||
     store.blocks.some((block) => block.standalone && !block.hidden),
 )
@@ -326,6 +327,9 @@ const collapsed = ref(false)
 // the editor (save path, page version, undo history) moves with the page.
 const { hovered, selected } = useBlockFrames(store, {
   followLink: (path) => void navigation.switchPage(path),
+  // Collapse the panels to hand the live page back: with the editor out of the
+  // way, buttons/links/controls work natively (no block selection intercept).
+  enabled: () => !collapsed.value,
 })
 
 const selectedName = computed(() =>

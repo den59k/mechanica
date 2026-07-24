@@ -5,6 +5,8 @@ export interface DataEntryInput {
   id: string
   title?: string
   props: unknown
+  /** Restrict the entry to pages under this folder (nested folders match by prefix). */
+  folder?: string
   /** Translate this entry's site/folder value per locale (multi-language sites). */
   localized?: boolean
 }
@@ -27,6 +29,7 @@ export function getDataEntries(): DataEntry[] {
     id: entry.id,
     title: entry.title,
     props: unfoldSchema(entry.props as never),
+    ...(entry.folder ? { folder: entry.folder } : {}),
     ...(entry.localized ? { localized: true } : {}),
   }))
 }

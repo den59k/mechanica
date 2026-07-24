@@ -12,6 +12,14 @@ export interface DataDefinition<Id extends string, T extends SchemaItem> {
   /** Data shape (compact-json-schema). */
   props: T
   /**
+   * Restrict the entry to pages under this folder (a folder path relative to
+   * `pages/`, e.g. `'examples'`; nested folders match by prefix). Omitted =
+   * offered everywhere. This only filters where the editor's Data dialog offers
+   * the entry — the value's scope (site / folder / page, chosen per page) and
+   * where it is stored are unchanged.
+   */
+  folder?: string
+  /**
    * Store this entry's site/folder value per locale on a multi-language site
    * (with fallback to the default locale), so shared strings can be translated.
    * Ignored when i18n is off.

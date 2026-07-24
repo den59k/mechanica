@@ -76,9 +76,13 @@ describe('useBlockFrames click handling', () => {
   const fakeStore = () =>
     ({ setHover: vi.fn(), select: vi.fn(), selectedId: null, hoverId: null }) as unknown as EditorStore
 
-  const mount = (store: EditorStore, followLink?: (path: string) => void) => {
+  const mount = (
+    store: EditorStore,
+    followLink?: (path: string) => void,
+    enabled?: () => boolean,
+  ) => {
     const scope = effectScope()
-    scope.run(() => useBlockFrames(store, { followLink }))
+    scope.run(() => useBlockFrames(store, { followLink, enabled }))
     return scope
   }
 
@@ -136,6 +140,35 @@ describe('useBlockFrames click handling', () => {
     document.body.innerHTML = '<div data-mech-ui><a id="l" href="/about">x</a></div>'
     expect(click('l')).toBe(false)
     expect(followed).toEqual([])
+    scope.stop()
+  })
+
+  it('hands the page back when disabled: no select, no link follow', () => {
+    const store = fakeStore()
+    const followed: string[] = []
+    // Panels collapsed → overlay inactive.
+    const scope = mount(store, (path) => followed.push(path), () => false)
+    document.body.innerHTML =
+      '<section data-block-id="b1"><button id="btn">Go</button><a href="/blog/2"><span id="l">Read</span></a></section>'
+    // A click on a control is left native (not prevented, not selected)…
+    expect(click('btn')).toBe(false)
+    expect(store.select).not.toHaveBeenCalled()
+    // …and an internal link is not followed in place either.
+    expect(click('l')).toBe(false)
+    expect(followed).toEqual([])
+    scope.stop()
+  })
+
+  it('re-enables editing behavior when the toggle flips back on', () => {
+    const store = fakeStore()
+    let on = false
+    const scope = mount(store, vi.fn(), () => on)
+    document.body.innerHTML = '<section data-block-id="b1"><p id="p">text</p></section>'
+    expect(click('p')).toBe(false)
+    expect(store.select).not.toHaveBeenCalled()
+    on = true
+    expect(click('p')).toBe(true)
+    expect(store.select).toHaveBeenCalledWith('b1')
     scope.stop()
   })
 })

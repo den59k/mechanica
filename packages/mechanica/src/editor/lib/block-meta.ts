@@ -85,6 +85,20 @@ export function createContentBlock(block: Block): ContentBlock {
 }
 
 /**
+ * Whether `folder` (null = root) is the same as, or nested under, `scope` —
+ * the shared folder-restriction match used by the palette (`blockAvailableIn`)
+ * and the Data dialog (`dataEntryAvailableIn`). Prefix-based, so `'docs'` covers
+ * `docs/guides` but not `docs-v2`; leading/trailing slashes are ignored on both
+ * sides.
+ */
+export function isUnderFolder(folder: string | null, scope: string): boolean {
+  if (folder == null) return false
+  const normalizedFolder = folder.replace(/^\/+|\/+$/g, '')
+  const normalizedScope = scope.replace(/^\/+|\/+$/g, '')
+  return normalizedFolder === normalizedScope || normalizedFolder.startsWith(normalizedScope + '/')
+}
+
+/**
  * Whether the palette offers a block on a page in `folder` (null = root).
  * A block without `folders` is offered everywhere; with `folders` it is
  * offered only under those folders (nested folders match by prefix, so
@@ -93,12 +107,7 @@ export function createContentBlock(block: Block): ContentBlock {
  */
 export function blockAvailableIn(block: Block, folder: string | null): boolean {
   if (!block.folders || block.folders.length === 0) return true
-  if (folder == null) return false
-  const normalizedFolder = folder.replace(/^\/+|\/+$/g, '')
-  return block.folders.some((entry) => {
-    const scope = entry.replace(/^\/+|\/+$/g, '')
-    return normalizedFolder === scope || normalizedFolder.startsWith(scope + '/')
-  })
+  return block.folders.some((entry) => isUnderFolder(folder, entry))
 }
 
 /**

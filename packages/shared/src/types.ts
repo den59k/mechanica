@@ -281,6 +281,14 @@ export interface DataEntry {
   /** compact-json-schema describing the data shape. */
   props?: Record<string, unknown>
   /**
+   * Restrict the entry to pages under this folder (a folder path relative to
+   * `pages/`, e.g. `'examples'`; nested folders match by prefix). Omitted =
+   * offered on every page. This only filters what the editor's Data dialog
+   * *draws* — the value's scope (site / folder / page) and where it is stored
+   * are unaffected, so a page-scoped value still lives in the page file.
+   */
+  folder?: string
+  /**
    * Translate this entry per locale (multi-language sites). Its site/folder
    * value is stored per locale (with fallback to the default locale) instead of
    * once, so shared strings (nav labels, footer) can differ by language. Ignored

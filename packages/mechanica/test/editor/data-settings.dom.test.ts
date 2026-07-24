@@ -17,6 +17,9 @@ const entries: DataEntry[] = [
   { id: 'head', title: 'Head', props: { type: 'object', properties: { title: { type: 'string' } } } },
 ]
 
+const namesIn = (el: HTMLElement) =>
+  [...el.querySelectorAll('.mech-data__entry-name')].map((n) => n.textContent?.trim())
+
 function mount(store: EditorStore) {
   const el = document.createElement('div')
   const app = createApp({ render: () => h(DataSettings) })
@@ -70,5 +73,20 @@ describe('DataSettings', () => {
     const { el } = mount(store)
     const labels = [...el.querySelectorAll('.mech-segmented__seg')].map((s) => s.textContent?.trim())
     expect(labels).toEqual(['Site', 'This page'])
+  })
+
+  it('draws a folder-pinned entry only on pages under that folder', () => {
+    const pinned: DataEntry[] = [
+      ...entries,
+      { id: 'example', title: 'Example', folder: 'examples', props: { type: 'object', properties: {} } },
+    ]
+
+    // Root page: the pinned entry stays out of the rail.
+    const atRoot = mount(createEditorStore({ content: [], data: {} }, [], pinned))
+    expect(namesIn(atRoot.el)).toEqual(['Head', 'Site'])
+
+    // A page under `examples/` (incl. nested): the pinned entry appears.
+    const inFolder = mount(createEditorStore({ content: [], data: {}, folder: 'examples/advanced' }, [], pinned))
+    expect(namesIn(inFolder.el)).toEqual(['Example', 'Head', 'Site'])
   })
 })

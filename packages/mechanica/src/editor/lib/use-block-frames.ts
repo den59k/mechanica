@@ -57,6 +57,15 @@ export function linkClickAction(
 export interface BlockFramesOptions {
   /** Follow an internal page link clicked on the live page (in-place switch). */
   followLink?: (path: string) => void
+  /**
+   * Whether the editor overlay is active. When this returns `false` (the panels
+   * are collapsed), the overlay stops touching the live page entirely — it no
+   * longer hovers or selects blocks, and clicks on buttons, links and every
+   * other control behave natively, so the page is usable like the published
+   * site. `true`/absent keeps the editing behavior (block selection, links
+   * followed in place).
+   */
+  enabled?: () => boolean
 }
 
 function rectOf(id: string): BlockRect | null {
@@ -77,8 +86,14 @@ function rectOf(id: string): BlockRect | null {
 export function useBlockFrames(store: EditorStore, options: BlockFramesOptions = {}) {
   const hovered = ref<BlockRect | null>(null)
   const selected = ref<BlockRect | null>(null)
+  const active = () => options.enabled?.() ?? true
 
   const onMove = (event: MouseEvent) => {
+    // Panels collapsed: hands off the page, and drop any lingering hover frame.
+    if (!active()) {
+      if (store.hoverId) store.setHover(null)
+      return
+    }
     // Over editor chrome (including the tree): leave hover to the tree's own
     // mouseenter/leave, so hovering a row keeps framing its block on the page.
     const target = event.target as Element
@@ -87,6 +102,8 @@ export function useBlockFrames(store: EditorStore, options: BlockFramesOptions =
   }
 
   const onClick = (event: MouseEvent) => {
+    // Panels collapsed: let buttons, links and every control click natively.
+    if (!active()) return
     const target = event.target as Element
     if (isEditorUI(target)) return
     const link = findLink(target)

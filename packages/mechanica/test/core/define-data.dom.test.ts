@@ -18,6 +18,15 @@ describe('defineData', () => {
     expect(entries[0]!.props).toBeTypeOf('object')
   })
 
+  it('passes a folder pin through to the introspectable entry', () => {
+    defineData({ id: 'nav', props: {}, folder: 'examples' })
+    expect(getDataEntries()[0]).toMatchObject({ id: 'nav', folder: 'examples' })
+    // Unpinned entries carry no folder key.
+    clearDataEntries()
+    defineData({ id: 'head', props: {} })
+    expect('folder' in getDataEntries()[0]!).toBe(false)
+  })
+
   it('exposes a hook returning the live data, filling defaults in dev mode', () => {
     const useHeader = defineData({ id: 'header', props: { title: 'string' } })
     let seen: any

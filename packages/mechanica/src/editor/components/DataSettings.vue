@@ -14,10 +14,10 @@
           <VIcon name="frame" class="mech-data__entry-icon" />
           <span class="mech-data__entry-name">Page setup</span>
         </button>
-        <div v-if="store.dataEntries.length" class="mech-data__divider" aria-hidden="true" />
+        <div v-if="entries.length" class="mech-data__divider" aria-hidden="true" />
       </template>
       <button
-        v-for="entry in store.dataEntries"
+        v-for="entry in entries"
         :key="entry.id"
         type="button"
         class="mech-data__entry"
@@ -85,6 +85,7 @@
 import { computed, inject, ref } from 'vue'
 import { localeLabel, type DataScope, type LocalesConfig, type State } from 'mechanica-shared'
 import { editorStoreKey } from '../lib/store'
+import { dataEntryAvailableIn } from '../lib/data-meta'
 import { runtimeLayoutNames } from '../lib/bridge'
 import SchemaForm from '../props-panel/SchemaForm.vue'
 import VSegmented, { type SegmentedOption } from './VSegmented.vue'
@@ -103,11 +104,15 @@ const PAGE_SETUP = '$page-setup'
 const hasPageSetup =
   runtimeLayoutNames().length > 1 || store.blocks.some((block) => block.standalone && !block.hidden)
 
-const activeId = ref<string | null>(store.dataEntries[0]?.id ?? (hasPageSetup ? PAGE_SETUP : null))
+// Folder-pinned entries (`defineData({ folder })`) are only drawn on pages under
+// that folder — the value's scope is unaffected, this just filters the rail.
+const entries = computed(() => store.dataEntries.filter((entry) => dataEntryAvailableIn(entry, store.folder)))
+
+const activeId = ref<string | null>(entries.value[0]?.id ?? (hasPageSetup ? PAGE_SETUP : null))
 const active = computed(() =>
   activeId.value === PAGE_SETUP
     ? null
-    : (store.dataEntries.find((entry) => entry.id === activeId.value) ?? store.dataEntries[0] ?? null),
+    : (entries.value.find((entry) => entry.id === activeId.value) ?? entries.value[0] ?? null),
 )
 const currentScope = computed<DataScope>(() => (active.value ? store.scopeOf(active.value.id) : 'page'))
 
