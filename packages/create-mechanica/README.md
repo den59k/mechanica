@@ -14,6 +14,8 @@ npm run dev
 
 Generated projects run on plain Node ≥ 20.19 (npm/pnpm/yarn) or [Bun](https://bun.sh).
 
+To scaffold into the current folder, pass `.`: `npm create mechanica@latest .`. The target may already hold dotfiles such as `.git`, `.claude` or `.vscode`; anything else makes the scaffolder stop, and it never overwrites a file.
+
 ## What you get
 
 - `src/blocks/` — starter blocks (`Hero`, `Rich text`) showing the `defineBlock` macro, `previewData`, and manual code splitting (`chunk`)

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.1 (2026-09-30)
+
+Released packages: `mechanica` 2.0.1, `mechanica-shared` 2.0.1 and `create-mechanica` 0.3.1.
+
+- **Fixed:** `mechanica` 2.0.0 could not be installed. It was published with an unresolved `workspace:*` dependency on `mechanica-shared`, and `mechanica-shared` 2.0.0 never reached npm, so `npm install mechanica` failed with `EUNSUPPORTEDPROTOCOL`. 2.0.0 is deprecated; 2.0.1 is the first installable stable release.
+- **Fixed:** the per-page block stylesheet and `modulepreload` links the export adds now carry `crossorigin`, like Vite's own tags. With assets on a CDN, the hint used to cache each chunk without CORS headers, and the browser then blocked the chunk's real import on client-side navigation.
+- `create-mechanica`: the starter ships `AGENTS.md` instead of `CLAUDE.md`, so Codex and other AI coding assistants pick it up as well as Claude Code (0.3.0 still shipped `CLAUDE.md`).
+- `create-mechanica`: scaffolds into a folder that holds only dotfiles such as `.git`, `.claude` or `.vscode` (`npm create mechanica@latest .` in a fresh repository). It still refuses a folder with other files, and never overwrites anything.
+
 ## 2.0.0 (2026-09-30)
 
 The first stable release of Mechanica 2, a ground-up rewrite of 1.x. Released packages: `mechanica` 2.0.0, `mechanica-shared` 2.0.0 and `create-mechanica` 0.3.0.
@@ -7,7 +16,6 @@ The first stable release of Mechanica 2, a ground-up rewrite of 1.x. Released pa
 ### Since 2.0.0-alpha.14
 
 - **Fixed:** the dev server never registered Mechanica's field types. Shorthand props like `photo: 'image'` or `cta: 'smartLink'` therefore defaulted to `''` in development (the export was right), and images in them bypassed the image manifest: their blur-up previews were written into `.page.md` files on save instead of `.mech/images.json`, and dimensions weren't injected in dev.
-- **Fixed:** the per-page block stylesheet and `modulepreload` links the export adds now carry `crossorigin`, like Vite's own tags. With assets on a CDN, the hint used to cache each chunk without CORS headers, and the browser then blocked the chunk's real import on client-side navigation.
 - Builds on Vite 8.3+ no longer print rolldown's warning about the blocks chunk group missing a `debugName`.
 - Published to npm's `latest` tag, so `npm install mechanica` and `npm create mechanica@latest` now get 2.x.
 

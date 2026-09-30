@@ -9,6 +9,7 @@ const templateDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'tem
 
 // npm strips `.gitignore` from published packages, so the template ships it
 // under a neutral name and we rename on scaffold (same trick as create-vite).
+/** @type {Record<string, string>} */
 const renameOnCopy = { _gitignore: '.gitignore' }
 
 /**
@@ -28,8 +29,22 @@ export function toPackageName(dirName) {
 }
 
 /**
+ * The entries of an existing directory that block scaffolding into it.
+ * Dotfiles are tolerated — a folder opened in an editor or an AI coding agent
+ * usually already holds `.git`, `.claude`, `.vscode`… — except the ones the
+ * template writes itself (`.mech`, `.gitignore`): nothing is ever overwritten.
+ * @param {string} dir
+ * @returns {string[]}
+ */
+export function blockingEntries(dir) {
+  const ours = new Set(fs.readdirSync(templateDir).map((entry) => renameOnCopy[entry] ?? entry))
+  return fs.readdirSync(dir).filter((entry) => !entry.startsWith('.') || ours.has(entry))
+}
+
+/**
  * Copy the template into `targetDir` and patch the project name.
- * `targetDir` must not exist yet, or be an empty directory.
+ * `targetDir` must not exist yet, or hold nothing but dotfiles the template
+ * doesn't write (see `blockingEntries`).
  * @param {string} targetDir
  * @param {{ name?: string }} [options]
  * @returns {{ dir: string, name: string }}
@@ -38,7 +53,11 @@ export function scaffold(targetDir, options = {}) {
   const dir = path.resolve(targetDir)
   if (fs.existsSync(dir)) {
     if (!fs.statSync(dir).isDirectory()) throw new Error(`${dir} exists and is not a directory.`)
-    if (fs.readdirSync(dir).length > 0) throw new Error(`${dir} is not empty — refusing to scaffold into it.`)
+    const blocking = blockingEntries(dir)
+    if (blocking.length > 0) {
+      const found = blocking.slice(0, 5).join(', ') + (blocking.length > 5 ? ', …' : '')
+      throw new Error(`${dir} is not empty (found ${found}) — refusing to scaffold into it.`)
+    }
   }
   const name = options.name || toPackageName(path.basename(dir))
 
@@ -81,4 +100,6 @@ export async function main() {
   if (cdPath !== '.') console.log(`  cd ${cdPath}`)
   console.log(`  ${pm} install`)
   console.log(`  ${pm} run dev\n`)
+  // Agents read this output too: point them at the project's own guidance.
+  console.log(`AI coding agents: read ${path.join(cdPath, 'AGENTS.md')} before editing blocks or pages.\n`)
 }

@@ -2,7 +2,7 @@ import { describe, expect, it, afterEach } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { scaffold, toPackageName } from '../index.js'
+import { blockingEntries, scaffold, toPackageName } from '../index.js'
 
 const cleanups: string[] = []
 const tmpDir = () => {
@@ -96,7 +96,34 @@ describe('scaffold', () => {
   it('refuses a non-empty target directory', () => {
     const target = tmpDir()
     fs.writeFileSync(path.join(target, 'keep.txt'), 'hi')
+    expect(() => scaffold(target)).toThrow(/not empty \(found keep\.txt\)/)
+  })
+
+  it('scaffolds into a directory that only holds dotfiles', () => {
+    // What an agent or editor session starts from: a fresh repo, tool config.
+    const target = tmpDir()
+    fs.mkdirSync(path.join(target, '.git'))
+    fs.writeFileSync(path.join(target, '.git', 'HEAD'), 'ref: refs/heads/main\n')
+    fs.mkdirSync(path.join(target, '.claude'))
+    fs.writeFileSync(path.join(target, '.DS_Store'), '')
+
+    expect(blockingEntries(target)).toEqual([])
+    scaffold(target, { name: 'site' })
+
+    expect(fs.existsSync(path.join(target, 'package.json'))).toBe(true)
+    expect(fs.readFileSync(path.join(target, '.git', 'HEAD'), 'utf8')).toBe('ref: refs/heads/main\n')
+    expect(fs.existsSync(path.join(target, '.claude'))).toBe(true)
+  })
+
+  it('refuses dotfiles the template writes itself, leaving them untouched', () => {
+    const target = tmpDir()
+    fs.writeFileSync(path.join(target, '.gitignore'), 'mine\n')
+    fs.mkdirSync(path.join(target, '.mech'))
+
+    expect(blockingEntries(target).sort()).toEqual(['.gitignore', '.mech'])
     expect(() => scaffold(target)).toThrow(/not empty/)
+    expect(fs.readFileSync(path.join(target, '.gitignore'), 'utf8')).toBe('mine\n')
+    expect(fs.existsSync(path.join(target, 'package.json'))).toBe(false)
   })
 
   it('refuses a target that is a file', () => {
