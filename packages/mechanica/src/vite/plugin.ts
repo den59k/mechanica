@@ -150,6 +150,20 @@ export interface MechanicaPluginOptions {
 }
 
 /**
+ * Whether this rolldown takes a `debugName` on codeSplitting groups. rolldown
+ * 1.2.10 added the option and, with it, a warning on every build whose group
+ * `name` is a function without one; older versions reject the unknown key with
+ * an "Invalid output options" warning instead. Vite pins rolldown per minor, so
+ * `vite ^8` spans both sides — set the label only where it's understood.
+ */
+export function supportsGroupDebugName(rolldownVersion: string | undefined): boolean {
+  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(rolldownVersion ?? '')
+  if (!match) return false
+  const [major, minor, patch] = match.slice(1).map(Number) as [number, number, number]
+  return major > 1 || (major === 1 && (minor > 2 || (minor === 2 && patch >= 10)))
+}
+
+/**
  * The Mechanica Vite plugin: rewrites the `defineBlock` macro, serves the
  * `virtual:mechanica/blocks` and `virtual:mechanica/client` modules, mounts the
  * `/@mechanica` dev middleware, and injects page state + entries into dev HTML.
@@ -386,6 +400,8 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       // rolldown's default chunking, so in `per-block` mode unmarked blocks
       // still split one chunk per block via their dynamic imports.
       if (env.command !== 'build' || env.isSsrBuild) return
+      // `meta` is absent when a test calls the hook bare.
+      const label = supportsGroupDebugName(this.meta?.rolldownVersion) ? { debugName: 'mechanica:blocks' } : {}
       return {
         build: {
           rollupOptions: {
@@ -398,6 +414,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
                 includeDependenciesRecursively: false,
                 groups: [
                   {
+                    ...label,
                     name: (id: string, ctx: ChunkingCtx) => {
                       const own = blockChunkNames.get(slash(id.split('?')[0]!))
                       if (own !== undefined) return groupName(own)

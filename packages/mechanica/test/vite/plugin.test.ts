@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { tmpdir } from 'node:os'
 import { unfoldSchema } from 'compact-json-schema'
 import { passDefaultValue } from 'mechanica-shared'
-import { mechanica, BLOCKS_MODULE_ID, WIDGETS_MODULE_ID } from '@/vite/plugin'
+import { mechanica, supportsGroupDebugName, BLOCKS_MODULE_ID, WIDGETS_MODULE_ID } from '@/vite/plugin'
 
 const block = `<template><div>{{ props.title }}</div></template>
 <script setup lang="ts">
@@ -108,6 +108,27 @@ const props = defineBlock({ chunk: 'charts', props: { title: 'string' } })
       callHook(mechanica().config, {}, { command: 'build', isSsrBuild: false })?.build?.rollupOptions
         ?.output?.codeSplitting?.groups,
     ).toHaveLength(1)
+  })
+
+  it('labels the group with debugName only for a rolldown that accepts it', () => {
+    const groupFor = (rolldownVersion?: string) => {
+      const hook = mechanica().config as (...args: unknown[]) => any
+      const context = rolldownVersion ? { meta: { rolldownVersion } } : {}
+      return hook.call(context, {}, { command: 'build', isSsrBuild: false }).build.rollupOptions.output.codeSplitting
+        .groups[0]
+    }
+    expect(groupFor('1.2.11').debugName).toBe('mechanica:blocks')
+    expect(groupFor('1.2.9')).not.toHaveProperty('debugName')
+    expect(groupFor()).not.toHaveProperty('debugName')
+  })
+
+  it('knows which rolldown versions take a group debugName', () => {
+    for (const version of ['1.2.10', '1.2.11', '1.3.0', '2.0.0', '1.2.10-beta.1']) {
+      expect(supportsGroupDebugName(version), version).toBe(true)
+    }
+    for (const version of ['1.2.9', '1.1.5', '1.0.0', '0.15.1', 'dev', '', undefined]) {
+      expect(supportsGroupDebugName(version), String(version)).toBe(false)
+    }
   })
 
   it('bundles blocks into one chunk; an authored chunk name wins', () => {
