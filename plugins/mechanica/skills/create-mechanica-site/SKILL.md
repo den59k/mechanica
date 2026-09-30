@@ -9,6 +9,8 @@ Mechanica builds Vue 3 websites out of **blocks** (Vue components with a typed p
 
 This skill only gets a new project running. How to write blocks and pages is documented in the scaffolded project's `AGENTS.md` and in the installed package's README, and those always match the installed version. Mechanica 2 changed nearly every API from 1.x, so don't write Mechanica code from memory: read those files first.
 
+The person asking is often not a developer: they use a desktop app, want a website, and may never have opened a terminal. Run every command yourself instead of asking them to. Tell them what is happening in plain words ("installing what the site needs", not the command), and ask only what they can answer: what the site is for, its name, whether you may install something.
+
 ## 1. Pick the folder
 
 - If the current folder is empty, or holds only dotfiles such as `.git`, `.claude` or `.vscode`, scaffold into it: the folder argument is `.`.
@@ -55,7 +57,7 @@ If the install fails, show the user the error. Don't work around it by pinning a
 ## 4. Hand over to the project
 
 1. Read `AGENTS.md` in the project root and follow it from here on. It covers the everyday loop (blocks in `src/blocks/`, pages in `.mech/pages/`, checking your work with `mechanica shot`) and points to the full documentation in `node_modules/mechanica/README.md`.
-2. Tell the user which folder the site is in and the URL to open. The page there has the editor on top of it, so they can arrange blocks and edit content themselves; the files you edit update it live.
+2. Show the user the site. If your app can display a web page itself (a preview or browser pane), open the dev server's URL there; otherwise give them the URL to open in their browser. The page has the editor on top of it, so they can arrange blocks and edit content themselves, and the files you edit update it live. Tell them that in a sentence, and which folder the site is in.
 3. If the user has already described the site they want, start building it. If they haven't, ask what it should be.
 
 ## When the project can't run on the user's machine

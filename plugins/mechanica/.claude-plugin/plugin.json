@@ -1,6 +1,6 @@
 {
   "name": "mechanica",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Create a Mechanica site: checks for Node.js or Bun, scaffolds the project, starts the dev server and hands over to the project's AGENTS.md",
   "author": {
     "name": "den59k"
