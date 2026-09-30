@@ -32,7 +32,7 @@ These drive a locally installed Chrome or Edge and need Node 22+ (or Bun).
 - `src/styles/site.css` — global design tokens + reset.
 - `.mech/pages/*.page.md` — the pages: a human-readable Markdown format, equally editable by hand and by the visual editor.
 - `.mech/assets/` — uploaded files (copied to `/media/` on export).
-- `CLAUDE.md` — guidance for AI coding assistants (e.g. Claude Code) on authoring blocks and pages in this project.
+- `AGENTS.md` — guidance for AI coding assistants (Claude Code, Codex and others) on authoring blocks and pages in this project.
 
 ## Editing pages
 

@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-Guidance for Claude Code working in this **Mechanica** site.
+Guidance for AI coding agents (Claude Code, Codex, …) working in this **Mechanica** site.
 
 ## What this is
 
@@ -9,6 +9,16 @@ content is **blocks** (plain Vue components) arranged into **pages**, rendered
 server-side to a static site. There's a live in-browser editor, but pages are
 also plain files you can author and edit directly — that's mostly what you'll do:
 **create/edit blocks in `src/blocks/`** and **author pages in `.mech/pages/`**.
+
+This file covers the everyday loop. For anything beyond it, read the docs that
+match the installed version instead of guessing:
+
+- `node_modules/mechanica/README.md` — the full guide: layouts, multi-language
+  pages, page queries and pagination, generated pages, images, SEO, the Block
+  Composer, plugin options, the CLI.
+- `node_modules/mechanica/dist/types/` — the API with doc comments
+  (`vite/plugin.d.ts` for plugin options, `core/` for components and composables);
+  `node_modules/mechanica-shared/dist/types/types.d.ts` for every `defineBlock` option.
 
 ## Commands
 
@@ -105,6 +115,34 @@ This paragraph fills the subtitle, a plain text field.
 `rich-text`). Defaulted props may be omitted — defaults fill in automatically, so
 a hand-authored page renders identically to an editor-authored one. **See
 [.mech/pages/index.page.md](.mech/pages/index.page.md) for the worked example.**
+
+The rules that trip up hand-authoring:
+
+- **Order inside a block: props → `@field` regions → child blocks.** Once a
+  region has started, a `key: value` line is part of its text, not a prop.
+- **Nothing is indented.** Every `:::` and `@field` starts at the beginning of
+  its line; a block nests inside whichever fence is still open. Put a child in a
+  named slot with `slot=<name>` on its open line — a container's children go
+  either all to the default slot or all to named ones:
+
+  ```markdown
+  ::: columns
+  gap: lg
+  ::: card slot=left
+  title: Fast
+  :::
+  ::: card slot=right
+  title: Readable
+  :::
+  ::: /columns
+  ```
+
+  `::: /columns` is an optional checked close: use it on containers, so a
+  missing `:::` fails at that line instead of silently re-nesting the rest.
+- **Props are YAML** — quote a value that starts with `#` or contains `: `
+  (`ctaHref: "#next-steps"`). Regions need no quoting; only a line that starts
+  with `:::`, or consists of just `@name`, takes a leading backslash (`\:::`),
+  and not even that inside a code fence.
 
 An `image` prop points at a file in `.mech/assets/`:
 `photo: { src: /@mechanica/assets/team.jpg, alt: "Our team" }`. After adding

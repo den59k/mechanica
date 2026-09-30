@@ -96,6 +96,12 @@ export interface BlockAssetLinkOptions {
  * Build the `<link>` tags for one page: stylesheets first (they must apply
  * before first paint — the server-rendered blocks are already in the HTML),
  * then `modulepreload` for the block chunks and their shared imports.
+ *
+ * Every tag carries `crossorigin`, like the ones Vite writes into the built
+ * index: a later `import()` of the same chunk always fetches in CORS mode, and
+ * on a cross-origin CDN a copy cached by a no-CORS hint has no
+ * `Access-Control-Allow-Origin`, so the browser would block the import. The
+ * attribute is a no-op for same-origin builds.
  */
 export function blockAssetLinks(options: BlockAssetLinkOptions): string[] {
   // Manifest entries are keyed by source module (or `_<file>` for shared
@@ -116,7 +122,7 @@ export function blockAssetLinks(options: BlockAssetLinkOptions): string[] {
   const wanted = (file: string): boolean => !options.alreadyLinked?.(file)
   const href = (file: string): string => `${options.base ?? ''}/${file}`
   return [
-    ...assets.css.filter(wanted).map((file) => `<link rel="stylesheet" href="${href(file)}">`),
-    ...assets.js.filter(wanted).map((file) => `<link rel="modulepreload" href="${href(file)}">`),
+    ...assets.css.filter(wanted).map((file) => `<link rel="stylesheet" crossorigin href="${href(file)}">`),
+    ...assets.js.filter(wanted).map((file) => `<link rel="modulepreload" crossorigin href="${href(file)}">`),
   ]
 }

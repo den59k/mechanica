@@ -45,7 +45,7 @@ src/composer.ts       optional: your design system for the Block Composer
 .mech/data.json       site-wide data values
 ```
 
-`.mech/` is content — commit it. Scaffolded projects also include a `CLAUDE.md` that teaches AI coding assistants to author blocks and pages in this format.
+`.mech/` is content — commit it. Scaffolded projects also include an `AGENTS.md` that teaches AI coding assistants (Claude Code, Codex and others) to author blocks and pages in this format.
 
 ### Adding Mechanica to an existing Vite + Vue project
 
@@ -139,14 +139,29 @@ data:
 
 ::: hero
 title: About us
+cta: { url: /contacts, title: Write to us }
 @subtitle
 We build fast websites
 for people who care about the details.
 :::
+
+::: columns
+gap: lg
+::: card slot=left
+title: Fast
+:::
+::: card slot=right
+title: Readable
+:::
+::: /columns
 ```
 
 - The YAML frontmatter holds the editor label (`name`), page-scoped data (`data`) and optional `layout`, `draft: true` (hidden from listings and the export) and `meta` (`noindex: true`, `lastmod`).
-- Each block is a fence: `::: <blockId>`, then its props as YAML, then `@field` regions for long text, closed by `:::`. A region fills a `text` prop with its text as written, and a `richText` prop with its Markdown turned into rich text. Blocks nest by placing fences inside a container's fence.
+- Each block is a fence: `::: <blockId>`, then its props as YAML, then `@field` regions for long text, then any child blocks, closed by `:::`. Keep that order: once a region has started, a `key: value` line is part of its text.
+- A region runs until the next `@field`, child block or `:::`, and is taken as written, blank lines and Markdown included. It fills a `text` prop with that text, and a `richText` prop with its Markdown turned into rich text.
+- Blocks nest by placing fences inside a container's fence, and `slot=<name>` puts a child into a named slot (a container's children go either all to the default slot or all to named ones). Nothing is indented: every `:::` and `@field` starts at the beginning of its line, and a block is a child of whichever fence is still open. A container may close with `::: /<blockId>`, which reports a missing `:::` at the line where the fences stop pairing up.
+- Props are YAML, so quote a value that starts with `#` or contains `: `, as in `href: "#pricing"`. Inside a region nothing needs quoting; only a line that starts with `:::`, or consists of just `@name`, takes a leading backslash (`\:::`), and not even that inside a code fence.
+- An `image` prop points at an uploaded file: `photo: { src: /@mechanica/assets/team.jpg, alt: "Our team" }`.
 - Props left out take their schema defaults, so a hand-written page renders exactly like one made in the editor.
 
 With `npm run dev` running, edits you make to these files show up in the editor live, and the editor won't overwrite a file that changed on disk underneath it.

@@ -21,7 +21,7 @@ Generated projects run on plain Node ≥ 20.19 (npm/pnpm/yarn) or [Bun](https://
 - Rich-text rendering wired end to end (`RichTextView` + shared renderer config)
 - `{{ head.* }}` metadata templating from a page-scoped data entry
 - `src/composer.ts` — a Block Composer manifest exposing a starter `Button` component to the visual composer
-- `CLAUDE.md` — guidance for AI coding assistants on authoring blocks and pages in the project
+- `AGENTS.md` — guidance for AI coding assistants (Claude Code, Codex and others) on authoring blocks and pages in the project
 - Static export via `npm run export`
 
 ## Development (this package)

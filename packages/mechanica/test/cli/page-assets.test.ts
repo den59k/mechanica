@@ -46,12 +46,12 @@ describe('blockAssetLinks', () => {
   it('emits stylesheet links before modulepreload, deduped across blocks', () => {
     const links = blockAssetLinks({ blockIds: ['hero', 'card'], manifest, blockFiles })
     expect(links).toEqual([
-      '<link rel="stylesheet" href="/assets/Hero-a1.css">',
-      '<link rel="stylesheet" href="/assets/shared-x9.css">',
-      '<link rel="stylesheet" href="/assets/Card-b2.css">',
-      '<link rel="modulepreload" href="/assets/Hero-a1.js">',
-      '<link rel="modulepreload" href="/assets/shared-x9.js">',
-      '<link rel="modulepreload" href="/assets/Card-b2.js">',
+      '<link rel="stylesheet" crossorigin href="/assets/Hero-a1.css">',
+      '<link rel="stylesheet" crossorigin href="/assets/shared-x9.css">',
+      '<link rel="stylesheet" crossorigin href="/assets/Card-b2.css">',
+      '<link rel="modulepreload" crossorigin href="/assets/Hero-a1.js">',
+      '<link rel="modulepreload" crossorigin href="/assets/shared-x9.js">',
+      '<link rel="modulepreload" crossorigin href="/assets/Card-b2.js">',
     ])
   })
 
@@ -76,8 +76,8 @@ describe('blockAssetLinks', () => {
       alreadyLinked: (file) => file.includes('index-e5'),
     })
     expect(links).toEqual([
-      '<link rel="stylesheet" href="/assets/blocks-h4sh.css">',
-      '<link rel="modulepreload" href="/assets/blocks-h4sh.js">',
+      '<link rel="stylesheet" crossorigin href="/assets/blocks-h4sh.css">',
+      '<link rel="modulepreload" crossorigin href="/assets/blocks-h4sh.js">',
     ])
   })
 
@@ -89,10 +89,10 @@ describe('blockAssetLinks', () => {
       base: 'https://cdn.example.com/landing',
     })
     expect(links).toEqual([
-      '<link rel="stylesheet" href="https://cdn.example.com/landing/assets/Hero-a1.css">',
-      '<link rel="stylesheet" href="https://cdn.example.com/landing/assets/shared-x9.css">',
-      '<link rel="modulepreload" href="https://cdn.example.com/landing/assets/Hero-a1.js">',
-      '<link rel="modulepreload" href="https://cdn.example.com/landing/assets/shared-x9.js">',
+      '<link rel="stylesheet" crossorigin href="https://cdn.example.com/landing/assets/Hero-a1.css">',
+      '<link rel="stylesheet" crossorigin href="https://cdn.example.com/landing/assets/shared-x9.css">',
+      '<link rel="modulepreload" crossorigin href="https://cdn.example.com/landing/assets/Hero-a1.js">',
+      '<link rel="modulepreload" crossorigin href="https://cdn.example.com/landing/assets/shared-x9.js">',
     ])
   })
 
@@ -105,8 +105,8 @@ describe('blockAssetLinks', () => {
       alreadyLinked: (file) => file.includes('shared-x9'),
     })
     expect(links).toEqual([
-      '<link rel="stylesheet" href="/assets/Hero-a1.css">',
-      '<link rel="modulepreload" href="/assets/Hero-a1.js">',
+      '<link rel="stylesheet" crossorigin href="/assets/Hero-a1.css">',
+      '<link rel="modulepreload" crossorigin href="/assets/Hero-a1.js">',
     ])
   })
 })

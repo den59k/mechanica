@@ -70,6 +70,9 @@ describe('scaffold', () => {
       'src/blocks/RichText.vue',
       'src/data/head.ts',
       '.mech/pages/index.page.md',
+      // Agent guidance: AGENTS.md is read by Codex and, with no CLAUDE.md
+      // beside it, by Claude Code too — so the template ships only this one.
+      'AGENTS.md',
     ]) {
       expect(fs.existsSync(path.join(target, file)), file).toBe(true)
     }

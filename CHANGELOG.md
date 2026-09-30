@@ -7,6 +7,7 @@ The first stable release of Mechanica 2, a ground-up rewrite of 1.x. Released pa
 ### Since 2.0.0-alpha.14
 
 - **Fixed:** the dev server never registered Mechanica's field types. Shorthand props like `photo: 'image'` or `cta: 'smartLink'` therefore defaulted to `''` in development (the export was right), and images in them bypassed the image manifest: their blur-up previews were written into `.page.md` files on save instead of `.mech/images.json`, and dimensions weren't injected in dev.
+- **Fixed:** the per-page block stylesheet and `modulepreload` links the export adds now carry `crossorigin`, like Vite's own tags. With assets on a CDN, the hint used to cache each chunk without CORS headers, and the browser then blocked the chunk's real import on client-side navigation.
 - Builds on Vite 8.3+ no longer print rolldown's warning about the blocks chunk group missing a `debugName`.
 - Published to npm's `latest` tag, so `npm install mechanica` and `npm create mechanica@latest` now get 2.x.
 
@@ -28,7 +29,7 @@ The first stable release of Mechanica 2, a ground-up rewrite of 1.x. Released pa
 - **SEO at export**: canonical and `og:url` tags, absolute social-image URLs, `sitemap.xml`, `robots.txt`, `hreflang`, WebSite and BreadcrumbList JSON-LD, `noindex`, and warnings for missing titles, descriptions, `<h1>` and `alt` text, duplicate titles and broken internal links. A `/404` page is also written as `404.html`.
 - **Faster pages**: blocks are code-split from the app (one shared chunk by default, `chunk` to split heavy blocks) and each exported page preloads exactly the blocks it uses. `--assets-url` serves assets from a CDN.
 - **Visual checks from the terminal**: `mechanica shot` screenshots a block or a page and `mechanica thumbs` refreshes the editor's thumbnails, using a locally installed Chrome or Edge.
-- **`npm create mechanica`** scaffolds a working site with a `CLAUDE.md` for AI assistants.
+- **`npm create mechanica`** scaffolds a working site with an `AGENTS.md` for AI coding assistants (Claude Code, Codex and others).
 - **Tests**: over 1,000 unit and DOM tests; 1.x had none.
 
 ### Breaking changes from 1.x

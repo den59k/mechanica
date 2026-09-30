@@ -369,14 +369,14 @@ describe('mechanica export (golden)', () => {
 
     // The home page uses `hero` only: its chunk, css and shared import — no cta.
     const home = await readFile(join(dir, 'export/index.html'), 'utf-8')
-    expect(home).toContain('<link rel="stylesheet" href="/assets/Hero-a1.css">')
-    expect(home).toContain('<link rel="modulepreload" href="/assets/Hero-a1.js">')
-    expect(home).toContain('<link rel="modulepreload" href="/assets/shared-x9.js">')
+    expect(home).toContain('<link rel="stylesheet" crossorigin href="/assets/Hero-a1.css">')
+    expect(home).toContain('<link rel="modulepreload" crossorigin href="/assets/Hero-a1.js">')
+    expect(home).toContain('<link rel="modulepreload" crossorigin href="/assets/shared-x9.js">')
     expect(home).not.toContain('Cta-b2')
 
     const contact = await readFile(join(dir, 'export/contact/index.html'), 'utf-8')
-    expect(contact).toContain('<link rel="stylesheet" href="/assets/Cta-b2.css">')
-    expect(contact).toContain('<link rel="modulepreload" href="/assets/Cta-b2.js">')
+    expect(contact).toContain('<link rel="stylesheet" crossorigin href="/assets/Cta-b2.css">')
+    expect(contact).toContain('<link rel="modulepreload" crossorigin href="/assets/Cta-b2.js">')
     expect(contact).not.toContain('Hero-a1')
   })
 
@@ -399,8 +399,8 @@ describe('mechanica export (golden)', () => {
     // The home page uses `hero`: its preloads point at the CDN, folder and all —
     // not the literal `/assets/`, proving it isn't tied to the default dir name.
     const home = await readFile(join(dir, 'export/index.html'), 'utf-8')
-    expect(home).toContain('<link rel="stylesheet" href="https://cdn.le.codes/landing-assets/Hero-a1.css">')
-    expect(home).toContain('<link rel="modulepreload" href="https://cdn.le.codes/landing-assets/Hero-a1.js">')
+    expect(home).toContain('<link rel="stylesheet" crossorigin href="https://cdn.le.codes/landing-assets/Hero-a1.css">')
+    expect(home).toContain('<link rel="modulepreload" crossorigin href="https://cdn.le.codes/landing-assets/Hero-a1.js">')
     expect(home).not.toContain('href="/landing-assets/')
   })
 
