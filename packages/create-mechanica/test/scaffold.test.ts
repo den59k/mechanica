@@ -26,6 +26,29 @@ describe('toPackageName', () => {
   })
 })
 
+describe('template manifest', () => {
+  const readManifest = (relative: string) => JSON.parse(fs.readFileSync(new URL(relative, import.meta.url), 'utf8'))
+  const template = readManifest('../template/package.json')
+  const mechanica = readManifest('../../mechanica/package.json')
+
+  it('depends on published versions only', () => {
+    // Scaffolded apps install from npm — a workspace: protocol can't resolve there.
+    for (const group of ['dependencies', 'devDependencies'] as const) {
+      for (const [dep, range] of Object.entries<string>(template[group] ?? {})) {
+        expect(range, `${group}.${dep}`).not.toMatch(/^workspace:/)
+      }
+    }
+  })
+
+  it('keeps vuewrite in step with what mechanica requires', () => {
+    expect(template.dependencies.vuewrite).toBe(mechanica.dependencies.vuewrite)
+  })
+
+  it('never pins vue to an exact version', () => {
+    expect(template.dependencies.vue).toMatch(/^\^3\./)
+  })
+})
+
 describe('scaffold', () => {
   it('copies the template and patches the project name', () => {
     const target = path.join(tmpDir(), 'My Blog')

@@ -1,6 +1,6 @@
 {
   "name": "mechanica-shared",
-  "version": "2.0.0-alpha.14",
+  "version": "2.0.0",
   "description": "DOM-free types, schema helpers and page-generation core shared across Mechanica",
   "license": "MIT",
   "repository": {
@@ -9,8 +9,7 @@
   },
   "type": "module",
   "publishConfig": {
-    "access": "public",
-    "tag": "next"
+    "access": "public"
   },
   "files": [
     "dist"

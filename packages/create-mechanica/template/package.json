@@ -10,9 +10,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "mechanica": "^2.0.0-alpha.14",
+    "mechanica": "^2.0.0",
     "vue": "^3.5.38",
-    "vuewrite": "^1.4.0"
+    "vuewrite": "^1.4.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.7",
