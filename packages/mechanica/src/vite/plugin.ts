@@ -123,7 +123,7 @@ export interface MechanicaPluginOptions {
    * from any source (a content glob, a CMS, …) — rendered through the normal
    * pipeline with no `.page.md` file per route. Providers run at build (their
    * output is baked into the static export) and at dev-server start; generated
-   * pages are read-only. See GENERATED-PAGES.md.
+   * pages are read-only. See plans/GENERATED-PAGES.md.
    */
   generatePages?: PageProvider[]
   /**

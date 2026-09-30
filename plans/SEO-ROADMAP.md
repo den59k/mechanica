@@ -75,7 +75,7 @@ accumulated ranking is lost. This is the standard CMS answer.
 
 **Design sketch:**
 - Add `redirectFrom?: string[]` to `PageDoc` ([page-format.ts](packages/shared/src/page-format.ts))
-  and the serialized-key order; document in [CONTRACT.md](./CONTRACT.md).
+  and the serialized-key order; document in [CONTRACT.md](../CONTRACT.md).
 - Export: for each old path, write an `index.html` stub —
   `<link rel="canonical">` to the new URL + `<meta http-equiv="refresh">` +
   a JS `location.replace` — and *exclude it from the sitemap*. Meta-refresh-0
@@ -174,7 +174,7 @@ vuewrite codec — most platforms have to reconstruct Markdown from their CMS.
 - API-reference sites should additionally ship their machine-readable spec
   (`public/openapi.json` reaches the export) and link it from `llms.txt`;
   generating the endpoint pages *from* the spec as `.page.md` files is the
-  intended authoring workflow (see [CONTRACT.md](./CONTRACT.md)).
+  intended authoring workflow (see [CONTRACT.md](../CONTRACT.md)).
 
 **Size:** `llms.txt` alone is small (sitemap-shaped, an afternoon). The
 Markdown mirror is medium — the `toMarkdown` contract is the real design
