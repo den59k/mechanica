@@ -97,10 +97,16 @@ jobs:
         if: github.event_name == 'push'
         working-directory: ${{ runner.temp }}
         run: |
+          # npm lists a version a few minutes after accepting the upload (four
+          # minutes has been seen), so this wait is normal: don't cancel the run.
           jq -r '.[] | "\(.name)@\(.version)"' release/publish.json |
             while read -r spec; do
-              for attempt in $(seq 1 30); do
-                [ -n "$(npm view "$spec" version 2>/dev/null)" ] && continue 2
+              for attempt in $(seq 1 60); do
+                if [ -n "$(npm view "$spec" version 2>/dev/null)" ]; then
+                  echo "$spec is on the registry"
+                  continue 2
+                fi
+                echo "Waiting for $spec to appear on the registry ($attempt/60)…"
                 sleep 10
               done
               echo "::error::$spec did not appear on the registry"

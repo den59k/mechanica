@@ -17,7 +17,8 @@ const SEMVER = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/
 const args = process.argv.slice(2)
 const createFlag = args.indexOf('--create')
 const createVersion = createFlag === -1 ? undefined : args[createFlag + 1]
-const version = args.find((arg, index) => !arg.startsWith('--') && index !== createFlag + 1)
+// The first bare argument that isn't `--create`'s value.
+const version = args.find((arg, index) => !arg.startsWith('--') && (createFlag === -1 || index !== createFlag + 1))
 
 if (!version || !SEMVER.test(version) || (createFlag !== -1 && !SEMVER.test(createVersion ?? ''))) {
   console.error('Usage: bun run release:bump <version> [--create <create-mechanica version>]')

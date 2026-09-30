@@ -1,64 +1,135 @@
 # Mechanica
 
-A platform for building Vue 3 websites with a visual block editor. Site authors write Vue SFC "blocks", an in-page editor arranges them into pages, and pages render server-side to a static site.
+[![npm](https://img.shields.io/npm/v/mechanica?label=mechanica)](https://www.npmjs.com/package/mechanica)
+[![npm](https://img.shields.io/npm/v/create-mechanica?label=create-mechanica)](https://www.npmjs.com/package/create-mechanica)
+[![license](https://img.shields.io/npm/l/mechanica)](./LICENSE)
 
-This is the v2 rewrite, built on **Vite 8 / Vue 3.5 / Vitest 4 / Bun**, English throughout and test-covered. Published packages run on plain Node as well as Bun.
+Build Vue 3 websites with a visual block editor. You write **blocks**, ordinary Vue single-file components with a typed props schema, and arrange them into **pages** in an editor that runs on top of your live site. Pages are stored as readable Markdown files in your project, and `mechanica export` renders every page to static HTML.
 
-## Docs
+![The Mechanica editor on top of a site: the block tree on the left, a selected hero block on the page, its props form on the right](./.github/assets/editor.png)
 
-- [packages/mechanica/README.md](./packages/mechanica/README.md): the user guide (it's also the npm page), from `npm create mechanica` to an exported site, plus every feature in brief.
-- [CHANGELOG.md](./CHANGELOG.md): release notes, including what changed since v1.
-- [CONTRACT.md](./CONTRACT.md): the `.page.md` on-disk page format (frontmatter, block fences, `@field` prose regions).
-- [PREVIEW.md](./PREVIEW.md): block previews and `mechanica shot`: `previewData` (+ `$slots`), the standalone preview route, and headless block/page screenshots and thumbnails.
-- [COMPOSER-MANIFEST.md](./COMPOSER-MANIFEST.md): `defineComposer`, the site's design system as the Block Composer sees it (components, classes, breakpoints).
-- [CLAUDE.md](./CLAUDE.md): how the repo works, in depth (architecture, conventions, gotchas).
-- [plans/](./plans/): roadmap and design notes for features that are deferred or still evolving.
+- **Blocks are just Vue.** One compile-time macro, `defineBlock`, declares a block's props; everything else is plain Vue 3.
+- **The editor is your site.** In development the editor overlays the real page: add blocks from a palette, edit props in forms, drag to reorder, undo and redo, manage pages.
+- **Pages are files.** `.mech/pages/about.page.md` is Markdown with YAML props. Edit it in the editor, by hand or with an AI assistant, and get clean git diffs.
+- **Static output, SEO included.** Per-page HTML and code splitting, sitemap, canonical URLs, hreflang and JSON-LD.
 
-## Layout
+Built on Vite 8 and Vue 3.5. Sites run on Node.js 20.19+ or 22.12+ (npm, pnpm, yarn) or [Bun](https://bun.sh).
 
-Bun workspaces under `packages/*`:
+## Quick start
 
-- **`mechanica`**: the main published package. The `defineBlock` compiler, the runtime, the Vite plugin (dev server + build), the in-browser editor and Block Composer, and the `mechanica` CLI (`build` / `export` / `shot` / `thumbs` / `images` / `push`).
-- **`shared`** (`mechanica-shared`, published): DOM-free types, schema helpers, the page-generation and SEO core, and the `.page.md` / `.block.yml` codecs.
-- **`create-mechanica`** (published): the `npm create mechanica` scaffolder and its project template.
-- **`dev-app`**: the playground site used to exercise everything end to end.
+```bash
+npm create mechanica@latest my-site
+cd my-site
+npm install
+npm run dev
+```
 
-## AI agent skill
+Open the URL Vite prints. The starter page appears with the editor on top of it. When you're ready to ship, `npm run export` writes a static site to `export/`.
 
-`plugins/mechanica` is a Claude Code plugin with one skill, `create-mechanica-site`: it sets up a new Mechanica site (runtime check, scaffold, install, dev server) and hands over to the scaffolded project's `AGENTS.md`. The repository is its marketplace (`.claude-plugin/marketplace.json`):
+**[Read the guide →](./packages/mechanica/README.md)** It covers blocks, pages, shared data, layouts, images, multi-language sites, queries and pagination, SEO, the CLI and every plugin option.
+
+## A block and a page
+
+A block is a `.vue` file in `src/blocks/`. `defineBlock` declares what editors can change and returns the props, typed:
+
+```vue
+<!-- src/blocks/Hero.vue -->
+<template>
+  <section class="hero">
+    <h1>{{ props.title }}</h1>
+    <p v-if="props.subtitle">{{ props.subtitle }}</p>
+    <Link v-if="props.cta?.url" :to="props.cta">{{ props.cta.title }}</Link>
+  </section>
+</template>
+
+<script setup lang="ts">
+import { Link } from 'mechanica'
+
+const props = defineBlock({
+  name: 'Hero',
+  props: {
+    title: { type: 'string', default: 'Hello' },
+    subtitle: 'text',
+    cta: 'smartLink',
+  },
+  previewData: { title: 'Build sites visually', subtitle: 'Blocks are plain Vue components.' },
+})
+</script>
+```
+
+A page is a Markdown file whose path is its URL. The editor reads and writes this format, and so can you:
+
+```markdown
+---
+name: About
+data:
+  head:
+    title: About us
+---
+
+::: hero
+title: About us
+cta: { url: /contacts, title: Write to us }
+@subtitle
+We build fast websites
+for people who care about the details.
+:::
+```
+
+## Block Composer
+
+Designers can build blocks without code: frames with auto layout, text, images and your own components, per-breakpoint styles, and values bound to props so each placed copy stays editable. Composed blocks are saved as data in `.mech/blocks/` and render, preview and export like any other block.
+
+![The Block Composer: a layers tree, a hero block on the canvas with its title selected, and the inspector with size, typography and property switches](./.github/assets/composer.png)
+
+## With an AI coding agent
+
+Pages and blocks are plain files, and every scaffolded project ships an `AGENTS.md` that teaches Claude Code, Codex and similar agents to author them and to check their work with screenshots (`mechanica shot`).
+
+To have an agent set the site up as well, install the skill from this repository:
 
 ```bash
 claude plugin marketplace add den59k/mechanica
 claude plugin install mechanica@mechanica
 ```
 
-The same `SKILL.md` works in Codex: save it as `~/.agents/skills/create-mechanica-site/SKILL.md`.
+Then ask it to create a Mechanica site. In Codex, save [SKILL.md](./plugins/mechanica/skills/create-mechanica-site/SKILL.md) as `~/.agents/skills/create-mechanica-site/SKILL.md`. Without the skill, [paste this prompt](./packages/mechanica/README.md#with-an-ai-coding-agent) into the agent instead.
 
-## Commands
+## Packages
+
+| Package | |
+| --- | --- |
+| [`mechanica`](./packages/mechanica) | The `defineBlock` compiler, the runtime, the Vite plugin (dev server and build), the editor and Block Composer, and the `mechanica` CLI |
+| [`mechanica-shared`](./packages/shared) | DOM-free types, schema helpers, the page-generation and SEO core, and the `.page.md` / `.block.yml` codecs. A dependency of `mechanica`; you don't install it yourself |
+| [`create-mechanica`](./packages/create-mechanica) | The `npm create mechanica` scaffolder and its starter template |
+| [`dev-app`](./packages/dev-app) | The playground site used to develop the editor. Not published |
+
+[`plugins/mechanica`](./plugins/mechanica) is the agent skill described above.
+
+## Documentation
+
+- [The guide](./packages/mechanica/README.md): everything a site author needs. It is also the npm page.
+- [CHANGELOG.md](./CHANGELOG.md): release notes, including what changed since 1.x.
+- [PREVIEW.md](./PREVIEW.md): block previews, `mechanica shot` and thumbnails.
+- [COMPOSER-MANIFEST.md](./COMPOSER-MANIFEST.md): `defineComposer`, your design system as the Block Composer sees it.
+- [CONTRACT.md](./CONTRACT.md): the full specification of the `.page.md` format.
+- [CLAUDE.md](./CLAUDE.md): how this repository works, in depth, for contributors and AI agents.
+- [plans/](./plans/): design notes for features that are deferred or still evolving.
+
+## Development
+
+The repository is a [Bun](https://bun.sh) workspace. Development runs straight from TypeScript source, with no build step.
 
 ```bash
 bun install
-bun run test          # all package test suites (Vitest)
+bun run test          # all test suites (Vitest)
 bun run typecheck     # tsc --noEmit across packages
-bun run build         # dist builds of mechanica-shared + mechanica (publishing only)
 
 cd packages/dev-app
-bun run dev                 # the editor playground
-bun run export              # static SSG → export/
-bunx mechanica shot hero    # screenshot a block (see PREVIEW.md)
-bunx mechanica thumbs       # page thumbnails for the editor's page browser
+bun run dev           # the playground, with the editor
+bun run export        # build the playground into export/
 ```
 
-## Releasing
+## License
 
-`mechanica` and `mechanica-shared` share a version; `create-mechanica` has its own, and its template must depend on the published `mechanica` (never `workspace:*`).
-
-1. `bun run release:bump <version>` sets the version of `mechanica` and `mechanica-shared`, in their `package.json` and in `bun.lock` (`bun install` doesn't refresh the lockfile's workspace versions after a version-only change, and packing reads `workspace:*` versions from there). Add `--create <version>` when the scaffolder or its template changed: it also bumps `create-mechanica` and points the template at the new `mechanica`. Then add the CHANGELOG entry.
-2. Run `bun run release:check`. It builds, packs the three packages the way `bun publish` would and verifies the tarballs: no leftover `workspace:*`, `mechanica` depending on the matching `mechanica-shared`, and which versions are not on npm yet.
-3. Commit, tag the commit `v<version>` (the `mechanica` version) and push the tag. The [Publish workflow](./.github/workflows/publish.yml) runs the tests and the release check, publishes the versions that aren't on npm yet (`mechanica-shared`, `mechanica`, `create-mechanica`, in that order), then installs the result from the registry and exports a site with it.
-
-The workflow authenticates with npm trusted publishing (OIDC), so there is no token to store: on npmjs.com each package lists this repository and `publish.yml` as its trusted publisher. Running the workflow by hand (Actions → Publish → Run workflow) is a rehearsal that uploads nothing.
-
-To publish by hand instead: `bun publish` in `packages/shared`, then in `packages/mechanica` (`npm publish` would ship `workspace:*` as is, and `mechanica` refuses it), then `npm publish` in `packages/create-mechanica`.
-
-Stable releases go to npm's `latest` tag and prereleases (a version with a `-`) to `next`; by hand, pass `--tag next` for a prerelease.
+[MIT](./LICENSE)
