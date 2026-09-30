@@ -41,7 +41,7 @@ A block is a Vue SFC whose `<script setup>` calls the global **`defineBlock`** m
 
 Blocks are gathered into the `virtual:mechanica/blocks` module (`src/vite/collect-blocks.ts`).
 
-**The production client build strips the metadata** (`stripMetadata` in `compileBlock` — only `defineProps` remains, no `defineOptions`): schemas and `previewData` feed the editor, the preview route and server-side default-filling, none of which load the client bundle. Dev and the SSR build keep full metadata. Defaults live at the **state level**, never at render time: `generatePage` bakes them into `window.state` at export, and `buildPageState` does the same in dev (`fillContentDefaults` in `pages-store.ts`), so a hand-authored `.page.md` that omits a defaulted prop renders identically in both.
+**The production client build strips the metadata** (`stripMetadata` in `compileBlock` — only `defineProps` remains, no `defineOptions`): schemas and `previewData` feed the editor, the preview route and server-side default-filling, none of which load the client bundle. Dev and the SSR build keep full metadata. Defaults live at the **state level**, never at render time: `generatePage` bakes them into `window.state` at export, and `buildPageState` does the same in dev (`fillContentDefaults` in `pages-store.ts`), so a hand-authored `.page.md` that omits a defaulted prop renders identically in both. Both depend on the field-format aliases being registered in their process (`registerFieldSchemas`; the plugin factory and the export CLI each do it): unregistered, a shorthand like `photo: 'image'` unfolds to a bare type, defaults to `''` and escapes the image manifest.
 
 ## Block previews & `mechanica shot` (see your work!)
 

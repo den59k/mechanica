@@ -2,7 +2,15 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import type { Plugin } from 'vite'
 import { parseVueRequest } from '@vitejs/plugin-vue'
-import { passDataToHTML, serializeState, normalizeLocales, type LocalesConfig, type VirtualPage } from 'mechanica-shared'
+import {
+  passDataToHTML,
+  serializeState,
+  normalizeLocales,
+  registerFieldSchemas,
+  areFieldSchemasRegistered,
+  type LocalesConfig,
+  type VirtualPage,
+} from 'mechanica-shared'
 import {
   collectGeneratedPages,
   generatedServedPath,
@@ -150,6 +158,12 @@ export interface MechanicaPluginOptions {
 const slash = (p: string): string => p.replace(/\\/g, '/')
 
 export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
+  // The dev server unfolds block schemas in this process (`toBlockMeta`) to fill
+  // defaults and find image fields. Unregistered, a shorthand like
+  // `photo: 'image'` unfolds to a bare type: it defaults to '' and escapes the
+  // image manifest. The export CLI and the browser entries register them too.
+  if (!areFieldSchemasRegistered()) registerFieldSchemas()
+
   let blocksDir = ''
   let widgetsDir = ''
   let mechDir = ''

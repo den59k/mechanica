@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { tmpdir } from 'node:os'
+import { unfoldSchema } from 'compact-json-schema'
+import { passDefaultValue } from 'mechanica-shared'
 import { mechanica, BLOCKS_MODULE_ID, WIDGETS_MODULE_ID } from '@/vite/plugin'
 
 const block = `<template><div>{{ props.title }}</div></template>
@@ -15,6 +17,14 @@ function callHook(hook: any, ...args: any[]) {
 }
 
 describe('mechanica plugin', () => {
+  it('registers the field-type aliases, so the dev server fills defaults like the export', () => {
+    // The dev server unfolds block schemas in this process; an unregistered
+    // `'image'` shorthand would unfold to a bare type and default to ''.
+    mechanica()
+    expect(passDefaultValue({}, unfoldSchema({ photo: 'image' }))).toEqual({ photo: { src: '' } })
+    expect(unfoldSchema({ photo: 'image' }).properties.photo.format).toBe('image')
+  })
+
   it('rewrites block SFCs on the main request', () => {
     const out = callHook(mechanica().transform, block, '/abs/Headline.vue')
     expect(out.code).toContain('defineProps')
