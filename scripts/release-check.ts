@@ -2,6 +2,10 @@
 // `bun publish` would and verify the tarballs from a consumer's point of view,
 // before anything reaches npm. Publishes nothing.
 //
+// `--out <dir>` keeps the verified tarballs there and writes `publish.json`:
+// the ones whose version is not on npm yet, in publish order. The publish
+// workflow (.github/workflows/publish.yml) uploads exactly those files.
+//
 // It exists because a manifest that still says `workspace:*`, or pins a stale
 // sibling version out of `bun.lock`, only shows up inside the packed tarball.
 import { spawnSync } from 'node:child_process'
@@ -12,6 +16,8 @@ import { fileURLToPath } from 'node:url'
 import { gunzipSync } from 'node:zlib'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const outFlag = process.argv.indexOf('--out')
+const outDir = outFlag === -1 ? undefined : path.resolve(process.argv[outFlag + 1] ?? '')
 const failures: string[] = []
 const check = (ok: boolean, message: string) => {
   console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${message}`)
@@ -74,14 +80,11 @@ function caretAdmits(range: string, version: string): boolean {
   return actual[1] > base[1] || (actual[1] === base[1] && actual[2] >= base[2])
 }
 
-function checkUnpublished(manifest: Manifest) {
-  const spec = `${manifest.name}@${manifest.version}`
-  const view = run('npm', ['view', spec, 'version'], root)
-  if (!view.ok && !/E404/.test(view.out)) {
-    console.log(`  skip ${spec} — couldn't ask the registry`)
-    return
-  }
-  check(view.out === '' || /E404/.test(view.out), `${spec} is not on npm yet`)
+/** Whether this exact version is on npm; `undefined` when the registry can't be asked. */
+function isPublished(manifest: Manifest): boolean | undefined {
+  const view = run('npm', ['view', `${manifest.name}@${manifest.version}`, 'version'], root)
+  if (/E404/.test(view.out)) return false
+  return view.ok ? view.out !== '' : undefined
 }
 
 console.log('Building dist…')
@@ -101,7 +104,6 @@ try {
   check(workspaceRanges(shared.manifest).length === 0, 'no workspace: ranges in the packed manifest')
   check(shared.files.has('package/dist/index.js'), 'ships dist/')
   check(![...shared.files.keys()].some((file) => file.startsWith('package/src/')), 'ships no src/')
-  checkUnpublished(shared.manifest)
 
   console.log(`\n${mechanica.manifest.name}@${mechanica.manifest.version}`)
   const leftovers = workspaceRanges(mechanica.manifest)
@@ -116,7 +118,6 @@ try {
   check(mechanica.files.has('package/dist/index.js') && mechanica.files.has('package/dist/plugin.js'), 'ships dist/')
   check(mechanica.files.has('package/bin/mechanica.js'), 'ships the CLI launcher')
   check(![...mechanica.files.keys()].some((file) => file.startsWith('package/src/')), 'ships no src/')
-  checkUnpublished(mechanica.manifest)
 
   console.log(`\n${create.manifest.name}@${create.manifest.version}`)
   for (const file of ['AGENTS.md', '_gitignore', 'package.json', '.mech/pages/index.page.md']) {
@@ -129,15 +130,44 @@ try {
     caretAdmits(templateRange, mechanica.manifest.version),
     `template's mechanica range (${templateRange}) admits ${mechanica.manifest.version}`,
   )
-  checkUnpublished(create.manifest)
+
+  // What a release would upload. A version already on npm is skipped, so a
+  // release that leaves create-mechanica alone — or a re-run after a publish
+  // that stopped halfway — publishes only what is missing.
+  console.log('\nRegistry')
+  const packed = [shared, mechanica, create].map((pkg) => ({ ...pkg, published: isPublished(pkg.manifest) }))
+  for (const pkg of packed) {
+    const spec = `${pkg.manifest.name}@${pkg.manifest.version}`
+    if (pkg.published === undefined) check(!outDir, `${spec}: couldn't ask the registry`)
+    else console.log(`  ${pkg.published ? 'skip' : 'new '} ${spec}${pkg.published ? ' is already on npm' : ''}`)
+  }
+  const [sharedState, mechanicaState] = packed
+  check(
+    !(mechanicaState.published === true && sharedState.published === false),
+    'mechanica is not on npm without the mechanica-shared version it depends on',
+  )
+  const pending = packed.filter((pkg) => pkg.published !== true)
+  check(pending.length > 0, 'at least one version is not on npm yet (otherwise bump the versions)')
 
   if (failures.length) {
     console.error(`\n${failures.length} check(s) failed — do not publish.`)
     process.exitCode = 1
+  } else if (outDir) {
+    fs.mkdirSync(outDir, { recursive: true })
+    const plan = pending.map((pkg) => {
+      const tarball = path.join(outDir, path.basename(pkg.tarball))
+      fs.copyFileSync(pkg.tarball, tarball)
+      // A prerelease must never become what `npm install` resolves by default.
+      const tag = pkg.manifest.version.includes('-') ? 'next' : 'latest'
+      return { name: pkg.manifest.name, version: pkg.manifest.version, tag, tarball }
+    })
+    fs.writeFileSync(path.join(outDir, 'publish.json'), JSON.stringify(plan, null, 2) + '\n')
+    console.log(`\nAll checks passed. To publish, in order (${path.join(outDir, 'publish.json')}):`)
+    for (const entry of plan) console.log(`  ${entry.name}@${entry.version} → ${entry.tag}`)
   } else {
     console.log(
       [
-        '\nAll checks passed. Publish in this order:',
+        '\nAll checks passed. Push a v<version> tag to publish from GitHub Actions, or by hand, in this order:',
         '  cd packages/shared && bun publish',
         '  cd packages/mechanica && bun publish',
         '  cd packages/create-mechanica && npm publish',

@@ -30,6 +30,37 @@ npm run export
 
 Prefer Bun? `bun create mechanica my-site`, then `bun install` and `bun run dev`.
 
+### With an AI coding agent
+
+Claude Code, Codex and similar agents can set the site up and build it for you. Open an empty folder in the agent and paste:
+
+```text
+Create a Mechanica site in this folder.
+
+1. Check for Node.js 20.19+ (`node -v`) or Bun (`bun -v`). If neither is
+   installed, ask me before installing Bun from https://bun.sh.
+2. Run `npm create mechanica@latest .` (or `bun create mechanica .`), install
+   the dependencies, and start the dev server in the background.
+3. Read AGENTS.md in the project and follow it for everything else.
+
+Then build: <describe your site>
+```
+
+To skip the pasting, install the skill once. It does the same setup and also handles a machine with no Node.js.
+
+Claude Code:
+
+```bash
+claude plugin marketplace add den59k/mechanica
+claude plugin install mechanica@mechanica
+```
+
+Codex: save [SKILL.md](https://github.com/den59k/mechanica/blob/main/plugins/mechanica/skills/create-mechanica-site/SKILL.md) as `~/.agents/skills/create-mechanica-site/SKILL.md`.
+
+Then ask the agent to create a Mechanica site.
+
+The starter's `AGENTS.md` teaches the agent how to write blocks and pages and how to check its work with screenshots, and points it at the documentation of the installed version. Run the agent on your own machine: the editor opens in your browser from the local dev server.
+
 ## A Mechanica project
 
 ```text

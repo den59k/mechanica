@@ -1,11 +1,12 @@
 {
   "name": "mechanica",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Build Vue 3 websites with a visual block editor",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://gitlab.letary.ru/den59k/mechanica.git"
+    "url": "git+https://github.com/den59k/mechanica.git",
+    "directory": "packages/mechanica"
   },
   "keywords": [
     "vue",

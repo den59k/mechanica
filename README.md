@@ -23,6 +23,17 @@ Bun workspaces under `packages/*`:
 - **`create-mechanica`** (published): the `npm create mechanica` scaffolder and its project template.
 - **`dev-app`**: the playground site used to exercise everything end to end.
 
+## AI agent skill
+
+`plugins/mechanica` is a Claude Code plugin with one skill, `create-mechanica-site`: it sets up a new Mechanica site (runtime check, scaffold, install, dev server) and hands over to the scaffolded project's `AGENTS.md`. The repository is its marketplace (`.claude-plugin/marketplace.json`):
+
+```bash
+claude plugin marketplace add den59k/mechanica
+claude plugin install mechanica@mechanica
+```
+
+The same `SKILL.md` works in Codex: save it as `~/.agents/skills/create-mechanica-site/SKILL.md`.
+
 ## Commands
 
 ```bash
@@ -42,8 +53,12 @@ bunx mechanica thumbs       # page thumbnails for the editor's page browser
 
 `mechanica` and `mechanica-shared` share a version; `create-mechanica` has its own, and its template must depend on the published `mechanica` (never `workspace:*`).
 
-1. Bump the versions, then check `bun.lock`: `bun install` doesn't refresh the workspace `"version"` fields after a version-only change, and `bun publish` reads `workspace:*` versions from there. Fix them by hand and confirm with `bun pm pack` that the packed `mechanica` depends on the matching `mechanica-shared`.
-2. Publish `packages/shared`, then `packages/mechanica` (both `bun publish`), then `packages/create-mechanica` (`npm publish`).
-3. Tag the release commit (`v<version>`) and push the tags.
+1. Bump the versions, then check `bun.lock`: `bun install` doesn't refresh the workspace `"version"` fields after a version-only change, and packing reads `workspace:*` versions from there. Fix them by hand.
+2. Run `bun run release:check`. It builds, packs the three packages the way `bun publish` would and verifies the tarballs: no leftover `workspace:*`, `mechanica` depending on the matching `mechanica-shared`, and which versions are not on npm yet.
+3. Commit, tag the commit `v<version>` (the `mechanica` version) and push the tag. The [Publish workflow](./.github/workflows/publish.yml) runs the tests and the release check, publishes the versions that aren't on npm yet (`mechanica-shared`, `mechanica`, `create-mechanica`, in that order), then installs the result from the registry and exports a site with it.
 
-Stable releases go to npm's `latest` tag. Pass `--tag next` when publishing a prerelease.
+The workflow authenticates with npm trusted publishing (OIDC), so there is no token to store: on npmjs.com each package lists this repository and `publish.yml` as its trusted publisher. Running the workflow by hand (Actions → Publish → Run workflow) is a rehearsal that uploads nothing.
+
+To publish by hand instead: `bun publish` in `packages/shared`, then in `packages/mechanica` (`npm publish` would ship `workspace:*` as is, and `mechanica` refuses it), then `npm publish` in `packages/create-mechanica`.
+
+Stable releases go to npm's `latest` tag and prereleases (a version with a `-`) to `next`; by hand, pass `--tag next` for a prerelease.

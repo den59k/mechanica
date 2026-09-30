@@ -1,8 +1,13 @@
 {
   "name": "create-mechanica",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Scaffold a new Mechanica site — a Vue 3 website with a visual block editor",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/den59k/mechanica.git",
+    "directory": "packages/create-mechanica"
+  },
   "type": "module",
   "bin": {
     "create-mechanica": "bin.js"

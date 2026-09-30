@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.2 (2026-09-30)
+
+Released packages: `mechanica` 2.0.2, `mechanica-shared` 2.0.2 and `create-mechanica` 0.3.2. Documentation and metadata only; no code changes.
+
+- The source is now public at [github.com/den59k/mechanica](https://github.com/den59k/mechanica), and the packages' repository links point there.
+- The READMEs gained a "With an AI coding agent" section: a prompt to paste into Claude Code or Codex that sets up a site, and how to install the `create-mechanica-site` skill that does the same (it lives in the repository, under `plugins/mechanica`).
+
 ## 2.0.1 (2026-09-30)
 
 Released packages: `mechanica` 2.0.1, `mechanica-shared` 2.0.1 and `create-mechanica` 0.3.1.

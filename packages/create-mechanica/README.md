@@ -16,6 +16,35 @@ Generated projects run on plain Node ≥ 20.19 (npm/pnpm/yarn) or [Bun](https://
 
 To scaffold into the current folder, pass `.`: `npm create mechanica@latest .`. The target may already hold dotfiles such as `.git`, `.claude` or `.vscode`; anything else makes the scaffolder stop, and it never overwrites a file.
 
+## With an AI coding agent
+
+Claude Code, Codex and similar agents can scaffold and build the site for you. Open an empty folder in the agent and paste:
+
+```text
+Create a Mechanica site in this folder.
+
+1. Check for Node.js 20.19+ (`node -v`) or Bun (`bun -v`). If neither is
+   installed, ask me before installing Bun from https://bun.sh.
+2. Run `npm create mechanica@latest .` (or `bun create mechanica .`), install
+   the dependencies, and start the dev server in the background.
+3. Read AGENTS.md in the project and follow it for everything else.
+
+Then build: <describe your site>
+```
+
+To skip the pasting, install the skill once. It does the same setup and also handles a machine with no Node.js.
+
+Claude Code:
+
+```bash
+claude plugin marketplace add den59k/mechanica
+claude plugin install mechanica@mechanica
+```
+
+Codex: save [SKILL.md](https://github.com/den59k/mechanica/blob/main/plugins/mechanica/skills/create-mechanica-site/SKILL.md) as `~/.agents/skills/create-mechanica-site/SKILL.md`.
+
+Then ask the agent to create a Mechanica site.
+
 ## What you get
 
 - `src/blocks/` — starter blocks (`Hero`, `Rich text`) showing the `defineBlock` macro, `previewData`, and manual code splitting (`chunk`)

@@ -15,6 +15,10 @@ describe('mechanica plugin (Vite integration)', () => {
       appType: 'custom',
       server: { middlewareMode: true },
       optimizeDeps: { noDiscovery: true },
+      // The fixture imports from 'mechanica'. Resolve it to source, like
+      // dev-app does: the package's own exports point at dist/, which a fresh
+      // checkout (CI) hasn't built.
+      resolve: { alias: { mechanica: join(import.meta.dirname, '../../src/index.ts') } },
       plugins: [mechanica(), vue()],
     })
 

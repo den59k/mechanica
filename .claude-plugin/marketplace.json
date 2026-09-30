@@ -1,0 +1,14 @@
+{
+  "name": "mechanica",
+  "description": "Skills for building websites with Mechanica",
+  "owner": {
+    "name": "den59k"
+  },
+  "plugins": [
+    {
+      "name": "mechanica",
+      "source": "./plugins/mechanica",
+      "description": "Create a Mechanica site: checks for Node.js or Bun, scaffolds the project, starts the dev server and hands over to the project's AGENTS.md"
+    }
+  ]
+}
