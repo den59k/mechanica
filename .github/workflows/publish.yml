@@ -28,6 +28,9 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash # -eo pipefail, so a failed `npm publish | tee` fails the step
     env:
       REHEARSAL: ${{ github.event_name != 'push' }}
     steps:
@@ -70,12 +73,21 @@ jobs:
         working-directory: ${{ runner.temp }}
         run: |
           npm --version
-          jq -r '.[] | [.tarball, .tag] | @tsv' release/publish.json |
-            while IFS=$'\t' read -r tarball tag; do
+          jq -r '.[] | [.name, .tarball, .tag] | @tsv' release/publish.json |
+            while IFS=$'\t' read -r name tarball tag; do
               if [ "$REHEARSAL" = true ]; then
                 npm publish "$tarball" --tag "$tag" --access public --dry-run
-              else
-                npm publish "$tarball" --tag "$tag" --access public
+              elif ! npm publish "$tarball" --tag "$tag" --access public 2>&1 | tee publish.log; then
+                # The registry accepts an upload a minute or two before it lists
+                # the version, so a re-run right after a partly failed release
+                # can retry a version that is already in. That is not a failure.
+                if grep -qi 'cannot publish over' publish.log; then
+                  echo "::warning::$name: this version was already uploaded, skipping"
+                else
+                  grep -q 'E404' publish.log &&
+                    echo "::error::npm refused $name. On npmjs.com, is $GITHUB_REPOSITORY + publish.yml set as its trusted publisher?"
+                  exit 1
+                fi
               fi
             done
 

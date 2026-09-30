@@ -53,7 +53,7 @@ bunx mechanica thumbs       # page thumbnails for the editor's page browser
 
 `mechanica` and `mechanica-shared` share a version; `create-mechanica` has its own, and its template must depend on the published `mechanica` (never `workspace:*`).
 
-1. Bump the versions, then check `bun.lock`: `bun install` doesn't refresh the workspace `"version"` fields after a version-only change, and packing reads `workspace:*` versions from there. Fix them by hand.
+1. `bun run release:bump <version>` sets the version of `mechanica` and `mechanica-shared`, in their `package.json` and in `bun.lock` (`bun install` doesn't refresh the lockfile's workspace versions after a version-only change, and packing reads `workspace:*` versions from there). Add `--create <version>` when the scaffolder or its template changed: it also bumps `create-mechanica` and points the template at the new `mechanica`. Then add the CHANGELOG entry.
 2. Run `bun run release:check`. It builds, packs the three packages the way `bun publish` would and verifies the tarballs: no leftover `workspace:*`, `mechanica` depending on the matching `mechanica-shared`, and which versions are not on npm yet.
 3. Commit, tag the commit `v<version>` (the `mechanica` version) and push the tag. The [Publish workflow](./.github/workflows/publish.yml) runs the tests and the release check, publishes the versions that aren't on npm yet (`mechanica-shared`, `mechanica`, `create-mechanica`, in that order), then installs the result from the registry and exports a site with it.
 

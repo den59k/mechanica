@@ -10,6 +10,7 @@
     "build": "bun run --filter mechanica-shared build && bun run --filter mechanica build",
     "test": "bun run --filter '*' test",
     "typecheck": "bun run --filter '*' typecheck",
+    "release:bump": "bun scripts/bump.ts",
     "release:check": "bun scripts/release-check.ts"
   },
   "devDependencies": {
