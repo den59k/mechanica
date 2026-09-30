@@ -1,7 +1,8 @@
 # The Composer Manifest — `defineComposer`: site classes & breakpoints
 
-Status: **implemented** (2026-07-05). Follows [PLAN.md](./PLAN.md) (composed-block
-foundations) and [COMPOSER-REDESIGN.md](./COMPOSER-REDESIGN.md) (the Figma-grade UX).
+Status: **implemented** (2026-07-05). Follows the composed-block foundations and the
+Figma-grade composer UX (their design docs, PLAN.md and COMPOSER-REDESIGN.md, have since
+been retired; [CLAUDE.md](./CLAUDE.md) describes the current implementation).
 This phase connects the Composer to the site's *development* — its CSS design system.
 
 **Implementation notes / deviations from the plan below:**

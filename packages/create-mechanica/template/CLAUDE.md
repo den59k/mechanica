@@ -27,12 +27,14 @@ npx mechanica shot <blockId> --width 1440,390   # check responsive
 npx mechanica thumbs --blocks    # regenerate palette thumbnails
 ```
 
+`shot` and `thumbs` drive a locally installed Chrome or Edge and need Node 22+ (or Bun).
+
 ## Layout
 
 - `src/blocks/` — the site's blocks (Vue SFCs). A new file here appears in the editor palette immediately.
 - `src/components/` — plain Vue components (not blocks): building blocks used *inside* blocks, or exposed to the composer.
 - `src/composer.ts` — the Block Composer manifest (`defineComposer`): components, CSS classes, and breakpoints offered in the visual composer.
-- `src/data/` — shared data entries (`defineData`), scoped `site` / `folder` / `page`. `head.ts` feeds the `{{ head.* }}` placeholders in `index.html`.
+- `src/data/` — shared data entries (`defineData`); each value is set per page, per folder or site-wide in the editor's Page data window. `head.ts` feeds the `{{ head.* }}` placeholders in `index.html`.
 - `src/App.vue` / `src/main.ts` — the app shell (site-wide header/footer go in `App.vue`, around `<Content/>`) and the entry (`defineMechanicaApp`).
 - `src/styles/site.css` — global design tokens (`--brand`, `--ink`, …) + a small reset. Block-specific styles live in each block's own `<style>`.
 - `.mech/pages/**.page.md` — the pages (see below).
@@ -54,7 +56,7 @@ const props = defineBlock({
   description: 'A page-opening headline',
   props: {
     title: { type: 'string', default: 'Hello' },
-    subtitle: 'text',            // format alias; also: richText, image, smartLink, color, file, multiselect
+    subtitle: 'text',            // format alias; also: richText, image, smartLink, color, multiselect
     ctaHref: { type: 'string', default: '' },
   },
   // Example values shown in the palette preview + the standalone preview route.
@@ -79,8 +81,10 @@ author by hand *and* that the visual editor reads/writes. With `npm run dev`
 running, hand edits sync into the editor live.
 
 Shape: YAML frontmatter (`name`, page `data`) + one fenced block per content
-block — `::: <blockId> #<nodeId>`, scalar props as `key: value`, and text /
-`richText` props as `@field` Markdown regions, closed by `:::`:
+block — `::: <blockId> #<nodeId>` (the `#<nodeId>` is optional), scalar props as
+`key: value`, and long text as `@field` regions, closed by `:::`. A region fills a
+`text` prop with its text as written, and a `richText` prop with its Markdown
+turned into rich text:
 
 ```markdown
 ---
@@ -93,7 +97,7 @@ data:
 ::: hero #welcome
 title: Your site is running
 @subtitle
-This paragraph is a **text** field, authored as Markdown.
+This paragraph fills the subtitle, a plain text field.
 :::
 ```
 
@@ -101,6 +105,11 @@ This paragraph is a **text** field, authored as Markdown.
 `rich-text`). Defaulted props may be omitted — defaults fill in automatically, so
 a hand-authored page renders identically to an editor-authored one. **See
 [.mech/pages/index.page.md](.mech/pages/index.page.md) for the worked example.**
+
+An `image` prop points at a file in `.mech/assets/`:
+`photo: { src: /@mechanica/assets/team.jpg, alt: "Our team" }`. After adding
+images by hand, run `npx mechanica images` (needs `npm install -D sharp`) to
+record their dimensions and blur-up previews — never inline a data URI.
 
 **After authoring or editing a page, run `npx mechanica shot /its/path`** and
 look at the PNG.
@@ -111,4 +120,8 @@ Per-page `<head>` is ordinary data, not a special panel: the `head` `defineData`
 entry (`src/data/head.ts`) is templated into `index.html` via `{{ head.title }}`
 etc., at both build and dev. Edit the values in the editor's **Page data** window,
 or in a page's frontmatter `data.head`. Small pages can just hardcode `<head>`.
-```
+
+A `defineData` entry only exists once its module is imported — normally by the
+block or component that uses it. `App.vue` imports `./data/head` because only
+`index.html` reads it; keep that import, and import any other data module that
+nothing else uses, or its values are silently dropped from the page.
