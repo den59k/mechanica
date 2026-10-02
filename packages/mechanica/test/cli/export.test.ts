@@ -979,6 +979,34 @@ describe('mechanica/export (build-free entry)', () => {
     await expect(access(join(dir, 'export'))).rejects.toThrow()
   })
 
+  it('resolves useFetch through a supplied fetchJson instead of the network', async () => {
+    const options = { url: 'https://api.example.com/prices', headers: { accept: 'application/json' } }
+    const key = 'fetch.' + JSON.stringify(options)
+    const fetching: SsrBundle = {
+      ...ssr,
+      render: async (state: any, context: any = {}) => {
+        const result = (await context.resolveQuery(key)) as { price: number }
+        return { html: `<main>${state.page?.path}: ${result.price}</main>`, query: { [key]: result } }
+      },
+    }
+    const calls: unknown[] = []
+
+    await exportProject(dir, fetching, {
+      onWarn: () => {},
+      fetchJson: async (received) => {
+        calls.push(received)
+        return { price: 42 }
+      },
+    })
+
+    // The block's options arrive whole; one request serves every page that asks for it.
+    expect(calls).toEqual([options])
+    const html = await readFile(join(dir, 'export/index.html'), 'utf-8')
+    expect(html).toContain('/: 42')
+    // …and the result is baked into the page state for hydration.
+    expect(html).toContain('"price":42')
+  })
+
   it('exportBuilt loads dist/ssr.js itself and returns pages + collected warnings', async () => {
     await writeFile(
       join(dir, 'dist/ssr.js'),

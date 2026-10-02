@@ -390,7 +390,7 @@ From `mechanica`:
 - **Composables:** `usePages`, `usePagination`, `useFetch`, `useLocale`, `useLayout`, `usePageData` (the current page's path, `meta`, layout and locale), `useRouter`, `useRoute`
 - **Helpers:** `imagePosition`
 
-From `mechanica/plugin`: `mechanica` and the `PageProvider` type. From `mechanica/widgets`: `defineWidget` and `useWidgetServices` (uploads and the image picker inside widget editors). `mechanica/editor` and `mechanica/composer` are loaded by the plugin in development; you don't import them. From `mechanica/export`: `exportBuilt(projectDir, options)`, which statically renders an already built project (`dist/` + `.mech/`) without running a build and resolves to `{ pages, warnings }` — for render services that receive a prebuilt bundle; `options.outDir` sets where the site is written.
+From `mechanica/plugin`: `mechanica` and the `PageProvider` type. From `mechanica/widgets`: `defineWidget` and `useWidgetServices` (uploads and the image picker inside widget editors). `mechanica/editor` and `mechanica/composer` are loaded by the plugin in development; you don't import them. From `mechanica/export`: `exportBuilt(projectDir, options)`, which statically renders an already built project (`dist/` + `.mech/`) without running a build and resolves to `{ pages, warnings }` — for render services that receive a prebuilt bundle; `options.outDir` sets where the site is written, and `options.fetchJson` replaces how `useFetch` requests are made.
 
 ## Upgrading from 1.x
 

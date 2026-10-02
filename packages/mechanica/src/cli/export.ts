@@ -300,6 +300,14 @@ export interface ExportOptions {
    * may be a mount point (a hosted render writes into a volume).
    */
   outDir?: string
+  /**
+   * How `useFetch` queries get their JSON: receives the options the block
+   * passed (`url` plus any `RequestInit` fields) and resolves with the parsed
+   * body. Defaults to a plain `fetch`. A hosted render — which runs with no
+   * network — supplies its own, so the request is made (and limited) by the
+   * service around it.
+   */
+  fetchJson?: (options: { url: string } & Record<string, unknown>) => Promise<unknown>
 }
 
 /**
@@ -546,11 +554,13 @@ export async function exportProject(
   setPageCodec(richText)
   const querySource: QuerySource = {
     listPages: (opts) => listPages(join(cwd, '.mech'), { ...opts, generated: ssr.generatedPages }),
-    fetchJson: async ({ url, ...init }) => {
-      const res = await fetch(url, init as RequestInit)
-      if (!res.ok) throw new Error(`${url} responded ${res.status}`)
-      return res.json()
-    },
+    fetchJson:
+      options.fetchJson ??
+      (async ({ url, ...init }) => {
+        const res = await fetch(url, init as RequestInit)
+        if (!res.ok) throw new Error(`${url} responded ${res.status}`)
+        return res.json()
+      }),
   }
   const queryCache = new Map<string, Promise<unknown>>()
   const resolveForPage =
