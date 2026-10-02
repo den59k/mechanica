@@ -37,6 +37,10 @@
       "types": "./dist/types/vite/index.d.ts",
       "import": "./dist/plugin.js"
     },
+    "./export": {
+      "types": "./dist/types/cli/export.d.ts",
+      "import": "./dist/export.js"
+    },
     "./editor": {
       "import": "./dist/editor.js"
     },

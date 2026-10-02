@@ -1,7 +1,8 @@
 import { isAbsolute } from 'node:path'
 import { defineConfig } from 'vite'
 
-// Node-side library build: the Vite plugin (`mechanica/plugin`) and the CLI.
+// Node-side library build: the Vite plugin (`mechanica/plugin`), the CLI and the
+// build-free static export (`mechanica/export`).
 // Bundling rewrites the extensionless relative TS imports into plain JS files
 // raw Node ESM can load — this is what frees consumers from requiring Bun.
 // Runs after vite.lib.config.ts into the same dist/ (emptyOutDir: false).
@@ -15,6 +16,7 @@ export default defineConfig({
       entry: {
         plugin: 'src/vite/index.ts',
         cli: 'src/cli/cli.ts',
+        export: 'src/cli/export.ts',
       },
       formats: ['es'],
     },

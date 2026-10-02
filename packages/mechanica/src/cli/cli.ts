@@ -1,8 +1,10 @@
 import { parseArgs } from './args'
 import { runBuild } from './build'
-import { runExport } from './export'
+import { runExport } from './run-export'
 import { runImages } from './images'
-import { runPush } from './push'
+import { runLink } from './platform/link'
+import { runLogin } from './platform/login'
+import { runPush } from './platform/push'
 import { runShot } from './shot'
 import { runThumbs, runBlockThumbs } from './thumbs'
 
@@ -17,7 +19,13 @@ Usage:
                              --site-name <name> adds WebSite JSON-LD;
                              --assets-url <origin> serves /assets and /media from
                              a CDN base — files still land in export/)
-  mechanica push [--key]    Upload dist/ to a backend (--key, --host, --dir)
+  mechanica login           Sign in to the Mechanica platform and save an access
+                            token for this machine (--host <url>, --token <token>)
+  mechanica link <slug>     Point this repository at a site on the platform
+                            (--create makes the site, --name "Site name")
+  mechanica push            Publish the committed project: pull what was edited
+                            online, git push, build + upload the bundle when the
+                            code changed, and wait for the deploy
   mechanica shot <blockId>  Screenshot one block via the dev preview route
   mechanica shot </path>    Screenshot a whole page (editor overlay stripped)
                             (--page </path>, --data <json|@file>, --width 1440,768,
@@ -51,8 +59,12 @@ export async function run(argv: string[]): Promise<void> {
       })
     case 'images':
       return runImages({ force: flags.force === true })
+    case 'login':
+      return runLogin({ host: str(flags.host), token: str(flags.token) })
+    case 'link':
+      return runLink(args[0], { host: str(flags.host), create: flags.create === true, name: str(flags.name) })
     case 'push':
-      return runPush({ key: str(flags.key), host: str(flags.host), dir: str(flags.dir) })
+      return runPush()
     case 'shot':
       return runShot(args[0], {
         page: str(flags.page),

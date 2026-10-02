@@ -1,5 +1,5 @@
 import { readFile, writeFile, mkdir, rm, cp, readdir, copyFile, stat, access } from 'node:fs/promises'
-import { dirname, join, parse, relative } from 'node:path'
+import { dirname, join, parse, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
   applySeoTags,
@@ -43,7 +43,6 @@ import { analyzeImageBuffer, hasSharp } from '../vite/dev/image-preview'
 import { getPagePath, listPages, setPageCodec } from '../vite/dev/pages-store'
 import { buildRichTextCodec } from '../vite/rich-text-codec'
 import { blockAssetLinks, BLOCKS_MANIFEST_FILE, type BlockChunkRef, type ViteManifest } from './page-assets'
-import { runBuild } from './build'
 
 interface ExportPage {
   /** The exported URL path — locale-prefixed for a translation (`/ru/about`). */
@@ -295,6 +294,12 @@ export interface ExportOptions {
   assetsUrl?: string
   /** Warning sink (broken links, orphaned assets). Defaults to `console.warn`. */
   onWarn?: (message: string) => void
+  /**
+   * Where the static site is written — absolute, or relative to the project
+   * root. Defaults to `export`. The directory is emptied, never removed, so it
+   * may be a mount point (a hosted render writes into a volume).
+   */
+  outDir?: string
 }
 
 /**
@@ -419,7 +424,13 @@ async function backfillImageMeta(
     computed[file] = info
     for (const value of values) fillImageValue(value, info)
   }
-  updateImageManifest(mechDir, computed)
+  // A cache write, never a reason to fail the export: the values above are
+  // already filled, and a hosted render reads its content from a read-only tree.
+  try {
+    updateImageManifest(mechDir, computed)
+  } catch {
+    // Recomputed on the next export.
+  }
 }
 
 /**
@@ -603,9 +614,11 @@ export async function exportProject(
   // manifest first, optional `sharp` for anything still missing.
   await backfillImageMeta(pages, blocksMap, join(cwd, '.mech'), warn)
 
-  const exportDir = join(cwd, 'export')
-  await rm(exportDir, { recursive: true, force: true })
+  const exportDir = resolve(cwd, options.outDir ?? 'export')
   await mkdir(exportDir, { recursive: true })
+  for (const entry of await readdir(exportDir)) {
+    await rm(join(exportDir, entry), { recursive: true, force: true })
+  }
 
   // Ship everything the build produced except its private artifacts: the
   // bundled assets plus whatever Vite copied from `public/` (favicon,
@@ -858,15 +871,33 @@ async function copyUploads(
   }
 }
 
-/** Build the project, then statically render every page into `export/`. */
-export async function runExport(options: ExportOptions = {}): Promise<void> {
-  await runBuild()
+/** What {@link exportBuilt} produced. */
+export interface ExportResult {
+  /** The generated page paths, in render order. */
+  pages: string[]
+  /** Everything the export warned about (broken links, missing uploads, SEO lint). */
+  warnings: string[]
+}
+
+/**
+ * Statically render an already-built project: load `<cwd>/dist/ssr.js` and run
+ * {@link exportProject} over `<cwd>/dist` + `<cwd>/.mech`. Never builds and
+ * never loads Vite — this is the entry a hosted render service calls on a
+ * bundle a developer pushed (`import { exportBuilt } from 'mechanica/export'`).
+ * Warnings are collected into the result and still forwarded to `onWarn`.
+ */
+export async function exportBuilt(cwd: string, options: ExportOptions = {}): Promise<ExportResult> {
+  // The format aliases (`image`, `richText`, …) must be registered in this
+  // process, or shorthand schemas unfold to bare types and defaults go wrong.
   registerFieldSchemas()
 
-  const cwd = process.cwd()
-  const ssr = (await import(pathToFileURL(join(cwd, 'dist/ssr.js')).href)) as SsrBundle
-  const written = await exportProject(cwd, ssr, options)
+  const warnings: string[] = []
+  const onWarn = (message: string): void => {
+    warnings.push(message)
+    ;(options.onWarn ?? console.warn)(message)
+  }
 
-  for (const path of written) console.info('Generated', path)
-  console.info(`Exported ${written.length} page(s) → export/`)
+  const ssr = (await import(pathToFileURL(join(cwd, 'dist/ssr.js')).href)) as SsrBundle
+  const pages = await exportProject(cwd, ssr, { ...options, onWarn })
+  return { pages, warnings }
 }

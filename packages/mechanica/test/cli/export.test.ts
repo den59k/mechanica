@@ -4,7 +4,7 @@ import os from 'node:os'
 import { join } from 'node:path'
 import { registerFieldSchemas, areFieldSchemasRegistered } from 'mechanica-shared'
 import { serializePage } from 'mechanica-shared/page-format'
-import { exportProject, type SsrBundle } from '@/cli/export'
+import { exportBuilt, exportProject, type SsrBundle } from '@/cli/export'
 import { setSharpModule } from '@/vite/dev/image-preview'
 
 if (!areFieldSchemasRegistered()) registerFieldSchemas()
@@ -961,5 +961,41 @@ describe('layout + 404 lint', () => {
     const withPage: string[] = []
     await exportProject(dir, ssr, { onWarn: (m) => withPage.push(m) })
     expect(withPage.some((w) => w.includes('No /404 page'))).toBe(false)
+  })
+})
+
+describe('mechanica/export (build-free entry)', () => {
+  it('writes into outDir, emptying it without removing the directory itself', async () => {
+    const outDir = join(dir, 'site-out')
+    await mkdir(join(outDir, 'stale'), { recursive: true })
+    await writeFile(join(outDir, 'stale/index.html'), 'old deploy')
+
+    const written = await exportProject(dir, ssr, { outDir, onWarn: () => {} })
+
+    expect(written.sort()).toEqual(['/', '/blog/post'])
+    expect(await readFile(join(outDir, 'index.html'), 'utf-8')).toContain('<h1>Welcome</h1>')
+    await expect(access(join(outDir, 'stale'))).rejects.toThrow()
+    // The default location is left alone.
+    await expect(access(join(dir, 'export'))).rejects.toThrow()
+  })
+
+  it('exportBuilt loads dist/ssr.js itself and returns pages + collected warnings', async () => {
+    await writeFile(
+      join(dir, 'dist/ssr.js'),
+      [
+        `export const blocksList = [{ blockId: 'hero', __name: 'Hero', blockSchema: { name: 'Hero', props: { title: 'string' } } }]`,
+        `export const dataEntries = []`,
+        `export const render = (state) => '<main><h1>' + (state.content[0]?.data?.title ?? '') + '</h1></main>'`,
+      ].join('\n'),
+    )
+    const forwarded: string[] = []
+
+    const result = await exportBuilt(dir, { onWarn: (m) => forwarded.push(m) })
+
+    expect(result.pages.sort()).toEqual(['/', '/blog/post'])
+    expect(await readFile(join(dir, 'export/blog/post/index.html'), 'utf-8')).toContain('<h1>Post Body</h1>')
+    // No /404 page in the fixture: reported in the result and still forwarded.
+    expect(result.warnings.some((w) => w.includes('No /404 page'))).toBe(true)
+    expect(forwarded).toEqual(result.warnings)
   })
 })

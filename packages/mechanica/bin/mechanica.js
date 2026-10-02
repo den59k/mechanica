@@ -10,6 +10,8 @@ const entry = process.versions.bun && existsSync(srcEntry) ? '../src/cli/cli.ts'
 const { run } = await import(entry)
 
 run(process.argv.slice(2)).catch((error) => {
-  console.error(error)
+  // A plain Error is a message for the user (bad usage, a refused push);
+  // anything else is a bug worth its stack trace.
+  console.error(error?.constructor === Error ? `mechanica: ${error.message}` : error)
   process.exit(1)
 })

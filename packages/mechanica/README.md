@@ -359,7 +359,9 @@ These drive a locally installed Chrome or Edge (or `--browser <path>`) and need 
 | `mechanica shot <blockId \| /path>` | Screenshot a block or a page. Flags: `--width`, `--data`, `--out`, `--full`, `--server`, `--browser` |
 | `mechanica thumbs [--blocks]` | Regenerate page or block thumbnails for the editor |
 | `mechanica images` | Generate image dimensions and blur-up previews for `.mech/assets` (needs `sharp`; `--force` redoes all) |
-| `mechanica push` | Experimental: upload `dist/` to a Mechanica hosting backend |
+| `mechanica login` | Sign in to the Mechanica platform and save an access token for this machine (`--host`, `--token`) |
+| `mechanica link <slug>` | Point this repository at a site on the platform (`--create` makes the site) |
+| `mechanica push` | Publish the committed project to the platform: pull what was edited online, `git push`, build and upload the bundle when the code changed, wait for the deploy |
 
 ## Plugin options
 
@@ -388,7 +390,7 @@ From `mechanica`:
 - **Composables:** `usePages`, `usePagination`, `useFetch`, `useLocale`, `useLayout`, `usePageData` (the current page's path, `meta`, layout and locale), `useRouter`, `useRoute`
 - **Helpers:** `imagePosition`
 
-From `mechanica/plugin`: `mechanica` and the `PageProvider` type. From `mechanica/widgets`: `defineWidget` and `useWidgetServices` (uploads and the image picker inside widget editors). `mechanica/editor` and `mechanica/composer` are loaded by the plugin in development; you don't import them.
+From `mechanica/plugin`: `mechanica` and the `PageProvider` type. From `mechanica/widgets`: `defineWidget` and `useWidgetServices` (uploads and the image picker inside widget editors). `mechanica/editor` and `mechanica/composer` are loaded by the plugin in development; you don't import them. From `mechanica/export`: `exportBuilt(projectDir, options)`, which statically renders an already built project (`dist/` + `.mech/`) without running a build and resolves to `{ pages, warnings }` — for render services that receive a prebuilt bundle; `options.outDir` sets where the site is written.
 
 ## Upgrading from 1.x
 
