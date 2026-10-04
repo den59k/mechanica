@@ -1,6 +1,6 @@
 {
   "name": "mechanica-shared",
-  "version": "2.0.3",
+  "version": "2.1.0-beta.1",
   "description": "DOM-free types, schema helpers and page-generation core shared across Mechanica",
   "license": "MIT",
   "repository": {
