@@ -11,6 +11,7 @@ import {
 } from 'mechanica-shared'
 import { toBlockMeta, composedBlockMeta, type BlockComponent } from '../editor/lib/block-meta'
 import { setPageBlocks, setPageCodec } from './pages-store'
+import type { Mech } from './content-files'
 import { richTextCodecFromBlocks } from './rich-text-codec'
 import { generatedServedPath } from '../vite/generate-pages'
 
@@ -53,11 +54,17 @@ export function readSiteManifest(distDir: string): SiteManifest | null {
  * rich-text codec and the block metadata every page read and write of that
  * site goes through. Keyed by directory, so one process can serve many sites.
  */
-export function configureSite(mechDir: string, manifest: SiteManifest): void {
+export function configureSite(mech: Mech, manifest: SiteManifest): void {
   if (!areFieldSchemasRegistered()) registerFieldSchemas()
-  setPageCodec(mechDir, richTextCodecFromBlocks(manifest.blocks))
-  setPageBlocks(mechDir, manifest.blocks)
+  // A host that assembles a site's files per request configures them per
+  // request — the codec is derived from the manifest once, not every time.
+  let codec = codecs.get(manifest)
+  if (!codec) codecs.set(manifest, (codec = { value: richTextCodecFromBlocks(manifest.blocks) }))
+  setPageCodec(mech, codec.value)
+  setPageBlocks(mech, manifest.blocks)
 }
+
+const codecs = new WeakMap<SiteManifest, { value: ReturnType<typeof richTextCodecFromBlocks> }>()
 
 /** Generated pages indexed for the service: by served URL, plus their logical paths. */
 export interface GeneratedIndex {

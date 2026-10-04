@@ -1,5 +1,6 @@
 import { resolveQueryKey, type QueryContext, type QuerySource, type VirtualPage } from 'mechanica-shared'
 import { listPages } from './pages-store'
+import type { Mech } from './content-files'
 
 /**
  * The dev server's {@link QuerySource}: pages come live from the `.mech`
@@ -7,9 +8,9 @@ import { listPages } from './pages-store'
  * export resolves them at build time). `generated` pages (plugin `generatePages`)
  * are merged into the page listing so `usePages()` sees them, like the export.
  */
-export function devQuerySource(mechDir: string, generated?: VirtualPage[]): QuerySource {
+export function devQuerySource(mech: Mech, generated?: VirtualPage[]): QuerySource {
   return {
-    listPages: (options) => listPages(mechDir, { ...options, generated }),
+    listPages: (options) => listPages(mech, { ...options, generated }),
     fetchJson: async ({ url, ...init }) => {
       const res = await fetch(url, init as RequestInit)
       if (!res.ok) throw new Error(`${url} responded ${res.status}`)
@@ -24,10 +25,10 @@ export function devQuerySource(mechDir: string, generated?: VirtualPage[]): Quer
  * `context.page` selects the chunk of a paginated query.
  */
 export function resolveDevQuery(
-  mechDir: string,
+  mech: Mech,
   key: string,
   context: QueryContext = {},
   generated?: VirtualPage[],
 ): Promise<unknown> {
-  return resolveQueryKey(devQuerySource(mechDir, generated), key, context)
+  return resolveQueryKey(devQuerySource(mech, generated), key, context)
 }

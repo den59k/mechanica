@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import { join, parse } from 'node:path'
 import { UPLOADS_PREFIX, walkSchema, walkTree, type Block, type ContentBlock } from 'mechanica-shared'
 import { analyzeImageBuffer, isRasterImage, type ServerImageInfo } from './image-preview'
-import { writeFileAtomic } from './fs-utils'
+import { contentFilesOf, type Mech } from './content-files'
 
 /** Find a non-colliding filename in `dir`, suffixing `_1`, `_2`, … as needed. */
 export function getUniqueName(dir: string, fileName: string): string {
@@ -70,19 +70,19 @@ export interface ImageManifestEntry {
 
 export type ImageManifest = Record<string, ImageManifestEntry>
 
-/** Read `<mechDir>/images.json`; an empty manifest when missing/corrupt. */
-export function readImageManifest(mechDir: string): ImageManifest {
+/** Read the site's `images.json`; an empty manifest when missing/corrupt. */
+export function readImageManifest(mech: Mech): ImageManifest {
   try {
-    return JSON.parse(fs.readFileSync(join(mechDir, MANIFEST_FILE), 'utf-8')) as ImageManifest
+    return JSON.parse(contentFilesOf(mech).read(MANIFEST_FILE) ?? '') as ImageManifest
   } catch {
     return {}
   }
 }
 
 /** Merge entries into the manifest, writing only when something changed. */
-export function updateImageManifest(mechDir: string, entries: ImageManifest): void {
+export function updateImageManifest(mech: Mech, entries: ImageManifest): void {
   if (!Object.keys(entries).length) return
-  const manifest = readImageManifest(mechDir)
+  const manifest = readImageManifest(mech)
   let changed = false
   for (const [file, entry] of Object.entries(entries)) {
     const current = manifest[file]
@@ -95,7 +95,7 @@ export function updateImageManifest(mechDir: string, entries: ImageManifest): vo
       changed = true
     }
   }
-  if (changed) writeFileAtomic(join(mechDir, MANIFEST_FILE), JSON.stringify(manifest, null, 2) + '\n')
+  if (changed) contentFilesOf(mech).write(MANIFEST_FILE, JSON.stringify(manifest, null, 2) + '\n')
 }
 
 /** An image field value as stored in page data. */

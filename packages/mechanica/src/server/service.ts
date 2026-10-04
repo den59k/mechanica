@@ -44,6 +44,7 @@ import {
 } from './composed-store'
 import { configureSite, indexGeneratedPages, type GeneratedIndex } from './site'
 import { renderEditablePage } from './editor-page'
+import type { Mech } from './content-files'
 
 /** What `/blocks` reports per block — enough for the thumbs CLI to walk them. */
 export interface BlockListing {
@@ -156,8 +157,13 @@ function validateComposed(def: unknown): Record<string, string> | null {
   return null
 }
 
-/** Create the editor API over a site's `.mech` directory. */
-export function createEditorService(mechDir: string, options: EditorServiceOptions = {}): EditorService {
+/**
+ * Create the editor API over a site's content: a `.mech` directory, or a set of
+ * content files (`ContentFiles`) a host assembled — then uploads, which need a
+ * directory, are not served.
+ */
+export function createEditorService(mech: Mech, options: EditorServiceOptions = {}): EditorService {
+  const mechDir = typeof mech === 'string' ? mech : null
   // The manifest the stores are configured with, and its generated-page index
   // (routes without a file: served for `/state`, listed, rejected on writes).
   let configured: SiteManifest | null = null
@@ -166,7 +172,7 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
     if (!options.site) return null
     const manifest = typeof options.site === 'function' ? await options.site() : options.site
     if (manifest !== configured) {
-      configureSite(mechDir, manifest)
+      configureSite(mech, manifest)
       generatedIndex = indexGeneratedPages(manifest)
       configured = manifest
     }
@@ -193,15 +199,17 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
       path && gen?.logical.has(path) ? json({ error: 'This page is generated and read-only' }, 409) : null
 
     if (pathname.startsWith('/assets/')) {
+      if (!mechDir) return json({ error: 'No asset storage' }, 501)
       return serveFile(resolve(mechDir, 'assets'), pathname.slice('/assets/'.length))
     }
     if (pathname.startsWith('/thumbs/')) {
+      if (!mechDir) return new Response('Not found', { status: 404 })
       // Regenerated in place by `mechanica thumbs` — always revalidate.
       return serveFile(resolve(mechDir, 'thumbs'), pathname.slice('/thumbs/'.length), { 'cache-control': 'no-cache' })
     }
 
-    if (pathname === '/images' && method === 'GET') return json(listImages(mechDir))
-    if (pathname === '/folders' && method === 'GET') return json(listFolders(mechDir))
+    if (pathname === '/images' && method === 'GET') return json(mechDir ? listImages(mechDir) : [])
+    if (pathname === '/folders' && method === 'GET') return json(listFolders(mech))
 
     if (pathname === '/query' && method === 'GET') {
       const key = query.get('q')
@@ -210,11 +218,12 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
       // `locale` scopes a `getPages` listing to a translation.
       const page = Number(query.get('page') ?? '') || undefined
       return json(
-        await resolveDevQuery(mechDir, key, { page, locale: variantCode(query.get('locale')) }, gen?.pages),
+        await resolveDevQuery(mech, key, { page, locale: variantCode(query.get('locale')) }, gen?.pages),
       )
     }
 
     if (pathname === '/upload' && method === 'POST') {
+      if (!mechDir) return json({ error: 'No asset storage' }, 501)
       const bytes = Buffer.from(await request.arrayBuffer())
       const header = request.headers.get('x-file-name') ?? 'file'
       // The client percent-encodes the name so spaces/unicode survive the header.
@@ -234,12 +243,12 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
       const pathParam = query.get('path')
       if (!pathParam) return json({ error: 'Missing path' }, 400)
       const generated = gen?.byServed.get(pathParam)
-      if (generated) return json(buildGeneratedState(mechDir, generated, config))
-      return json(buildPageState(mechDir, pathParam, config))
+      if (generated) return json(buildGeneratedState(mech, generated, config))
+      return json(buildPageState(mech, pathParam, config))
     }
 
     if (pathname === '/pages' && method === 'GET') {
-      return json(listPages(mechDir, { ...(config ? { locales: config } : {}), generated: gen?.pages }))
+      return json(listPages(mech, { ...(config ? { locales: config } : {}), generated: gen?.pages }))
     }
 
     if (pathname === '/blocks' && method === 'GET') {
@@ -250,7 +259,7 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
     if (pathname === '/pages' && method === 'DELETE') {
       const pathParam = query.get('path')
       if (!pathParam) return json({ error: 'Missing path' }, 400)
-      return generatedGuard(pathParam) ?? json({ success: deletePage(mechDir, pathParam) })
+      return generatedGuard(pathParam) ?? json({ success: deletePage(mech, pathParam) })
     }
 
     if (pathname === '/pages/draft' && method === 'POST') {
@@ -259,7 +268,7 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
       const blocked = generatedGuard(pathParam)
       if (blocked) return blocked
       const { draft } = await body<{ draft?: boolean }>()
-      setPageDraft(mechDir, pathParam, draft === true, variantCode(query.get('locale')))
+      setPageDraft(mech, pathParam, draft === true, variantCode(query.get('locale')))
       return json({ success: true, draft: draft === true })
     }
 
@@ -275,7 +284,7 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
         return json({ error: 'Unknown locale' }, 400)
       }
       try {
-        createTranslation(mechDir, pathParam, locale)
+        createTranslation(mech, pathParam, locale)
         return json({ success: true })
       } catch (error) {
         if (error instanceof PageExistsError) return json({ error: 'Translation already exists' }, 400)
@@ -287,7 +296,7 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
       const pathParam = query.get('path')
       const locale = query.get('locale')
       if (!pathParam || !locale) return json({ error: 'Missing path or locale' }, 400)
-      return generatedGuard(pathParam) ?? json({ success: deleteTranslation(mechDir, pathParam, locale) })
+      return generatedGuard(pathParam) ?? json({ success: deleteTranslation(mech, pathParam, locale) })
     }
 
     if (pathname === '/pages/duplicate' && method === 'POST') {
@@ -298,7 +307,7 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
       const input = await body<PageFormInput>()
       if (!input.path || !input.name) return json({ error: 'path and name are required' }, 400)
       try {
-        return json(duplicatePage(mechDir, pathParam, input))
+        return json(duplicatePage(mech, pathParam, input))
       } catch (error) {
         if (error instanceof PageExistsError) return json({ error: { path: 'Page already exists' } }, 400)
         throw error
@@ -314,8 +323,8 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
         // Editing an existing page: optionally move it (new path) and/or rename it.
         try {
           const wantsMove = typeof input.path === 'string' && input.path.trim() && input.path.trim() !== pathParam
-          const path = wantsMove ? movePage(mechDir, pathParam, input.path!).path : pathParam
-          if (input.name) renamePage(mechDir, path, input.name)
+          const path = wantsMove ? movePage(mech, pathParam, input.path!).path : pathParam
+          if (input.name) renamePage(mech, path, input.name)
           return json({ success: true, path })
         } catch (error) {
           if (error instanceof PageExistsError) return json({ error: { path: 'Page already exists' } }, 400)
@@ -333,7 +342,7 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
         }
       }
       try {
-        return json(createPage(mechDir, input as Parameters<typeof createPage>[1]))
+        return json(createPage(mech, input as Parameters<typeof createPage>[1]))
       } catch (error) {
         if (error instanceof PageExistsError) return json({ error: { path: 'Page already exists' } }, 400)
         throw error
@@ -355,7 +364,7 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
       // A mismatch means the file changed externally (e.g. Claude edited the
       // .page.md) — reject instead of overwriting; `force: true` overrides.
       if (!save.force && typeof save.version === 'string') {
-        const current = pageVersion(mechDir, pathParam, locale)
+        const current = pageVersion(mech, pathParam, locale)
         if (current != null && current !== save.version) {
           return json({ error: 'conflict', version: current }, 409)
         }
@@ -365,9 +374,9 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
       // folder data goes to the base files; `localized` entries (siteDataI18n /
       // folderDataI18n) go to the current locale's override file — or the base
       // when editing the default locale.
-      const folder = folderOf(mechDir, pathParam)
+      const folder = folderOf(mech, pathParam)
       const version = savePage(
-        mechDir,
+        mech,
         pathParam,
         { content: save.content as never, data: save.pageData ?? {}, layout: save.layout },
         locale,
@@ -375,24 +384,24 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
       const siteI18n = save.siteDataI18n ?? {}
       const folderI18n = save.folderDataI18n ?? {}
       if (locale) {
-        mergeSiteData(mechDir, save.siteData ?? {})
-        mergeFolderData(mechDir, folder, save.folderData ?? {})
-        mergeLocaleSiteData(mechDir, locale, siteI18n)
-        mergeLocaleFolderData(mechDir, locale, folder, folderI18n)
+        mergeSiteData(mech, save.siteData ?? {})
+        mergeFolderData(mech, folder, save.folderData ?? {})
+        mergeLocaleSiteData(mech, locale, siteI18n)
+        mergeLocaleFolderData(mech, locale, folder, folderI18n)
       } else {
-        mergeSiteData(mechDir, { ...(save.siteData ?? {}), ...siteI18n })
-        mergeFolderData(mechDir, folder, { ...(save.folderData ?? {}), ...folderI18n })
+        mergeSiteData(mech, { ...(save.siteData ?? {}), ...siteI18n })
+        mergeFolderData(mech, folder, { ...(save.folderData ?? {}), ...folderI18n })
       }
       return json({ success: true, version })
     }
 
     // ── Composed blocks (Block Composer) ─────────────────────────────────
-    if (pathname === '/composed' && method === 'GET') return json(listComposedBlocks(mechDir))
+    if (pathname === '/composed' && method === 'GET') return json(listComposedBlocks(mech))
 
     if (pathname === '/composed/get' && method === 'GET') {
       const id = query.get('id')
       if (!id || !isValidId(id)) return json({ error: 'Missing or invalid id' }, 400)
-      const result = readComposedBlock(mechDir, id)
+      const result = readComposedBlock(mech, id)
       return result ? json(result) : json({ error: 'not found' }, 404)
     }
 
@@ -406,7 +415,7 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
         return json({ error: { id: 'A block with this id already exists' } }, 400)
       }
       try {
-        return json({ success: true, ...createComposedBlock(mechDir, def) })
+        return json({ success: true, ...createComposedBlock(mech, def) })
       } catch (error) {
         if (error instanceof ComposedBlockExistsError) {
           return json({ error: { id: 'A block with this id already exists' } }, 400)
@@ -424,16 +433,16 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
       // Optimistic concurrency: reject a save over an external edit (a 409),
       // like the page save path — `force: true` overrides.
       if (!save.force && typeof save.version === 'string') {
-        const current = composedVersion(mechDir, id)
+        const current = composedVersion(mech, id)
         if (current != null && current !== save.version) return json({ error: 'conflict', version: current }, 409)
       }
-      return json({ success: true, ...saveComposedBlock(mechDir, id, save.def) })
+      return json({ success: true, ...saveComposedBlock(mech, id, save.def) })
     }
 
     if (pathname === '/composed/delete' && method === 'POST') {
       const id = query.get('id')
       if (!id || !isValidId(id)) return json({ error: 'Missing or invalid id' }, 400)
-      return json({ success: deleteComposedBlock(mechDir, id) })
+      return json({ success: deleteComposedBlock(mech, id) })
     }
 
     return null
@@ -454,8 +463,8 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
       const generated = site ? generatedIndex?.byServed.get(urlPath) : undefined
       const locales = site?.locales ?? null
       const state = generated
-        ? buildGeneratedState(mechDir, generated, locales)
-        : buildPageState(mechDir, urlPath, locales)
+        ? buildGeneratedState(mech, generated, locales)
+        : buildPageState(mech, urlPath, locales)
       const html = renderEditablePage(template, state, { site: site?.site, hostConfig: options.hostConfig })
       return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } })
     },

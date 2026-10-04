@@ -1,10 +1,9 @@
-import fs from 'node:fs'
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { parseComposedBlock, serializeComposedBlock } from 'mechanica-shared/block-format'
 import type { ComposedBlockDefinition } from 'mechanica-shared'
-import { writeFileAtomic, markMutated } from './fs-utils'
-import { COMPOSED_EXT, loadComposedDefinitions } from '../vite/collect-composed'
+import { contentFilesOf, type Mech } from './content-files'
+import { COMPOSED_EXT } from '../vite/collect-composed'
 
 /**
  * CRUD for composed blocks under `<mech>/blocks/<id>.block.yml`. Mirrors
@@ -14,12 +13,15 @@ import { COMPOSED_EXT, loadComposedDefinitions } from '../vite/collect-composed'
  * See PLAN.md § 5.1.
  */
 
-/** The directory composed blocks live in. */
+/** The directory composed blocks live in, relative to the `.mech` root. */
+const BLOCKS = 'blocks'
+
+/** The directory composed blocks live in on disk. */
 export function composedDirOf(mechDir: string): string {
-  return join(mechDir, 'blocks')
+  return join(mechDir, BLOCKS)
 }
 
-const fileOf = (mechDir: string, id: string): string => join(composedDirOf(mechDir), `${id}${COMPOSED_EXT}`)
+const fileOf = (id: string): string => `${BLOCKS}/${id}${COMPOSED_EXT}`
 
 const hash = (text: string): string => createHash('sha1').update(text).digest('hex').slice(0, 16)
 
@@ -40,9 +42,25 @@ export interface ComposedBlockListItem {
   category?: string
 }
 
+/** Every composed-block definition of the site, in id order; a malformed file is skipped. */
+export function readComposedBlocks(mech: Mech): ComposedBlockDefinition[] {
+  const files = contentFilesOf(mech)
+  const defs: ComposedBlockDefinition[] = []
+  for (const file of files.list(BLOCKS).sort()) {
+    const name = file.slice(BLOCKS.length + 1)
+    if (name.includes('/') || !name.endsWith(COMPOSED_EXT)) continue
+    try {
+      defs.push(parseComposedBlock(files.read(file) ?? '', name.slice(0, -COMPOSED_EXT.length)))
+    } catch {
+      /* one bad block never breaks the whole set */
+    }
+  }
+  return defs
+}
+
 /** List every composed block (summaries), skipping malformed files. */
-export function listComposedBlocks(mechDir: string): ComposedBlockListItem[] {
-  return loadComposedDefinitions(composedDirOf(mechDir)).map((def) => ({
+export function listComposedBlocks(mech: Mech): ComposedBlockListItem[] {
+  return readComposedBlocks(mech).map((def) => ({
     id: def.id,
     name: def.name,
     icon: def.icon,
@@ -50,50 +68,40 @@ export function listComposedBlocks(mechDir: string): ComposedBlockListItem[] {
   }))
 }
 
-/** Read one composed block plus its on-disk version, or `null` when absent. */
+/** Read one composed block plus its version, or `null` when absent. */
 export function readComposedBlock(
-  mechDir: string,
+  mech: Mech,
   id: string,
 ): { def: ComposedBlockDefinition; version: string } | null {
-  const file = fileOf(mechDir, id)
-  if (!fs.existsSync(file)) return null
-  const text = fs.readFileSync(file, 'utf-8')
+  const text = contentFilesOf(mech).read(fileOf(id))
+  if (text == null) return null
   return { def: parseComposedBlock(text, id), version: hash(text) }
 }
 
-/** A composed block's current on-disk version (content hash), or `null`. */
-export function composedVersion(mechDir: string, id: string): string | null {
-  const file = fileOf(mechDir, id)
-  if (!fs.existsSync(file)) return null
-  return hash(fs.readFileSync(file, 'utf-8'))
+/** A composed block's current version (content hash), or `null`. */
+export function composedVersion(mech: Mech, id: string): string | null {
+  const text = contentFilesOf(mech).read(fileOf(id))
+  return text == null ? null : hash(text)
 }
 
-const writeDef = (mechDir: string, id: string, def: ComposedBlockDefinition): string => {
-  const file = fileOf(mechDir, id)
-  writeFileAtomic(file, serializeComposedBlock({ ...def, id }))
-  return hash(fs.readFileSync(file, 'utf-8'))
+const writeDef = (mech: Mech, id: string, def: ComposedBlockDefinition): string => {
+  const text = serializeComposedBlock({ ...def, id })
+  contentFilesOf(mech).write(fileOf(id), text)
+  return hash(text)
 }
 
 /** Create a new composed block; throws {@link ComposedBlockExistsError} if taken. */
-export function createComposedBlock(mechDir: string, def: ComposedBlockDefinition): { version: string } {
-  if (fs.existsSync(fileOf(mechDir, def.id))) throw new ComposedBlockExistsError(def.id)
-  return { version: writeDef(mechDir, def.id, def) }
+export function createComposedBlock(mech: Mech, def: ComposedBlockDefinition): { version: string } {
+  if (contentFilesOf(mech).has(fileOf(def.id))) throw new ComposedBlockExistsError(def.id)
+  return { version: writeDef(mech, def.id, def) }
 }
 
-/** Overwrite a composed block's definition; returns the new on-disk version. */
-export function saveComposedBlock(
-  mechDir: string,
-  id: string,
-  def: ComposedBlockDefinition,
-): { version: string } {
-  return { version: writeDef(mechDir, id, def) }
+/** Overwrite a composed block's definition; returns the new version. */
+export function saveComposedBlock(mech: Mech, id: string, def: ComposedBlockDefinition): { version: string } {
+  return { version: writeDef(mech, id, def) }
 }
 
 /** Delete a composed block. Returns whether it existed. */
-export function deleteComposedBlock(mechDir: string, id: string): boolean {
-  const file = fileOf(mechDir, id)
-  if (!fs.existsSync(file)) return false
-  fs.rmSync(file)
-  markMutated(file)
-  return true
+export function deleteComposedBlock(mech: Mech, id: string): boolean {
+  return contentFilesOf(mech).remove(fileOf(id))
 }

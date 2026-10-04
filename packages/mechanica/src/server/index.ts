@@ -11,6 +11,15 @@ export {
   type BlockListing,
 } from './service'
 export { toNodeMiddleware, type NodeMiddleware } from './node-adapter'
+export {
+  fsContentFiles,
+  memoryContentFiles,
+  type ContentFiles,
+  type ContentChanges,
+  type MemoryContentFiles,
+  type Mech,
+} from './content-files'
+export { pageOfFile } from './pages-store'
 export { buildSiteManifest, readSiteManifest, configureSite, type SiteManifestInput } from './site'
 export { renderEditablePage, readEditorTemplate, type EditablePageOptions } from './editor-page'
 export { SITE_MANIFEST_FILE, EDITOR_DIST_DIR, type SiteManifest, type EditorHostConfig } from 'mechanica-shared'

@@ -1,7 +1,5 @@
-import fs from 'node:fs'
-import { dirname, join, relative } from 'node:path'
-import { getPagePath } from './pages-store'
-import { writeFileAtomic, markMutated } from './fs-utils'
+import { pageFolderOf } from './pages-store'
+import { contentFilesOf, type Mech } from './content-files'
 
 /** Site-wide data lives in a single file alongside the pages directory. */
 const SITE_DATA_FILE = 'data.json'
@@ -23,16 +21,15 @@ const sameJson = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON
  * The folder a page belongs to — the directory holding its page file, relative
  * to `pages/`. Root-level pages return `null` (they have no folder).
  */
-export function folderOf(mechDir: string, urlPath: string): string | null {
-  const file = getPagePath(mechDir, urlPath)
-  const dir = dirname(relative(join(mechDir, 'pages'), file)).replace(/\\/g, '/')
-  return dir === '.' || dir === '' ? null : dir
+export function folderOf(mech: Mech, urlPath: string): string | null {
+  return pageFolderOf(mech, urlPath)
 }
 
-function readJsonFile(file: string): Record<string, any> {
-  if (!fs.existsSync(file)) return {}
+function readJsonFile(mech: Mech, file: string): Record<string, any> {
+  const text = contentFilesOf(mech).read(file)
+  if (text == null) return {}
   try {
-    return JSON.parse(fs.readFileSync(file, 'utf-8'))
+    return JSON.parse(text)
   } catch {
     return {}
   }
@@ -43,23 +40,23 @@ function readJsonFile(file: string): Record<string, any> {
  * `localized`-entry overrides merge over the base, so untranslated entries fall
  * back to the default-locale value.
  */
-export function readSiteData(mechDir: string, locale?: string): Record<string, unknown> {
-  const base = readJsonFile(join(mechDir, SITE_DATA_FILE))
+export function readSiteData(mech: Mech, locale?: string): Record<string, unknown> {
+  const base = readJsonFile(mech, SITE_DATA_FILE)
   if (!locale) return base
-  return { ...base, ...readJsonFile(join(mechDir, localeSiteFile(locale))) }
+  return { ...base, ...readJsonFile(mech, localeSiteFile(locale)) }
 }
 
 /** The site data override for a locale (only the entries that differ from the default). */
-export function readSiteLocaleOverride(mechDir: string, locale: string): Record<string, unknown> {
-  return readJsonFile(join(mechDir, localeSiteFile(locale)))
+export function readSiteLocaleOverride(mech: Mech, locale: string): Record<string, unknown> {
+  return readJsonFile(mech, localeSiteFile(locale))
 }
 
 /** Merge the given entries into the site-wide data file (a no-op when empty). */
-export function mergeSiteData(mechDir: string, partial: Record<string, unknown>): void {
+export function mergeSiteData(mech: Mech, partial: Record<string, unknown>): void {
   if (Object.keys(partial).length === 0) return
-  const file = join(mechDir, SITE_DATA_FILE)
-  const merged = { ...readJsonFile(file), ...partial }
-  writeFileAtomic(file, JSON.stringify(merged, null, 2))
+  const file = SITE_DATA_FILE
+  const merged = { ...readJsonFile(mech, file), ...partial }
+  contentFilesOf(mech).write(file, JSON.stringify(merged, null, 2))
 }
 
 /**
@@ -68,57 +65,57 @@ export function mergeSiteData(mechDir: string, partial: Record<string, unknown>)
  * the default drops its override and resumes falling back. Removes the file when
  * it ends up empty.
  */
-export function mergeLocaleSiteData(mechDir: string, locale: string, partial: Record<string, unknown>): void {
+export function mergeLocaleSiteData(mech: Mech, locale: string, partial: Record<string, unknown>): void {
   if (Object.keys(partial).length === 0) return
-  const base = readJsonFile(join(mechDir, SITE_DATA_FILE))
-  const file = join(mechDir, localeSiteFile(locale))
-  const next = pruneOverride({ ...readJsonFile(file) }, partial, base)
-  writeOverride(file, next)
+  const base = readJsonFile(mech, SITE_DATA_FILE)
+  const file = localeSiteFile(locale)
+  const next = pruneOverride({ ...readJsonFile(mech, file) }, partial, base)
+  writeOverride(mech, file, next)
 }
 
 /** All folder data, keyed by folder path. */
-export function readFoldersData(mechDir: string): Record<string, Record<string, unknown>> {
-  return readJsonFile(join(mechDir, FOLDERS_DATA_FILE))
+export function readFoldersData(mech: Mech): Record<string, Record<string, unknown>> {
+  return readJsonFile(mech, FOLDERS_DATA_FILE)
 }
 
 /** Read one folder's data (an empty object for the root or an unknown folder). With a
  *  `locale`, the locale's override merges over the base folder data. */
 export function readFolderData(
-  mechDir: string,
+  mech: Mech,
   folder: string | null,
   locale?: string,
 ): Record<string, unknown> {
   if (!folder) return {}
-  const base = readFoldersData(mechDir)[folder] ?? {}
+  const base = readFoldersData(mech)[folder] ?? {}
   if (!locale) return base
-  const override = readJsonFile(join(mechDir, localeFoldersFile(locale)))[folder] ?? {}
+  const override = readJsonFile(mech, localeFoldersFile(locale))[folder] ?? {}
   return { ...base, ...override }
 }
 
 /** Merge entries into a folder's data (a no-op for the root or an empty patch). */
-export function mergeFolderData(mechDir: string, folder: string | null, partial: Record<string, unknown>): void {
+export function mergeFolderData(mech: Mech, folder: string | null, partial: Record<string, unknown>): void {
   if (!folder || Object.keys(partial).length === 0) return
-  const file = join(mechDir, FOLDERS_DATA_FILE)
-  const all = readFoldersData(mechDir)
+  const file = FOLDERS_DATA_FILE
+  const all = readFoldersData(mech)
   all[folder] = { ...all[folder], ...partial }
-  writeFileAtomic(file, JSON.stringify(all, null, 2))
+  contentFilesOf(mech).write(file, JSON.stringify(all, null, 2))
 }
 
 /** Diff-and-merge `localized` folder entries into a locale's folder override file. */
 export function mergeLocaleFolderData(
-  mechDir: string,
+  mech: Mech,
   locale: string,
   folder: string | null,
   partial: Record<string, unknown>,
 ): void {
   if (!folder || Object.keys(partial).length === 0) return
-  const base = readFoldersData(mechDir)[folder] ?? {}
-  const file = join(mechDir, localeFoldersFile(locale))
-  const all = readJsonFile(file)
+  const base = readFoldersData(mech)[folder] ?? {}
+  const file = localeFoldersFile(locale)
+  const all = readJsonFile(mech, file)
   const next = pruneOverride({ ...(all[folder] ?? {}) }, partial, base)
   if (Object.keys(next).length === 0) delete all[folder]
   else all[folder] = next
-  writeOverride(file, all)
+  writeOverride(mech, file, all)
 }
 
 /** Apply a patch to an override object, dropping any key equal to the base (default) value. */
@@ -135,13 +132,10 @@ function pruneOverride(
 }
 
 /** Write an override file, or remove it entirely when it has no overrides left. */
-function writeOverride(file: string, data: Record<string, unknown>): void {
+function writeOverride(mech: Mech, file: string, data: Record<string, unknown>): void {
   if (Object.keys(data).length === 0) {
-    if (fs.existsSync(file)) {
-      fs.rmSync(file)
-      markMutated(file)
-    }
+    contentFilesOf(mech).remove(file)
     return
   }
-  writeFileAtomic(file, JSON.stringify(data, null, 2))
+  contentFilesOf(mech).write(file, JSON.stringify(data, null, 2))
 }
