@@ -26,6 +26,7 @@ export {
   uploadNameOf,
   type EditorCapabilities,
   type EditorHostConfig,
+  type EditorHostApi,
   type EditorPageListing,
   type EditorPageState,
   type SaveTarget,

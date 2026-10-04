@@ -4,8 +4,7 @@ import os from 'node:os'
 import { join } from 'node:path'
 import { createServer, type Server } from 'node:http'
 import { parsePage, serializePage } from 'mechanica-shared/page-format'
-import { createDevMiddleware } from '@/vite/dev/middleware'
-import { createEditorService, toAssetMiddleware } from '@/server'
+import { createEditorService, toAssetMiddleware, toNodeMiddleware } from '@/server'
 
 let mechDir: string
 let server: Server
@@ -15,7 +14,9 @@ beforeEach(async () => {
   mechDir = fs.mkdtempSync(join(os.tmpdir(), 'mech-'))
   fs.mkdirSync(join(mechDir, 'pages'), { recursive: true })
 
-  const middleware = createDevMiddleware(mechDir, {
+  // Mounted the way the dev server mounts it: under the `/@mechanica` prefix,
+  // which connect strips — so the URLs here are already relative.
+  const middleware = toNodeMiddleware(createEditorService(mechDir, {
     site: {
       format: 1,
       blocks: [
@@ -25,7 +26,7 @@ beforeEach(async () => {
       locales: null,
       generated: [],
     },
-  })
+  }))
   server = createServer((req, res) =>
     middleware(req as never, res as never, () => {
       res.statusCode = 404
@@ -42,7 +43,7 @@ afterEach(async () => {
   fs.rmSync(mechDir, { recursive: true, force: true })
 })
 
-describe('dev middleware', () => {
+describe('the editor service on a Node HTTP stack', () => {
   it('creates, rejects duplicates, saves and lists pages', async () => {
     const create = (body: unknown) =>
       fetch(`${base}/pages`, { method: 'POST', body: JSON.stringify(body) })

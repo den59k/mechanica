@@ -208,6 +208,24 @@ describe('mechanica export (golden)', () => {
     expect(warnings.filter((w) => w.includes('upload'))).toEqual([])
   })
 
+  it('copies an upload a page only mentions — in page data, outside any image or file field', async () => {
+    await mkdir(join(dir, '.mech/assets'), { recursive: true })
+    await writeFile(join(dir, '.mech/assets/price list-0a1b2c3d.pdf'), 'PDF')
+    await writeFile(join(dir, '.mech/assets/unused-0a1b2c3d.pdf'), 'UNUSED')
+    await writeFile(
+      join(dir, '.mech/pages/prices.page.md'),
+      serializePage({ content: [], data: { head: { title: 'Prices', download: '/media/price list-0a1b2c3d.pdf' } } }),
+    )
+
+    const warnings: string[] = []
+    await exportProject(dir, ssr, { onWarn: (message) => warnings.push(message) })
+
+    expect(await readFile(join(dir, 'export/media/price list-0a1b2c3d.pdf'), 'utf-8')).toBe('PDF')
+    await expect(access(join(dir, 'export/media/unused-0a1b2c3d.pdf'))).rejects.toThrow()
+    expect(warnings.some((w) => w.includes('unused-0a1b2c3d.pdf'))).toBe(true)
+    expect(warnings.some((w) => w.includes('price list'))).toBe(false)
+  })
+
   it('serves /assets and /media from a CDN base with assetsUrl, still copying files locally', async () => {
     // A build asset referenced by the template, and an uploaded image on a page.
     await writeFile(

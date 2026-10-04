@@ -44,6 +44,22 @@ export function uploadNameOf(src: unknown): string | null {
   }
 }
 
+/**
+ * What the running editor offers the page that hosts it —
+ * `window.__MECHANICA_EDITOR_API__`, set once the editor has started. A host's
+ * own UI (a "Publish" button) uses it to act on what is saved, not on what was
+ * saved a moment ago.
+ */
+export interface EditorHostApi {
+  /** Whether there are edits that have not reached the host yet. */
+  hasUnsaved(): boolean
+  /**
+   * Send pending edits now instead of after the debounce, and wait for them.
+   * Resolves to false when they could not be saved (an error, a conflict).
+   */
+  flush(): Promise<boolean>
+}
+
 /** What a host can do; the editor hides the surfaces a host doesn't offer. */
 export interface EditorCapabilities {
   /** The Block Composer (create / edit / delete composed blocks). */

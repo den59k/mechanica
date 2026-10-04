@@ -36,6 +36,7 @@ import {
   isDerivedAsset,
   readImageManifest,
   updateImageManifest,
+  UPLOADS_PREFIX,
   type ImageManifest,
   type ImageManifestEntry,
 } from '../server/assets-store'
@@ -708,12 +709,27 @@ export async function exportProject(
     pageLinks,
   }
 
+  // Every upload, by the ways its address can be spelled in a page (as typed,
+  // and percent-encoded) — to find the ones a page refers to outside the fields
+  // `onFile` walks: a link typed into a plain string prop, a URL in page data.
+  // Those are at `/media/…` already and only need their file copied.
+  const unclaimed = new Map<string, string[]>()
+  for (const name of (await readdir(join(cwd, '.mech/assets')).catch(() => [])) as string[]) {
+    const spellings = [name, encodeURI(name), encodeURIComponent(name)].map((spelled) => UPLOADS_PREFIX + spelled)
+    unclaimed.set(name, [...new Set(spellings)])
+  }
+
   const written: string[] = []
   const writePage = async (path: string, html: string): Promise<void> => {
     const dir = path === '/' ? exportDir : join(exportDir, path)
     await mkdir(dir, { recursive: true })
     await writeFile(join(dir, 'index.html'), html)
     written.push(path)
+    for (const [name, addresses] of unclaimed) {
+      if (!addresses.some((address) => html.includes(address))) continue
+      referenced.add(name)
+      unclaimed.delete(name)
+    }
   }
 
   // The automatic SEO output. When the template reads `page.pagination` the

@@ -2,7 +2,13 @@ import { createApp, shallowRef } from 'vue'
 import { blocksList } from 'virtual:mechanica/blocks'
 import { composedList } from 'virtual:mechanica/composed'
 import { widgetsList } from 'virtual:mechanica/widgets'
-import { registerFieldSchemas, type SavePageRequest, type SaveTarget, type State } from 'mechanica-shared'
+import {
+  registerFieldSchemas,
+  type EditorHostApi,
+  type SavePageRequest,
+  type SaveTarget,
+  type State,
+} from 'mechanica-shared'
 import { getDataEntries } from '../core/data-registry'
 import { createComposedComponent } from '../core/composed'
 import { registerBuiltinFieldEditors } from './fields/builtin'
@@ -93,6 +99,11 @@ const saveQueue = createSaveQueue<EditorSnapshot>({
   beacon: (snapshot) =>
     backend.pages.saveOnUnload(saveTarget(), { ...saveBody(snapshot), version: pageVersion }),
 })
+
+// The host page's own UI (a hosted editor's "Publish") acts on what is saved:
+// it asks the editor to send pending edits first.
+const hostApi: EditorHostApi = { hasUnsaved: () => saveQueue.hasUnsaved(), flush: () => saveQueue.flush() }
+;(window as { __MECHANICA_EDITOR_API__?: EditorHostApi }).__MECHANICA_EDITOR_API__ = hostApi
 
 // Leaving the page (including Vite's full reload) flushes pending edits via
 // the beacon; the confirm prompt only appears when the flush can't be queued
