@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import { join } from 'node:path'
-import { createEditorService, fsAssetStore, withRemoteAssets, type RemoteAssets } from '@/server'
+import { createEditorService, fsAssetStore, uploadResponse, withHostedAssets, withRemoteAssets, type RemoteAssets } from '@/server'
 
 let mechDir: string
 let fetches: string[]
@@ -124,5 +124,45 @@ describe('withRemoteAssets', () => {
     expect(await (await service.asset('online-0a1b2c3d.png'))!.text()).toBe('ONLINE')
     const picker = (await (await service.handle(new Request('http://host/images')))!.json()) as { name: string }[]
     expect(picker.map((image) => image.name)).toEqual(['online-0a1b2c3d.png'])
+  })
+})
+
+describe('withHostedAssets', () => {
+  it('knows the hosted uploads without being able to open them', async () => {
+    fs.mkdirSync(join(mechDir, 'assets'))
+    fs.writeFileSync(join(mechDir, 'assets', 'local.png'), 'LOCAL')
+    fs.writeFileSync(join(mechDir, 'images.json'), JSON.stringify({ 'local.png': { width: 2, height: 2 } }))
+    const assets = withHostedAssets(fsAssetStore(mechDir), {
+      'hosted-0a1b2c3d.png': { width: 640, height: 480 },
+      // The local store has this file: what it knows wins.
+      'local.png': { width: 99, height: 99 },
+      '../escape.png': { width: 1, height: 1 },
+    })
+
+    expect((await assets.list()).sort()).toEqual(['hosted-0a1b2c3d.png', 'local.png'])
+    expect(await assets.open('hosted-0a1b2c3d.png')).toBeNull()
+    expect(await read(await assets.open('local.png'))).toBe('LOCAL')
+    expect(await assets.info(['hosted-0a1b2c3d.png', 'local.png', 'nobody.png'])).toEqual({
+      'hosted-0a1b2c3d.png': { width: 640, height: 480 },
+      'local.png': { width: 2, height: 2 },
+    })
+  })
+})
+
+describe('uploadResponse', () => {
+  it('answers for an upload by its encoded name, with its content type', async () => {
+    fs.mkdirSync(join(mechDir, 'assets'))
+    fs.writeFileSync(join(mechDir, 'assets', 'team photo.svg'), '<svg/>')
+    fs.writeFileSync(join(mechDir, 'data.json'), '{"secret":1}')
+    const assets = fsAssetStore(mechDir)
+
+    const found = await uploadResponse(assets, 'team%20photo.svg')
+    expect(found!.headers.get('content-type')).toBe('image/svg+xml')
+    expect(await found!.text()).toBe('<svg/>')
+
+    expect(await uploadResponse(assets, 'missing.png')).toBeNull()
+    expect(await uploadResponse(assets, '..%2Fdata.json')).toBeNull()
+    expect(await uploadResponse(null, 'team%20photo.svg')).toBeNull()
+    expect((await uploadResponse(assets, '%E0%A4%A'))!.status).toBe(400)
   })
 })

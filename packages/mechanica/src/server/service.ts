@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { extname, resolve, sep } from 'node:path'
+import { resolve, sep } from 'node:path'
 import { Readable } from 'node:stream'
 import type {
   ComposedBlockDefinition,
@@ -26,7 +26,7 @@ import {
   imageNamesOf,
   harvestPageImages,
 } from './pages-store'
-import { fsAssetStore, isAssetName, listUploads, storeUpload, type AssetStore } from './assets-store'
+import { contentTypeOf, fsAssetStore, listUploads, storeUpload, uploadResponse, type AssetStore } from './assets-store'
 import { resolveDevQuery } from './query-dev'
 import {
   mergeSiteData,
@@ -119,26 +119,6 @@ export interface EditorService {
 const json = (data: unknown, status = 200): Response =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } })
 
-/** Content types of the files a site stores — browsers don't sniff SVG or fonts. */
-const MIME: Record<string, string> = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-  '.avif': 'image/avif',
-  '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon',
-  '.mp4': 'video/mp4',
-  '.webm': 'video/webm',
-  '.mp3': 'audio/mpeg',
-  '.pdf': 'application/pdf',
-  '.json': 'application/json',
-  '.txt': 'text/plain; charset=utf-8',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-}
-
 /**
  * Stream a file from `dir`, containing the resolved path so an encoded `..`
  * (or an absolute path) cannot escape it.
@@ -153,7 +133,7 @@ function serveFile(dir: string, relative: string, headers: Record<string, string
   const file = resolve(dir, decoded)
   if (file !== dir && !file.startsWith(dir + sep)) return new Response('Forbidden', { status: 403 })
   if (!fs.existsSync(file) || !fs.statSync(file).isFile()) return new Response('Not found', { status: 404 })
-  const type = MIME[extname(file).toLowerCase()]
+  const type = contentTypeOf(file)
   return new Response(Readable.toWeb(fs.createReadStream(file)) as ReadableStream, {
     headers: { ...(type ? { 'content-type': type } : {}), ...headers },
   })
@@ -183,19 +163,8 @@ export function createEditorService(mech: Mech, options: EditorServiceOptions = 
   const mechDir = typeof mech === 'string' ? mech : null
   const assets = options.assets ?? (mechDir ? fsAssetStore(mechDir) : null)
 
-  const asset = async (encoded: string): Promise<Response | null> => {
-    let name: string
-    try {
-      name = decodeURIComponent(encoded)
-    } catch {
-      return new Response('Bad request', { status: 400 })
-    }
-    if (!assets || !isAssetName(name)) return null
-    const body = await assets.open(name)
-    if (!body) return null
-    const type = MIME[extname(name).toLowerCase()]
-    return new Response(body as BodyInit, { headers: type ? { 'content-type': type } : {} })
-  }
+  const asset = (encoded: string): Promise<Response | null> => uploadResponse(assets, encoded)
+
   // The manifest the stores are configured with, and its generated-page index
   // (routes without a file: served for `/state`, listed, rejected on writes).
   let configured: SiteManifest | null = null

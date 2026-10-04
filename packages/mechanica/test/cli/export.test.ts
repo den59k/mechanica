@@ -4,7 +4,7 @@ import os from 'node:os'
 import { join } from 'node:path'
 import { registerFieldSchemas, areFieldSchemasRegistered } from 'mechanica-shared'
 import { serializePage } from 'mechanica-shared/page-format'
-import { exportBuilt, exportProject, type SsrBundle } from '@/cli/export'
+import { exportBuilt, exportProject, type SsrBundle, fsAssetStore, withHostedAssets } from '@/cli/export'
 import { setSharpModule } from '@/server/image-preview'
 
 if (!areFieldSchemasRegistered()) registerFieldSchemas()
@@ -102,7 +102,7 @@ const writePosts = async (count: number) => {
 
 describe('mechanica export (golden)', () => {
   it('renders every page with data scoping, head templating, and copied assets', async () => {
-    const written = await exportProject(dir, ssr)
+    const { pages: written } = await exportProject(dir, ssr)
     expect([...written].sort()).toEqual(['/', '/blog/post'])
 
     const home = await readFile(join(dir, 'export/index.html'), 'utf-8')
@@ -121,7 +121,7 @@ describe('mechanica export (golden)', () => {
 
   it('returns an empty list when there are no pages', async () => {
     await rm(join(dir, '.mech/pages'), { recursive: true, force: true })
-    expect(await exportProject(dir, ssr)).toEqual([])
+    expect(await exportProject(dir, ssr)).toEqual({ pages: [], uploads: { copied: [], hosted: [] } })
   })
 
   it('skips draft pages — no HTML, no sitemap entry', async () => {
@@ -134,7 +134,7 @@ describe('mechanica export (golden)', () => {
       }),
     )
 
-    const written = await exportProject(dir, ssr, { siteUrl: 'https://acme.test' })
+    const { pages: written } = await exportProject(dir, ssr, { siteUrl: 'https://acme.test' })
     expect(written).not.toContain('/wip')
     await expect(access(join(dir, 'export/wip/index.html'))).rejects.toBeTruthy()
 
@@ -187,6 +187,49 @@ describe('mechanica export (golden)', () => {
     // The unreferenced one is reported, not copied.
     await expect(access(join(dir, 'export/media/orphan.png'))).rejects.toThrow()
     expect(warnings.some((w) => w.includes('orphan.png'))).toBe(true)
+  })
+
+  it('leaves to the host the uploads it knows but cannot open, with their image info filled in', async () => {
+    // A hosted render: one upload is still a file in the content tree, the rest
+    // are kept by the host, which says only what it knows about them.
+    await mkdir(join(dir, '.mech/assets'), { recursive: true })
+    await writeFile(join(dir, '.mech/assets/committed.png'), 'COMMITTED')
+    await writeFile(
+      join(dir, '.mech/pages/gallery.page.md'),
+      serializePage({
+        content: [
+          { id: 'a', blockId: 'pic', data: { image: { src: '/media/committed.png' } } },
+          { id: 'b', blockId: 'pic', data: { image: { src: '/media/hosted-0a1b2c3d.png' } } },
+          { id: 'c', blockId: 'pic', data: { image: { src: '/media/unknown-0a1b2c3d.png' } } },
+        ],
+        data: { head: { title: 'Gallery', download: '/media/price list-0a1b2c3d.pdf' } },
+      }),
+    )
+    const assets = withHostedAssets(fsAssetStore(join(dir, '.mech')), {
+      'hosted-0a1b2c3d.png': { width: 640, height: 480, previewSrc: 'data:image/webp;base64,hosted' },
+      'price list-0a1b2c3d.pdf': {},
+      'unused-0a1b2c3d.png': { width: 1, height: 1 },
+    })
+
+    const warnings: string[] = []
+    const { uploads } = await exportProject(dir, ssr, { assets, onWarn: (message) => warnings.push(message) })
+
+    expect(uploads.copied).toEqual(['committed.png'])
+    expect(uploads.hosted.sort()).toEqual(['hosted-0a1b2c3d.png', 'price list-0a1b2c3d.pdf'])
+    expect(await readFile(join(dir, 'export/media/committed.png'), 'utf-8')).toBe('COMMITTED')
+    await expect(access(join(dir, 'export/media/hosted-0a1b2c3d.png'))).rejects.toThrow()
+
+    // The page still gets the hosted image's dimensions and blur-up preview.
+    const gallery = await readFile(join(dir, 'export/gallery/index.html'), 'utf-8')
+    expect(gallery).toContain('"src":"/media/hosted-0a1b2c3d.png"')
+    expect(gallery).toContain('data:image/webp;base64,hosted')
+    expect(gallery).toContain('"width":640')
+
+    // An upload nobody has is said so; one nobody uses is too.
+    expect(warnings.filter((w) => w.includes('Missing upload'))).toEqual([
+      "[mechanica] Missing upload: unknown-0a1b2c3d.png is referenced by a page but is not among the site's uploads",
+    ])
+    expect(warnings.some((w) => w.includes('unused upload') && w.includes('unused-0a1b2c3d.png'))).toBe(true)
   })
 
   it('copies an upload referenced at /media — the address it keeps on the exported site', async () => {
@@ -444,7 +487,7 @@ describe('mechanica export (golden)', () => {
   it('splits a paginated page into real /news/2… variants, each with its own slice', async () => {
     await writePosts(5)
 
-    const written = await exportProject(dir, paginatedSsr, { siteUrl: 'https://example.com' })
+    const { pages: written } = await exportProject(dir, paginatedSsr, { siteUrl: 'https://example.com' })
     expect(written).toContain('/news')
     expect(written).toContain('/news/2')
     expect(written).toContain('/news/3')
@@ -783,7 +826,7 @@ describe('mechanica export (i18n)', () => {
       serializePage({ content: [{ id: 'a', blockId: 'hero', data: { title: 'About RU' } }], data: {} }),
     )
 
-    const written = await exportProject(dir, i18nSsr)
+    const { pages: written } = await exportProject(dir, i18nSsr)
     expect(written).toContain('/about')
     expect(written).toContain('/ru/about')
 
@@ -812,7 +855,7 @@ describe('mechanica export (i18n)', () => {
     )
 
     const warnings: string[] = []
-    const written = await exportProject(dir, i18nSsr, { onWarn: (m) => warnings.push(m) })
+    const { pages: written } = await exportProject(dir, i18nSsr, { onWarn: (m) => warnings.push(m) })
 
     expect(written).not.toContain('/ru/solo')
     await expect(access(join(dir, 'export/ru/solo/index.html'))).rejects.toBeTruthy()
@@ -894,7 +937,7 @@ describe('mechanica export (generated pages)', () => {
         { path: '/docs/api/mathf', content: [{ id: 'g', blockId: 'hero', data: { title: 'Mathf' } }], data: { head: { title: 'Mathf' } }, meta: { title: 'Mathf' }, lastmod: '2026-01-02' },
       ],
     }
-    const written = await exportProject(dir, generated, { onWarn: () => {} })
+    const { pages: written } = await exportProject(dir, generated, { onWarn: () => {} })
     expect(written).toContain('/docs/api')
     expect(written).toContain('/docs/api/mathf')
 
@@ -931,7 +974,7 @@ describe('mechanica export (generated pages)', () => {
         { path: '/docs/api', locale: 'ru', locales: ['en', 'ru'], content: [], data: { head: { title: 'API' } }, meta: { title: 'API' } },
       ],
     }
-    const written = await exportProject(dir, gen, { siteUrl: 'https://x.dev', onWarn: () => {} })
+    const { pages: written } = await exportProject(dir, gen, { siteUrl: 'https://x.dev', onWarn: () => {} })
     expect(written).toContain('/docs/api') // default locale, unprefixed
     expect(written).toContain('/ru/docs/api') // non-default, prefixed
     const en = await readFile(join(dir, 'export/docs/api/index.html'), 'utf-8')
@@ -1007,7 +1050,7 @@ describe('mechanica/export (build-free entry)', () => {
     await mkdir(join(outDir, 'stale'), { recursive: true })
     await writeFile(join(outDir, 'stale/index.html'), 'old deploy')
 
-    const written = await exportProject(dir, ssr, { outDir, onWarn: () => {} })
+    const { pages: written } = await exportProject(dir, ssr, { outDir, onWarn: () => {} })
 
     expect(written.sort()).toEqual(['/', '/blog/post'])
     expect(await readFile(join(outDir, 'index.html'), 'utf-8')).toContain('<h1>Welcome</h1>')

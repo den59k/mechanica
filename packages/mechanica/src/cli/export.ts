@@ -33,10 +33,11 @@ import { parsePage, type RichTextCodec } from 'mechanica-shared/page-format'
 import { toBlockMeta, composedBlockMeta, type BlockComponent } from '../editor/lib/block-meta'
 import {
   assetFileOf,
+  fsAssetStore,
   isDerivedAsset,
-  readImageManifest,
-  updateImageManifest,
   UPLOADS_PREFIX,
+  withHostedAssets,
+  type AssetStore,
   type ImageManifest,
   type ImageManifestEntry,
 } from '../server/assets-store'
@@ -310,6 +311,25 @@ export interface ExportOptions {
    * service around it.
    */
   fetchJson?: (options: { url: string } & Record<string, unknown>) => Promise<unknown>
+  /**
+   * Where the site's uploads are: their bytes and their image info. Defaults to
+   * the project's `.mech/assets` + `.mech/images.json`. The export reads uploads
+   * only through this — a linked project passes a store that also fetches the
+   * ones kept by its platform, and a hosted render one that knows uploads it
+   * cannot open (`withHostedAssets`): those are not copied, the host serves them.
+   */
+  assets?: AssetStore
+}
+
+/** What became of the uploads the pages refer to. */
+export interface ExportedUploads {
+  /** Copied into the export's `media/` directory. */
+  copied: string[]
+  /**
+   * Known to the store but not readable through it — left for the host to
+   * serve at `/media/<name>`. Empty for an export over a plain directory.
+   */
+  hosted: string[]
 }
 
 /**
@@ -382,22 +402,25 @@ function fillImageValue(value: ImageFieldValue, entry: ImageManifestEntry): void
   if (entry.height && !value.height) value.height = entry.height
 }
 
+/** Everything an upload's bytes come as, in one buffer. */
+const bytesOf = async (body: ReadableStream<Uint8Array> | Uint8Array): Promise<Buffer> =>
+  body instanceof Uint8Array ? Buffer.from(body) : Buffer.from(await new Response(body).arrayBuffer())
+
 /**
  * Fill missing image metadata — LQIP `previewSrc` + intrinsic dimensions —
  * into the state being exported (page files are never touched). Sources, in
- * order: the `.mech/images.json` manifest (written by uploads, editor saves
- * and `mechanica images`), then the optional `sharp` dependency for anything
- * still missing — those computed entries are cached back into the manifest.
- * Without sharp, leftover gaps get a one-time hint.
+ * order: what the asset store knows (written by uploads, editor saves and
+ * `mechanica images`), then the optional `sharp` dependency for anything still
+ * missing that the store can open — those computed entries are saved back to
+ * it. Without sharp, leftover gaps get a one-time hint.
  */
 async function backfillImageMeta(
   pages: ExportPage[],
   blocksMap: Map<string, Block>,
-  mechDir: string,
+  assets: AssetStore,
   warn: (message: string) => void,
 ): Promise<void> {
-  const manifest = readImageManifest(mechDir)
-  const incomplete = new Map<string, ImageFieldValue[]>()
+  const values = new Map<string, ImageFieldValue[]>()
   for (const page of pages) {
     walkTree(page.content, (block) => {
       const meta = blocksMap.get(block.blockId)
@@ -405,14 +428,21 @@ async function backfillImageMeta(
       walkSchema(block.data, meta.props, (value: any, schema: any) => {
         if (schema.format !== 'image') return
         const file = assetFileOf(value?.src)
-        if (!file) return
-        const entry = manifest[file]
-        if (entry) fillImageValue(value, entry)
-        if (!value.previewSrc || value.previewSrc === value.src || !value.width || !value.height) {
-          incomplete.set(file, [...(incomplete.get(file) ?? []), value])
-        }
+        if (file) values.set(file, [...(values.get(file) ?? []), value])
       })
     })
+  }
+  if (!values.size) return
+
+  const known = await assets.info([...values.keys()])
+  const incomplete = new Map<string, ImageFieldValue[]>()
+  for (const [file, list] of values) {
+    const entry = known[file]
+    const lacking = list.filter((value) => {
+      if (entry) fillImageValue(value, entry)
+      return !value.previewSrc || value.previewSrc === value.src || !value.width || !value.height
+    })
+    if (lacking.length) incomplete.set(file, lacking)
   }
   if (!incomplete.size) return
 
@@ -425,22 +455,18 @@ async function backfillImageMeta(
   }
 
   // One decode per distinct file, shared across every value referencing it;
-  // computed entries are cached into the manifest for dev and future exports.
+  // computed entries are saved for dev and future exports.
   const computed: ImageManifest = {}
-  for (const [file, values] of incomplete) {
-    const buffer = await readFile(join(mechDir, 'assets', file)).catch(() => null)
-    const info = buffer ? await analyzeImageBuffer(buffer) : null
+  for (const [file, list] of incomplete) {
+    const body = await assets.open(file).catch(() => null)
+    const info = body ? await analyzeImageBuffer(await bytesOf(body)) : null
     if (!info) continue
     computed[file] = info
-    for (const value of values) fillImageValue(value, info)
+    for (const value of list) fillImageValue(value, info)
   }
   // A cache write, never a reason to fail the export: the values above are
   // already filled, and a hosted render reads its content from a read-only tree.
-  try {
-    updateImageManifest(mechDir, computed)
-  } catch {
-    // Recomputed on the next export.
-  }
+  await assets.saveInfo(computed).catch(() => {})
 }
 
 /**
@@ -464,8 +490,9 @@ export async function exportProject(
   cwd: string,
   ssr: SsrBundle,
   options: ExportOptions = {},
-): Promise<string[]> {
+): Promise<{ pages: string[]; uploads: ExportedUploads }> {
   const warn = options.onWarn ?? ((message: string) => console.warn(message))
+  const assets = options.assets ?? fsAssetStore(join(cwd, '.mech'))
   const index = await readFile(join(cwd, 'dist/index.html'), 'utf-8')
 
   // CLI flags win over the site config baked into the SSR bundle.
@@ -624,7 +651,7 @@ export async function exportProject(
 
   // Fill image metadata (LQIP previews, dimensions) into the exported state:
   // manifest first, optional `sharp` for anything still missing.
-  await backfillImageMeta(pages, blocksMap, join(cwd, '.mech'), warn)
+  await backfillImageMeta(pages, blocksMap, assets, warn)
 
   const exportDir = resolve(cwd, options.outDir ?? 'export')
   await mkdir(exportDir, { recursive: true })
@@ -642,9 +669,9 @@ export async function exportProject(
     await cp(join(cwd, 'dist', entry), join(exportDir, entry), { recursive: true })
   }
 
-  // Uploaded assets (`.mech/assets`): remember which files pages actually
-  // reference, so we copy exactly those to `media/` — where content already
-  // points. The URL only changes for a CDN base or the pre-2.1 prefix.
+  // Uploads: remember which ones pages actually reference, so exactly those
+  // are copied to `media/` — where content already points. The URL only changes
+  // for a CDN base or the pre-2.1 prefix.
   const referenced = new Set<string>()
   const onFile = (src: string): string => {
     const relative = assetFileOf(src)
@@ -713,8 +740,9 @@ export async function exportProject(
   // and percent-encoded) — to find the ones a page refers to outside the fields
   // `onFile` walks: a link typed into a plain string prop, a URL in page data.
   // Those are at `/media/…` already and only need their file copied.
+  const stored = await assets.list()
   const unclaimed = new Map<string, string[]>()
-  for (const name of (await readdir(join(cwd, '.mech/assets')).catch(() => [])) as string[]) {
+  for (const name of stored) {
     const spellings = [name, encodeURI(name), encodeURIComponent(name)].map((spelled) => UPLOADS_PREFIX + spelled)
     unclaimed.set(name, [...new Set(spellings)])
   }
@@ -848,7 +876,7 @@ export async function exportProject(
     recordSitemap(path, source, source.page!.pagination!.page)
   }
 
-  await copyUploads(join(cwd, '.mech/assets'), join(exportDir, MEDIA_DIR), referenced, warn)
+  const uploads = await copyUploads(assets, new Set(stored), join(exportDir, MEDIA_DIR), referenced, warn)
 
   // Static-host 404 convention: a `/404` page also lands at export/404.html.
   if (written.includes('/404')) {
@@ -867,36 +895,44 @@ export async function exportProject(
     if (!hasOwnRobots) await writeFile(robotsPath, buildRobotsTxt(siteUrl))
   }
 
-  return written
+  return { pages: written, uploads }
 }
 
-/** Copy referenced uploads into the export; warn about missing + orphaned files. */
+/**
+ * Put the referenced uploads into the export: copy the ones the store can open,
+ * leave to the host the ones it only knows about, warn about the ones it does
+ * not know — and about uploads no page refers to.
+ */
 async function copyUploads(
-  assetsDir: string,
+  assets: AssetStore,
+  stored: Set<string>,
   outDir: string,
   referenced: Set<string>,
   warn: (message: string) => void,
-): Promise<void> {
-  for (const relative of referenced) {
-    const target = join(outDir, relative)
-    await mkdir(dirname(target), { recursive: true })
-    await copyFile(join(assetsDir, relative), target).catch(() => {
-      warn(`[mechanica] Missing upload: ${relative} is referenced by a page but not in .mech/assets`)
-    })
+): Promise<ExportedUploads> {
+  const uploads: ExportedUploads = { copied: [], hosted: [] }
+  for (const name of referenced) {
+    const body = await assets.open(name).catch(() => null)
+    if (body) {
+      const target = join(outDir, name)
+      await mkdir(dirname(target), { recursive: true })
+      await writeFile(target, await bytesOf(body))
+      uploads.copied.push(name)
+    } else if (stored.has(name)) {
+      uploads.hosted.push(name)
+    } else {
+      warn(`[mechanica] Missing upload: ${name} is referenced by a page but is not among the site's uploads`)
+    }
   }
 
   // Orphans: uploads no page references. Report only — deleting is the user's
   // call. Cropped derivatives are a regenerable cache, not source files, so a
   // stale one (from an earlier crop) isn't worth a warning.
-  const existing = (await readdir(assetsDir, { recursive: true }).catch(() => [])) as string[]
-  const orphans = existing
-    .map((entry) => entry.replace(/\\/g, '/'))
-    .filter((entry) => /\.\w+$/.test(entry) && !referenced.has(entry) && !isDerivedAsset(entry))
+  const orphans = [...stored].filter((name) => /\.\w+$/.test(name) && !referenced.has(name) && !isDerivedAsset(name))
   if (orphans.length) {
-    warn(
-      `[mechanica] ${orphans.length} unused upload(s) in .mech/assets (not exported): ${orphans.join(', ')}`,
-    )
+    warn(`[mechanica] ${orphans.length} unused upload(s) (not exported): ${orphans.join(', ')}`)
   }
+  return uploads
 }
 
 /** What {@link exportBuilt} produced. */
@@ -905,6 +941,8 @@ export interface ExportResult {
   pages: string[]
   /** Everything the export warned about (broken links, missing uploads, SEO lint). */
   warnings: string[]
+  /** The uploads the pages refer to: which were copied, which the host is to serve. */
+  uploads: ExportedUploads
 }
 
 /**
@@ -926,6 +964,10 @@ export async function exportBuilt(cwd: string, options: ExportOptions = {}): Pro
   }
 
   const ssr = (await import(pathToFileURL(join(cwd, 'dist/ssr.js')).href)) as SsrBundle
-  const pages = await exportProject(cwd, ssr, { ...options, onWarn })
-  return { pages, warnings }
+  const { pages, uploads } = await exportProject(cwd, ssr, { ...options, onWarn })
+  return { pages, warnings, uploads }
 }
+
+// What a caller of `mechanica/export` builds its `assets` option from.
+export { fsAssetStore, withHostedAssets }
+export type { AssetStore, ImageManifest }

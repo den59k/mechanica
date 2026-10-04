@@ -23,6 +23,10 @@ export { pageOfFile } from './pages-store'
 export {
   fsAssetStore,
   withRemoteAssets,
+  withHostedAssets,
+  uploadResponse,
+  contentTypeOf,
+  isAssetName,
   uploadName,
   isDerivedAsset,
   type AssetStore,

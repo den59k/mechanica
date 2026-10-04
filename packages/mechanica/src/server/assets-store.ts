@@ -264,6 +264,81 @@ export async function listUploads(assets: AssetStore): Promise<{ id: string; nam
     }))
 }
 
+/** Content types of the files a site stores — browsers don't sniff SVG or fonts. */
+const MIME: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.avif': 'image/avif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mp3': 'audio/mpeg',
+  '.pdf': 'application/pdf',
+  '.json': 'application/json',
+  '.txt': 'text/plain; charset=utf-8',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+}
+
+/** The content type a stored file is served with, when its extension says. */
+export const contentTypeOf = (fileName: string): string | undefined => MIME[parse(fileName).ext.toLowerCase()]
+
+/**
+ * The HTTP answer for an upload asked for by its address — the part of
+ * `/media/<name>` after the prefix, still percent-encoded. null when it is not
+ * an upload of this store, so the caller can fall through; a 400 for a name
+ * that is not valid encoding. One function for every host that serves uploads:
+ * the dev server, an editing host, a site's live host.
+ */
+export async function uploadResponse(assets: AssetStore | null | undefined, encodedName: string): Promise<Response | null> {
+  let name: string
+  try {
+    name = decodeURIComponent(encodedName)
+  } catch {
+    return new Response('Bad request', { status: 400 })
+  }
+  if (!assets || !isAssetName(name)) return null
+  const body = await assets.open(name)
+  if (!body) return null
+  const type = contentTypeOf(name)
+  return new Response(body as BodyInit, { headers: type ? { 'content-type': type } : {} })
+}
+
+// --- Uploads kept by the host ---------------------------------------------
+
+/**
+ * A store for rendering a site whose uploads the host keeps and serves itself.
+ * `hosted` is what the host knows about them — a name with its image info. The
+ * result knows those names (`list`, `info`) but cannot open them: an export
+ * over it fills in their dimensions and previews, copies no bytes, and reports
+ * them as the host's to serve (see `ExportResult.uploads`). Whatever the local
+ * store has is used as before.
+ */
+export function withHostedAssets(local: AssetStore, hosted: ImageManifest): AssetStore {
+  const names = Object.keys(hosted).filter(isAssetName)
+  return {
+    write: (name, data) => local.write(name, data),
+    open: (name) => local.open(name),
+    saveInfo: (entries) => local.saveInfo(entries),
+    async list() {
+      return [...new Set([...(await local.list()), ...names])]
+    },
+    async info(wanted) {
+      const known = await local.info(wanted)
+      for (const name of wanted) {
+        const entry = hosted[name]
+        // What the local store knows about a file it has wins.
+        if (entry && !known[name]) known[name] = entry
+      }
+      return known
+    },
+  }
+}
+
 // --- Uploads kept elsewhere -----------------------------------------------
 
 /**
