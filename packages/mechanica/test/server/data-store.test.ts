@@ -11,7 +11,7 @@ import {
   mergeLocaleSiteData,
   mergeLocaleFolderData,
   readSiteLocaleOverride,
-} from '@/vite/dev/data-store'
+} from '@/server/data-store'
 
 let mechDir: string
 

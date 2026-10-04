@@ -13,8 +13,8 @@ import {
   updateImageManifest,
   harvestImageMeta,
   applyImageManifest,
-} from '@/vite/dev/assets-store'
-import { setSharpModule } from '@/vite/dev/image-preview'
+} from '@/server/assets-store'
+import { setSharpModule } from '@/server/image-preview'
 
 let mechDir: string
 

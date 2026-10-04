@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { isDerivedAsset, readImageManifest, updateImageManifest, type ImageManifest } from '../vite/dev/assets-store'
-import { analyzeImageBuffer, hasSharp, isRasterImage, LQIP_MIN_DIMENSION } from '../vite/dev/image-preview'
+import { isDerivedAsset, readImageManifest, updateImageManifest, type ImageManifest } from '../server/assets-store'
+import { analyzeImageBuffer, hasSharp, isRasterImage, LQIP_MIN_DIMENSION } from '../server/image-preview'
 
 export interface ImagesOptions {
   /** Regenerate every entry, not just missing/incomplete ones. */

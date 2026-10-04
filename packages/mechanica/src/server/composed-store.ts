@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { parseComposedBlock, serializeComposedBlock } from 'mechanica-shared/block-format'
 import type { ComposedBlockDefinition } from 'mechanica-shared'
 import { writeFileAtomic, markMutated } from './fs-utils'
-import { COMPOSED_EXT, loadComposedDefinitions } from '../collect-composed'
+import { COMPOSED_EXT, loadComposedDefinitions } from '../vite/collect-composed'
 
 /**
  * CRUD for composed blocks under `<mech>/blocks/<id>.block.yml`. Mirrors

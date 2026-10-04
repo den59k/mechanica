@@ -21,7 +21,7 @@ import {
   translationsOf,
   variantFilesOf,
   PageExistsError,
-} from '@/vite/dev/pages-store'
+} from '@/server/pages-store'
 
 const config: LocalesConfig = { default: 'en', all: ['en', 'ru', 'de'] }
 

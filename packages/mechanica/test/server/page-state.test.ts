@@ -4,9 +4,9 @@ import os from 'node:os'
 import { dirname, join } from 'node:path'
 import { type Block, type LocalesConfig, type VirtualPage } from 'mechanica-shared'
 import { serializePage } from 'mechanica-shared/page-format'
-import { setPageBlocks, createTranslation, savePage } from '@/vite/dev/pages-store'
-import { mergeSiteData, mergeLocaleSiteData } from '@/vite/dev/data-store'
-import { buildPageState, buildGeneratedState } from '@/vite/dev/page-state'
+import { setPageBlocks, createTranslation, savePage } from '@/server/pages-store'
+import { mergeSiteData, mergeLocaleSiteData } from '@/server/data-store'
+import { buildPageState, buildGeneratedState } from '@/server/page-state'
 
 let mechDir: string
 

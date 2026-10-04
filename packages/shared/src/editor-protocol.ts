@@ -90,7 +90,7 @@ export interface SavePageResponse {
 export interface PageFormInput {
   name: string
   path: string
-  folderId?: string | null
+  folderId?: string
 }
 
 /** A stored upload: its public src, plus dimensions + LQIP when the host can produce them. */

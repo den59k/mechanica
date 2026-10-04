@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { registerFieldSchemas, areFieldSchemasRegistered } from 'mechanica-shared'
 import { serializePage } from 'mechanica-shared/page-format'
 import { exportBuilt, exportProject, type SsrBundle } from '@/cli/export'
-import { setSharpModule } from '@/vite/dev/image-preview'
+import { setSharpModule } from '@/server/image-preview'
 
 if (!areFieldSchemasRegistered()) registerFieldSchemas()
 

@@ -33,10 +33,10 @@ import {
 import { createDevMiddleware } from './dev/middleware'
 import { createPreviewMiddleware } from './dev/preview'
 import { createComposerMiddleware } from './dev/composer'
-import { setPageCodec, setPageBlocks, pageUrlOf } from './dev/pages-store'
+import { setPageCodec, setPageBlocks, pageUrlOf } from '../server/pages-store'
 import { toBlockMeta, composedBlockMeta } from '../editor/lib/block-meta'
-import { buildPageState, buildGeneratedState } from './dev/page-state'
-import { wasRecentlyMutated } from './dev/fs-utils'
+import { buildPageState, buildGeneratedState } from '../server/page-state'
+import { wasRecentlyMutated } from '../server/fs-utils'
 import { buildRichTextCodec } from './rich-text-codec'
 import { BLOCKS_MANIFEST_FILE } from '../cli/page-assets'
 

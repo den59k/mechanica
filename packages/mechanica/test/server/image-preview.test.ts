@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { analyzeImageBuffer, hasSharp, isRasterImage, setSharpModule } from '@/vite/dev/image-preview'
+import { analyzeImageBuffer, hasSharp, isRasterImage, setSharpModule } from '@/server/image-preview'
 
 // 'preview' base64-encoded — what the fake sharp's webp buffer serializes to.
 const PREVIEW_URI = `data:image/webp;base64,${Buffer.from('preview').toString('base64')}`

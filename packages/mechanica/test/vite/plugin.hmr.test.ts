@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { createServer, type ViteDevServer } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { mechanica, BLOCKS_MODULE_ID } from '@/vite/plugin'
-import { savePage } from '@/vite/dev/pages-store'
+import { savePage } from '@/server/pages-store'
 
 const block = (title: string, template = '<h1>hi</h1>') =>
   `<template>${template}</template>\n<script setup lang="ts">\nconst props = defineBlock({ props: { ${title}: 'string' } })\n</script>\n`

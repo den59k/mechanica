@@ -41,6 +41,10 @@
       "types": "./dist/types/cli/export.d.ts",
       "import": "./dist/export.js"
     },
+    "./server": {
+      "types": "./dist/types/server/index.d.ts",
+      "import": "./dist/server.js"
+    },
     "./editor": {
       "import": "./dist/editor.js"
     },

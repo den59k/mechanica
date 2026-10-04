@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import { join } from 'node:path'
 import { serializePage } from 'mechanica-shared/page-format'
-import { resolveDevQuery } from '@/vite/dev/query-dev'
+import { resolveDevQuery } from '@/server/query-dev'
 
 let mechDir: string
 

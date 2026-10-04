@@ -12,7 +12,7 @@ import {
   composedVersion,
   composedDirOf,
   ComposedBlockExistsError,
-} from '@/vite/dev/composed-store'
+} from '@/server/composed-store'
 
 let mechDir: string
 beforeEach(() => {

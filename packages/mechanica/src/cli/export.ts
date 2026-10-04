@@ -37,10 +37,10 @@ import {
   UPLOADS_PREFIX,
   type ImageManifest,
   type ImageManifestEntry,
-} from '../vite/dev/assets-store'
-import { readSiteData, readFoldersData, readFolderData, readSiteLocaleOverride } from '../vite/dev/data-store'
-import { analyzeImageBuffer, hasSharp } from '../vite/dev/image-preview'
-import { getPagePath, listPages, setPageCodec } from '../vite/dev/pages-store'
+} from '../server/assets-store'
+import { readSiteData, readFoldersData, readFolderData, readSiteLocaleOverride } from '../server/data-store'
+import { analyzeImageBuffer, hasSharp } from '../server/image-preview'
+import { getPagePath, listPages, setPageCodec } from '../server/pages-store'
 import { buildRichTextCodec } from '../vite/rich-text-codec'
 import { blockAssetLinks, BLOCKS_MANIFEST_FILE, type BlockChunkRef, type ViteManifest } from './page-assets'
 

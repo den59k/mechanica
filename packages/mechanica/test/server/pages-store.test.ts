@@ -21,7 +21,7 @@ import {
   setPageBlocks,
   fillImageMeta,
   PageExistsError,
-} from '@/vite/dev/pages-store'
+} from '@/server/pages-store'
 
 let mechDir: string
 

@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import { join } from 'node:path'
 import { runImages } from '@/cli/images'
-import { setSharpModule } from '@/vite/dev/image-preview'
+import { setSharpModule } from '@/server/image-preview'
 
 const PREVIEW_URI = `data:image/webp;base64,${Buffer.from('preview').toString('base64')}`
 
