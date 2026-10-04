@@ -2,6 +2,7 @@ import { realpath } from 'node:fs/promises'
 import { join } from 'node:path'
 import { runBuild } from '../build'
 import { parseRemoteUrl, REMOTE_NAME, request, requireToken, type PlatformSite } from './api'
+import { pushUploads } from './assets'
 import { packBundle } from './bundle-format'
 import { engineVersion } from './engine-version'
 import { git, gitAuthEnv, gitOk } from './git'
@@ -36,7 +37,8 @@ const AUTO_DEPLOY_WAIT_MS = 10_000
  * `mechanica push`: publish the committed project to the platform.
  *
  *   1. bring in what was published online since the last pull (`pull --rebase`),
- *   2. `git push` the commits to the site's repository,
+ *   2. send the uploads the platform lacks (they are not in git), then `git push`
+ *      the commits to the site's repository,
  *   3. if the code changed, build locally and upload the bundle for that commit
  *      (content-only pushes reuse the bundle already there — no build at all),
  *   4. wait for the deploy and report it.
@@ -88,7 +90,9 @@ export async function runPush(): Promise<void> {
     }
   }
 
-  // 2.
+  // 2. Uploads first: the push starts a deploy, and its pages refer to them.
+  await pushUploads(cwd, { ...link, uuid: site.uuid, token })
+
   const head = await gitOk(cwd, ['rev-parse', 'HEAD'])
   console.info(`Pushing ${head.slice(0, 8)} to ${link.slug}…`)
   const pushed = await git(cwd, ['push', REMOTE_NAME, 'HEAD:refs/heads/main'], auth)

@@ -35,7 +35,8 @@ import { createPreviewMiddleware } from './dev/preview'
 import { createComposerMiddleware } from './dev/composer'
 import { pageUrlOf } from '../server/pages-store'
 import { buildPageState, buildGeneratedState, fillStateImages } from '../server/page-state'
-import { fsAssetStore } from '../server/assets-store'
+import { fsAssetStore, withRemoteAssets, type AssetStore } from '../server/assets-store'
+import { remoteAssetsFor, uploadsIgnored } from '../cli/platform/assets'
 import { createEditorService } from '../server/service'
 import { toNodeMiddleware, toAssetMiddleware } from '../server/node-adapter'
 import { wasRecentlyMutated } from '../server/fs-utils'
@@ -184,6 +185,26 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
   let blocksDir = ''
   let widgetsDir = ''
   let mechDir = ''
+  // The project's uploads: `.mech/assets`, and — for a project linked to a
+  // hosted platform — the uploads made in its online editor, fetched the first
+  // time a page asks for one. A fetched file is kept in `.mech/assets` only when
+  // git ignores that directory (what `mechanica link` sets up); otherwise it
+  // would show up as an uncommitted change, so it is served from memory.
+  let uploadStore: AssetStore | null = null
+  let uploadsCached: Promise<boolean> | null = null
+  const uploads = (): AssetStore =>
+    (uploadStore ??= withRemoteAssets(fsAssetStore(mechDir), remoteAssetsFor(root), {
+      cache: () =>
+        (uploadsCached ??= uploadsIgnored(root).then((ignored) => {
+          if (!ignored) {
+            console.info(
+              '[mechanica] Uploads made online are fetched from the platform on every start: add `.mech/assets/` ' +
+                'and `.mech/images.json` to .gitignore (`mechanica link` does it) to keep them locally.',
+            )
+          }
+          return ignored
+        })),
+    }))
   let composedDir = ''
   // Absolute path + root-relative import specifier for the components manifest.
   let composerFilePath = ''
@@ -581,7 +602,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       // The service takes everything it knows about the code from the
       // manifest — re-read per request, so a re-collected blocks module (HMR
       // add/remove) or an edited composed block is reflected.
-      const service = createEditorService(mechDir, { site: () => loadSite(server) })
+      const service = createEditorService(mechDir, { site: () => loadSite(server), assets: uploads() })
       server.middlewares.use('/@mechanica', toNodeMiddleware(service) as Connect.NextHandleFunction)
       // Uploads are served where content refers to them — and where the export
       // publishes them — `/media/<name>`. Anything else under it falls through.
@@ -705,7 +726,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         // locale-prefixed URL (`/ru/about`) resolves to that translation.
         const state = await fillStateImages(
           mechDir,
-          fsAssetStore(mechDir),
+          uploads(),
           generated ? buildGeneratedState(mechDir, generated, locales) : buildPageState(mechDir, urlPath, locales),
         )
         // `{{ … }}` head placeholders resolve the same way the build does, so

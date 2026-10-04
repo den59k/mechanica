@@ -3,6 +3,7 @@ import { runBuild } from './build'
 import { runExport } from './run-export'
 import { runImages } from './images'
 import { runMigrate } from './migrate'
+import { runAssetsPull } from './platform/assets'
 import { runLink } from './platform/link'
 import { runLogin } from './platform/login'
 import { runPush } from './platform/push'
@@ -44,6 +45,10 @@ Usage:
                             previews) for .mech/assets into .mech/images.json —
                             for pages authored without the browser editor
                             (needs the optional sharp dependency; --force redoes all)
+  mechanica assets pull     Download the site's uploads this project lacks into
+                            .mech/assets (the dev server fetches them one by one
+                            on demand; this gets all of them — for working offline
+                            or a local export)
   mechanica migrate         Bring .mech content up to the current format: uploads
                             are referenced as /media/<file> (was /@mechanica/assets/)
 `
@@ -65,6 +70,9 @@ export async function run(argv: string[]): Promise<void> {
       })
     case 'images':
       return runImages({ force: flags.force === true })
+    case 'assets':
+      if (args[0] !== 'pull') throw new Error('Usage: mechanica assets pull')
+      return void (await runAssetsPull())
     case 'migrate':
       return void (await runMigrate())
     case 'login':

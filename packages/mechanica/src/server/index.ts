@@ -22,9 +22,12 @@ export {
 export { pageOfFile } from './pages-store'
 export {
   fsAssetStore,
+  withRemoteAssets,
   uploadName,
   isDerivedAsset,
   type AssetStore,
+  type RemoteAssets,
+  type RemoteAssetsOptions,
   type ImageManifest,
   type ImageManifestEntry,
 } from './assets-store'

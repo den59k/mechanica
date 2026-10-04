@@ -263,3 +263,116 @@ export async function listUploads(assets: AssetStore): Promise<{ id: string; nam
       src: assetUrl(name),
     }))
 }
+
+// --- Uploads kept elsewhere -----------------------------------------------
+
+/**
+ * Where a project's uploads also live — a hosted platform the project is linked
+ * to. Uploads made in its online editor are not in the project's directory
+ * until something asks for them.
+ */
+export interface RemoteAssets {
+  /** An upload's bytes with what is known about it as an image; null when there is no such upload. */
+  fetch(name: string): Promise<{ data: Uint8Array; info?: ImageManifestEntry } | null>
+  /** The names of the uploads kept there. */
+  list(): Promise<string[]>
+}
+
+export interface RemoteAssetsOptions {
+  /**
+   * Whether a fetched upload is written into the local store. When it is not,
+   * the upload is fetched once per process and served from memory — for a
+   * project whose uploads directory is under version control, where a file
+   * appearing in it would be an uncommitted change.
+   */
+  cache?: boolean | (() => boolean | Promise<boolean>)
+}
+
+// How long a name that was not found remotely is not asked for again.
+const MISS_TTL_MS = 30_000
+// How much a process keeps of uploads it may not write to disk.
+const MEMORY_LIMIT = 64 * 1024 * 1024
+
+/**
+ * A store that falls back to {@link RemoteAssets} for what the local one lacks:
+ * an upload made in a hosted editor shows up in the dev server the first time a
+ * page asks for it, and (when `cache` allows) stays in the project's directory.
+ * Everything written goes to the local store; a remote failure is a miss, never
+ * an error — the dev server works offline with what it has.
+ */
+export function withRemoteAssets(local: AssetStore, remote: RemoteAssets, options: RemoteAssetsOptions = {}): AssetStore {
+  type Fetched = { data: Uint8Array; info?: ImageManifestEntry } | null
+  // One fetch per name: concurrent askers share it, and a miss is remembered
+  // (a name that is nobody's upload — a file in `public/media` — is asked often).
+  const fetched = new Map<string, Promise<Fetched>>()
+  let memory = 0
+
+  const caching = async () => (typeof options.cache === 'function' ? await options.cache() : options.cache !== false)
+
+  const pull = (name: string): Promise<Fetched> => {
+    let pending = fetched.get(name)
+    if (!pending) {
+      pending = (async () => {
+        const result = await remote.fetch(name).catch(() => null)
+        if (!result) {
+          // Not for good: the upload may be made a minute from now.
+          const timer = setTimeout(() => fetched.delete(name), MISS_TTL_MS)
+          ;(timer as { unref?: () => void }).unref?.()
+          return null
+        }
+        if (await caching()) {
+          await local.write(name, result.data)
+          if (result.info && Object.keys(result.info).length) await local.saveInfo({ [name]: result.info })
+          // On disk now: nothing to hold on to.
+          fetched.delete(name)
+          return result
+        }
+        memory += result.data.byteLength
+        // Over the limit the bytes are let go; the next request fetches them again.
+        if (memory > MEMORY_LIMIT) {
+          memory -= result.data.byteLength
+          fetched.delete(name)
+        }
+        return result
+      })()
+      fetched.set(name, pending)
+    }
+    return pending
+  }
+
+  let remoteNames: { at: number; names: Promise<string[]> } | null = null
+  const listRemote = () => {
+    if (!remoteNames || Date.now() - remoteNames.at > 30_000) {
+      remoteNames = { at: Date.now(), names: remote.list().catch(() => []) }
+    }
+    return remoteNames.names
+  }
+
+  return {
+    write: (name, data) => local.write(name, data),
+    saveInfo: (entries) => local.saveInfo(entries),
+    async open(name) {
+      return (await local.open(name)) ?? (await pull(name))?.data ?? null
+    },
+    async list() {
+      return [...new Set([...(await local.list()), ...(await listRemote())])]
+    },
+    async info(names) {
+      const known = await local.info(names)
+      const unknown = names.filter((name) => !known[name])
+      if (!unknown.length) return known
+      // Only names the local store has no file for: a local file without info
+      // (not an image, or never analyzed) is not the remote's to describe.
+      const here = new Set(await local.list())
+      await Promise.all(
+        unknown
+          .filter((name) => !here.has(name))
+          .map(async (name) => {
+            const info = (await pull(name))?.info
+            if (info && Object.keys(info).length) known[name] = info
+          }),
+      )
+      return known
+    },
+  }
+}

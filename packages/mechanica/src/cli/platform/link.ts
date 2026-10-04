@@ -1,5 +1,7 @@
 import { PlatformError, REMOTE_NAME, request, requireToken, type PlatformSite } from './api'
 import { hostOrigin } from './credentials'
+import { appendFile, readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { git, gitOk } from './git'
 
 /**
@@ -46,5 +48,36 @@ export async function runLink(
   else await gitOk(cwd, ['remote', 'add', REMOTE_NAME, site.gitUrl])
 
   console.info(`Linked to ${site.slug} (${site.gitUrl})`)
+  await ignoreUploads(cwd)
   console.info('Commit your work, then run `mechanica push` to deploy it.')
+}
+
+/** What a linked project keeps out of git: uploads live on the platform. */
+const UPLOAD_IGNORES = ['.mech/assets/', '.mech/images.json']
+
+/**
+ * A linked project's uploads live on the platform, not in git: `push` sends
+ * the files, the dev server fetches the ones made online. Make git ignore the
+ * local copies, so a fetched file is never an uncommitted change. Uploads that
+ * are already committed stay committed (git keeps tracking them) and keep
+ * working — the hint says how to move them over.
+ */
+export async function ignoreUploads(cwd: string): Promise<void> {
+  const file = join(cwd, '.gitignore')
+  const current = await readFile(file, 'utf-8').catch(() => '')
+  const lines = new Set(current.split(/\r?\n/).map((line) => line.trim()))
+  const missing = UPLOAD_IGNORES.filter((entry) => !lines.has(entry) && !lines.has(entry.replace(/\/$/, '')))
+  if (missing.length) {
+    const block = `${current && !current.endsWith('\n') ? '\n' : ''}\n# Uploads live on the platform (mechanica push sends them, the dev server fetches them)\n${missing.join('\n')}\n`
+    await appendFile(file, block)
+    console.info(`Added ${missing.join(' and ')} to .gitignore — uploads are kept by the platform, not by git.`)
+  }
+
+  const tracked = await git(cwd, ['ls-files', '--', '.mech/assets', '.mech/images.json'])
+  if (tracked.code === 0 && tracked.stdout) {
+    console.info(
+      'Uploads already committed in this repository keep working. To move them to the platform:\n' +
+        '  git rm -r --cached .mech/assets .mech/images.json && git commit -m "Uploads live on the platform"',
+    )
+  }
 }
