@@ -126,10 +126,17 @@ try {
   const template = JSON.parse(create.files.get('package/template/package.json')!.toString('utf8'))
   check(workspaceRanges(template).length === 0, 'template has no workspace: ranges')
   const templateRange = template.dependencies?.mechanica
-  check(
-    caretAdmits(templateRange, mechanica.manifest.version),
-    `template's mechanica range (${templateRange}) admits ${mechanica.manifest.version}`,
-  )
+  // A prerelease goes to npm's `next` tag and a caret range never resolves it —
+  // scaffolded apps keep installing the stable release, so the template's range
+  // is rightly left alone (`release:bump` skips it too).
+  if (mechanica.manifest.version.includes('-')) {
+    check(true, `template's mechanica range (${templateRange}) stays on the stable release`)
+  } else {
+    check(
+      caretAdmits(templateRange, mechanica.manifest.version),
+      `template's mechanica range (${templateRange}) admits ${mechanica.manifest.version}`,
+    )
+  }
 
   // What a release would upload. A version already on npm is skipped, so a
   // release that leaves create-mechanica alone — or a re-run after a publish
