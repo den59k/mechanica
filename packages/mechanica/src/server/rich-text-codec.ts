@@ -1,5 +1,6 @@
 import { blocksToMarkdown, markdownToBlocks, type Block } from 'vuewrite/markdown'
 import type { RichTextCodec } from 'mechanica-shared/page-format'
+import type { Block as BlockMeta } from 'mechanica-shared'
 
 /** Just the bits of a compiled block component the codec needs. */
 interface BlockLike {
@@ -31,13 +32,27 @@ export function buildRichTextCodec(blocks: Iterable<BlockLike>): RichTextCodec {
 }
 
 /**
- * Top-level props whose (compact) schema is the `richText` alias — either the
- * shorthand string `'richText'` or an expanded node with `format: 'richText'`.
+ * The same codec from block **metadata** (a site manifest's `blocks`, whose
+ * `props` are unfolded JSON schemas) — for hosts that have no components.
+ */
+export function richTextCodecFromBlocks(blocks: Iterable<BlockMeta>): RichTextCodec {
+  return buildRichTextCodec([...blocks].map((block) => ({ blockId: block.id, blockSchema: { props: block.props } })))
+}
+
+/**
+ * Top-level props whose schema is the `richText` alias — either the shorthand
+ * string `'richText'` or an expanded node with `format: 'richText'`. Takes a
+ * compact props map or an unfolded object schema (`{ type, properties }`).
  */
 function findRichTextProps(props: unknown): Set<string> {
   const found = new Set<string>()
   if (props && typeof props === 'object') {
-    for (const [key, value] of Object.entries(props as Record<string, unknown>)) {
+    const unfolded = props as { type?: unknown; properties?: unknown }
+    const fields =
+      unfolded.type === 'object' && unfolded.properties && typeof unfolded.properties === 'object'
+        ? unfolded.properties
+        : props
+    for (const [key, value] of Object.entries(fields as Record<string, unknown>)) {
       if (value === 'richText') found.add(key)
       else if (value && typeof value === 'object' && (value as { format?: string }).format === 'richText') {
         found.add(key)

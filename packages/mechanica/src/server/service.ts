@@ -1,13 +1,7 @@
 import fs from 'node:fs'
 import { extname, resolve, sep } from 'node:path'
 import { Readable } from 'node:stream'
-import type {
-  ComposedBlockDefinition,
-  LocalesConfig,
-  PageFormInput,
-  SavePageRequest,
-  VirtualPage,
-} from 'mechanica-shared'
+import type { ComposedBlockDefinition, PageFormInput, SavePageRequest, SiteManifest } from 'mechanica-shared'
 import {
   createPage,
   duplicatePage,
@@ -42,6 +36,7 @@ import {
   composedVersion,
   ComposedBlockExistsError,
 } from './composed-store'
+import { configureSite, indexGeneratedPages, type GeneratedIndex } from './site'
 
 /** What `/blocks` reports per block — enough for the thumbs CLI to walk them. */
 export interface BlockListing {
@@ -51,19 +46,16 @@ export interface BlockListing {
 }
 
 export interface EditorServiceOptions {
-  /** Awaited before serving `/state`, so richText fields convert consistently. */
-  ready?: () => Promise<void> | void
-  /** Lists the project's blocks (for `mechanica thumbs --blocks`). */
-  blocks?: () => Promise<BlockListing[]> | BlockListing[]
-  /** The site's locale config (multi-language sites); null/absent = i18n off. */
-  locales?: LocalesConfig | null
   /**
-   * Generated routes (plugin `generatePages`): the baked page list (for the
-   * `/pages` + `/query` listings), a served-path → page map (for `/state`), and
-   * the set of their logical paths (for the read-only mutation guards). Absent
-   * when no providers are configured.
+   * What the site's code offers (see `SiteManifest`): its blocks — for the
+   * rich-text conversion, schema defaults and image metadata of every page
+   * read and write — its locales, and its generated pages. A function is
+   * called on every request, so a dev server can hand out a fresh manifest
+   * after the code changed; the stores are reconfigured whenever it returns a
+   * different object. Without it pages are read and written as they are on
+   * disk and the site is single-language.
    */
-  generated?: () => Promise<{ pages: VirtualPage[]; byServed: Map<string, VirtualPage>; logical: Set<string> }>
+  site?: SiteManifest | (() => SiteManifest | Promise<SiteManifest>)
 }
 
 /**
@@ -144,22 +136,36 @@ function validateComposed(def: unknown): Record<string, string> | null {
 
 /** Create the editor API over a site's `.mech` directory. */
 export function createEditorService(mechDir: string, options: EditorServiceOptions = {}): EditorService {
-  const config = options.locales ?? null
-
-  /** Resolve a `locale` query param to a variant code (undefined = base/default). */
-  const variantCode = (raw: string | null): string | undefined =>
-    config && raw && raw !== config.default && config.all.includes(raw) ? raw : undefined
+  // The manifest the stores are configured with, and its generated-page index
+  // (routes without a file: served for `/state`, listed, rejected on writes).
+  let configured: SiteManifest | null = null
+  let generatedIndex: GeneratedIndex | null = null
+  const currentSite = async (): Promise<SiteManifest | null> => {
+    if (!options.site) return null
+    const manifest = typeof options.site === 'function' ? await options.site() : options.site
+    if (manifest !== configured) {
+      configureSite(mechDir, manifest)
+      generatedIndex = indexGeneratedPages(manifest)
+      configured = manifest
+    }
+    return manifest
+  }
 
   const route = async (request: Request): Promise<Response | null> => {
+    const site = await currentSite()
+    const config = site?.locales ?? null
+    const gen = site ? generatedIndex : null
+
+    /** Resolve a `locale` query param to a variant code (undefined = base/default). */
+    const variantCode = (raw: string | null): string | undefined =>
+      config && raw && raw !== config.default && config.all.includes(raw) ? raw : undefined
+
     const url = new URL(request.url)
     const { pathname } = url
     const query = url.searchParams
     const method = request.method
     const body = <T>() => request.json() as Promise<T>
 
-    // Generated pages (plugin `generatePages`), resolved once (cached
-    // upstream): used to serve their state, list them, and reject writes.
-    const gen = options.generated ? await options.generated() : null
     /** The rejection for a mutation targeting a file-less generated page, if it is one. */
     const generatedGuard = (path: string | null): Response | null =>
       path && gen?.logical.has(path) ? json({ error: 'This page is generated and read-only' }, 409) : null
@@ -205,7 +211,6 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
     if (pathname === '/state' && method === 'GET') {
       const pathParam = query.get('path')
       if (!pathParam) return json({ error: 'Missing path' }, 400)
-      await options.ready?.()
       const generated = gen?.byServed.get(pathParam)
       if (generated) return json(buildGeneratedState(mechDir, generated, config))
       return json(buildPageState(mechDir, pathParam, config))
@@ -216,8 +221,8 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
     }
 
     if (pathname === '/blocks' && method === 'GET') {
-      if (!options.blocks) return json({ error: 'Block listing unavailable' }, 503)
-      return json(await options.blocks())
+      if (!site) return json({ error: 'Block listing unavailable' }, 503)
+      return json(site.blocks.map(({ id, name, hidden }): BlockListing => ({ id, name, hidden })))
     }
 
     if (pathname === '/pages' && method === 'DELETE') {
@@ -373,13 +378,9 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
       const def = await body<ComposedBlockDefinition>()
       const invalid = validateComposed(def)
       if (invalid) return json({ error: invalid }, 400)
-      // Reject an id already used by a compiled or composed block. Listing
-      // blocks can fail (SSR load hiccup) — don't block the create over it;
-      // `createComposedBlock` still guards against an existing file.
-      const existing = await Promise.resolve()
-        .then(() => options.blocks?.())
-        .catch(() => [] as BlockListing[])
-      if ((existing ?? []).some((block) => block.id === def.id)) {
+      // Reject an id already used by a compiled or composed block
+      // (`createComposedBlock` also guards against an existing file).
+      if (site?.blocks.some((block) => block.id === def.id)) {
         return json({ error: { id: 'A block with this id already exists' } }, 400)
       }
       try {

@@ -91,7 +91,7 @@ export function buildPageState(
   // Bake block-prop defaults into the state, like `generatePage` does at
   // export — a hand-authored page omitting a defaulted prop renders the same
   // in dev and production (blocks never apply defaults at render time).
-  fillContentDefaults(content)
+  fillContentDefaults(mechDir, content)
   // Inject cached image metadata (LQIP previews, dimensions) from
   // `.mech/images.json` — page files don't carry the preview blobs.
   fillImageMeta(mechDir, content)
@@ -101,7 +101,7 @@ export function buildPageState(
   let baseContent: typeof content | undefined
   if (localeCode && pageVersion(mechDir, pagePath) != null) {
     const base = readPage(mechDir, pagePath).content ?? []
-    fillContentDefaults(base)
+    fillContentDefaults(mechDir, base)
     fillImageMeta(mechDir, base)
     baseContent = base
   }
@@ -144,7 +144,7 @@ export function buildPageState(
  */
 export function buildGeneratedState(mechDir: string, vp: VirtualPage, config?: LocalesConfig | null) {
   const content = vp.content ?? []
-  fillContentDefaults(content)
+  fillContentDefaults(mechDir, content)
   fillImageMeta(mechDir, content)
 
   const isDefaultLocale = !config || !vp.locale || vp.locale === config.default

@@ -1,6 +1,10 @@
 import { writeFile, mkdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { build } from 'vite'
+import { SITE_MANIFEST_FILE } from 'mechanica-shared'
+import { buildSiteManifest } from '../server/site'
+import { engineVersion } from './platform/engine-version'
 
 /**
  * Produce the client and SSR bundles into `dist/`. Uses the project's
@@ -36,5 +40,27 @@ export async function runBuild(): Promise<void> {
     await rm(ssrEntryPath, { force: true })
   }
 
+  await writeSiteManifest(join(process.cwd(), 'dist'))
+
   console.info('Build complete → dist/')
+}
+
+/**
+ * Describe the site's code as data (`dist/mechanica-site.json`): block
+ * schemas, locales, generated pages — read off the SSR bundle just built. A
+ * host that serves the editor for this bundle reads the file instead of
+ * running the bundle.
+ */
+async function writeSiteManifest(distDir: string): Promise<void> {
+  // The query busts the module cache: a second build in one process must not
+  // describe the previous bundle.
+  const ssr = await import(`${pathToFileURL(join(distDir, 'ssr.js')).href}?t=${Date.now()}`)
+  const manifest = buildSiteManifest({
+    components: ssr.blocksList ?? [],
+    composed: ssr.composedList ?? [],
+    locales: ssr.locales ?? null,
+    generated: ssr.generatedPages ?? [],
+    engine: engineVersion(),
+  })
+  await writeFile(join(distDir, SITE_MANIFEST_FILE), JSON.stringify(manifest))
 }

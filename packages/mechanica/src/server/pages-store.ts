@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import { createHash } from 'node:crypto'
-import { basename, dirname, join, parse, relative } from 'node:path'
+import { basename, dirname, join, parse, relative, resolve } from 'node:path'
 import {
   diffTranslation,
   migrateContent,
@@ -68,25 +68,37 @@ export function translationsOf(mechDir: string, urlPath: string, config: Locales
   return config.all.filter((code) => present.has(code))
 }
 
-// The rich-text adapter is process-global: the dev server configures it once
-// (from the project's block schemas) so every read/write converts richText
-// fields between Markdown (disk) and vuewrite `Block[]` (state) consistently.
-let richTextCodec: RichTextCodec | undefined
-
-/** Configure the codec used to (de)serialize rich-text fields. Dev server only. */
-export function setPageCodec(codec: RichTextCodec | undefined): void {
-  richTextCodec = codec
+// What the stores know about the code behind a `.mech` directory, keyed by
+// that directory — one process may serve many sites, and one site's block
+// schemas must never shape another's pages. `configureSite` (site.ts) fills it
+// from a site manifest.
+interface SiteContext {
+  /** Converts richText fields between Markdown (disk) and vuewrite `Block[]` (state). */
+  codec?: RichTextCodec
+  /** Block metadata: schema migrations on read, defaults, image-field lookup. */
+  blocks?: Map<string, Block>
+}
+const sites = new Map<string, SiteContext>()
+const siteOf = (mechDir: string): SiteContext => {
+  const key = resolve(mechDir)
+  let site = sites.get(key)
+  if (!site) sites.set(key, (site = {}))
+  return site
 }
 
-const codecOptions = () => (richTextCodec ? { richText: richTextCodec } : undefined)
+/** Configure the codec used to (de)serialize a site's rich-text fields. */
+export function setPageCodec(mechDir: string, codec: RichTextCodec | undefined): void {
+  siteOf(mechDir).codec = codec
+}
 
-// Block metadata (same lifecycle as the codec): lets page reads run schema
-// migrations, so the editor and dev render never see stale-shaped block data.
-let blocksMeta: Map<string, Block> | undefined
+const codecOptions = (mechDir: string) => {
+  const codec = siteOf(mechDir).codec
+  return codec ? { richText: codec } : undefined
+}
 
-/** Configure block metadata used to migrate page data on read. Dev server only. */
-export function setPageBlocks(blocks: Block[] | undefined): void {
-  blocksMeta = blocks ? new Map(blocks.map((block) => [block.id, block])) : undefined
+/** Configure the block metadata a site's pages are read and written with. */
+export function setPageBlocks(mechDir: string, blocks: Block[] | undefined): void {
+  siteOf(mechDir).blocks = blocks ? new Map(blocks.map((block) => [block.id, block])) : undefined
 }
 
 /**
@@ -95,10 +107,11 @@ export function setPageBlocks(blocks: Block[] | undefined): void {
  * defaulted prop renders identically in dev and in the exported site.
  * A no-op until {@link setPageBlocks} has run.
  */
-export function fillContentDefaults(content: ContentBlock[]): void {
+export function fillContentDefaults(mechDir: string, content: ContentBlock[]): void {
+  const blocksMeta = siteOf(mechDir).blocks
   if (!blocksMeta) return
   walkTree(content, (block) => {
-    const meta = blocksMeta!.get(block.blockId)
+    const meta = blocksMeta.get(block.blockId)
     if (meta?.props) block.data = passDefaultValue(block.data ?? {}, meta.props)
   })
 }
@@ -110,6 +123,7 @@ export function fillContentDefaults(content: ContentBlock[]): void {
  * runtime state is complete. A no-op until {@link setPageBlocks} has run.
  */
 export function fillImageMeta(mechDir: string, content: ContentBlock[]): void {
+  const blocksMeta = siteOf(mechDir).blocks
   if (!blocksMeta) return
   applyImageManifest(content, blocksMeta, readImageManifest(mechDir))
 }
@@ -153,10 +167,11 @@ export class PageExistsError extends Error {
 
 const emptyPage = (): PageFile => ({ content: [], data: {} })
 
-const readFile = (file: string): PageFile => parsePage(fs.readFileSync(file, 'utf-8'), codecOptions())
+const readFile = (mechDir: string, file: string): PageFile =>
+  parsePage(fs.readFileSync(file, 'utf-8'), codecOptions(mechDir))
 
-const writeFile = (file: string, page: PageFile): void => {
-  writeFileAtomic(file, serializePage(page, codecOptions()))
+const writeFile = (mechDir: string, file: string, page: PageFile): void => {
+  writeFileAtomic(file, serializePage(page, codecOptions(mechDir)))
 }
 
 /**
@@ -176,9 +191,10 @@ export function getPagePath(mechDir: string, urlPath: string, locale?: string): 
 export function readPage(mechDir: string, urlPath: string, locale?: string): PageFile {
   const file = getPagePath(mechDir, urlPath, locale)
   if (!fs.existsSync(file)) return emptyPage()
-  const page = readFile(file)
+  const page = readFile(mechDir, file)
   // Upgrade data written with an older block schema; the change persists with
   // the page's next save (this read does not write).
+  const blocksMeta = siteOf(mechDir).blocks
   if (blocksMeta && page.content) migrateContent(page.content, blocksMeta)
   return page
 }
@@ -225,7 +241,7 @@ export function createPage(
   if (fs.existsSync(file)) throw new PageExistsError(input.path)
 
   const page: PageFile = { content: [], data: {}, name: input.name, path: input.path }
-  writeFile(file, page)
+  writeFile(mechDir, file, page)
 
   return { ...page, path: folderPrefix + input.path.trim() }
 }
@@ -252,12 +268,12 @@ export function duplicatePage(
     // A copy of a draft starts as a draft too; publish it when it's ready.
     ...(source.draft ? { draft: true } : {}),
   }
-  writeFile(file, page)
+  writeFile(mechDir, file, page)
 
   // A duplicate is the same logical page in every locale — copy the translations too.
   for (const { locale, file: variantFile } of variantFilesOf(mechDir, sourcePath)) {
-    const variant = readFile(variantFile)
-    writeFile(getPagePath(mechDir, targetPath, locale), {
+    const variant = readFile(mechDir, variantFile)
+    writeFile(mechDir, getPagePath(mechDir, targetPath, locale), {
       content: variant.content ?? [],
       data: variant.data ?? {},
       meta: variant.meta,
@@ -314,7 +330,7 @@ export function createTranslation(mechDir: string, urlPath: string, locale: stri
     path: source.path,
     ...(source.draft ? { draft: true } : {}),
   }
-  writeFile(target, page)
+  writeFile(mechDir, target, page)
   return page
 }
 
@@ -343,13 +359,13 @@ export function movePage(mechDir: string, fromPath: string, toPath: string): { p
   // The translations move with the base — same logical page, new path.
   const variants = variantFilesOf(mechDir, fromPath)
 
-  const page = readFile(file)
+  const page = readFile(mechDir, file)
   page.path = cleaned
-  writeFile(target, page)
+  writeFile(mechDir, target, page)
   for (const { locale, file: variantFile } of variants) {
-    const variant = readFile(variantFile)
+    const variant = readFile(mechDir, variantFile)
     variant.path = cleaned
-    writeFile(getPagePath(mechDir, cleaned, locale), variant)
+    writeFile(mechDir, getPagePath(mechDir, cleaned, locale), variant)
   }
 
   if (target !== file) {
@@ -380,7 +396,7 @@ export function savePage(
   locale?: string,
 ): string | null {
   const file = getPagePath(mechDir, urlPath, locale)
-  const page = fs.existsSync(file) ? readFile(file) : emptyPage()
+  const page = fs.existsSync(file) ? readFile(mechDir, file) : emptyPage()
   if (patch.content !== undefined) page.content = patch.content as ContentBlock[]
   if (patch.data !== undefined) page.data = patch.data
   // The layout is base-owned (translations inherit it): only the default-locale
@@ -394,6 +410,7 @@ export function savePage(
   // way to disk — `.page.md` stays free of base64 blobs, and the state builder
   // injects the entries back (fillImageMeta). This is also how client-side
   // captured previews reach the manifest when `sharp` isn't installed.
+  const blocksMeta = siteOf(mechDir).blocks
   if (blocksMeta && page.content) {
     updateImageManifest(mechDir, harvestImageMeta(page.content, blocksMeta))
   }
@@ -404,7 +421,7 @@ export function savePage(
   if (locale && pageVersion(mechDir, urlPath) != null) {
     const base = readPage(mechDir, urlPath)
     if (blocksMeta && base.content) {
-      fillContentDefaults(base.content)
+      fillContentDefaults(mechDir, base.content)
       fillImageMeta(mechDir, base.content)
       harvestImageMeta(base.content, blocksMeta)
     }
@@ -415,7 +432,7 @@ export function savePage(
     page.content = sparse.content
     page.data = sparse.data
   }
-  writeFile(file, page)
+  writeFile(mechDir, file, page)
   return pageVersion(mechDir, urlPath, locale)
 }
 
@@ -431,13 +448,13 @@ export function renamePage(mechDir: string, urlPath: string, name: string): void
   let wrote = false
   for (const target of files) {
     if (!fs.existsSync(target)) continue
-    const page = readFile(target)
+    const page = readFile(mechDir, target)
     page.name = name
-    writeFile(target, page)
+    writeFile(mechDir, target, page)
     wrote = true
   }
   // Preserve the historical behavior of materializing a missing base page.
-  if (!wrote) writeFile(file, { ...emptyPage(), name })
+  if (!wrote) writeFile(mechDir, file, { ...emptyPage(), name })
 }
 
 /**
@@ -447,10 +464,10 @@ export function renamePage(mechDir: string, urlPath: string, name: string): void
 export function setPageDraft(mechDir: string, urlPath: string, draft: boolean, locale?: string): void {
   const file = getPagePath(mechDir, urlPath, locale)
   if (!fs.existsSync(file)) return
-  const page = readFile(file)
+  const page = readFile(mechDir, file)
   if (draft) page.draft = true
   else delete page.draft
-  writeFile(file, page)
+  writeFile(mechDir, file, page)
 }
 
 /** List folders (top-level directories) under `<mechDir>/pages`. */
@@ -499,7 +516,7 @@ export function listPages(
 
   const items: PageListItem[] = []
   for (const entry of bases) {
-    const page = readFile(join(pagesDir, entry.relative))
+    const page = readFile(mechDir, join(pagesDir, entry.relative))
     // Locale-scoped listing (a translated page's query): read the translation
     // for data/name/draft, and drop pages that aren't translated to it — the
     // listing must never link to a page that won't exist at `/<locale>/…`.
@@ -507,7 +524,7 @@ export function listPages(
     if (options.locale) {
       const variantFile = getPagePath(mechDir, entry.path, options.locale)
       if (!fs.existsSync(variantFile)) continue
-      source = readFile(variantFile)
+      source = readFile(mechDir, variantFile)
     }
     const embedded: Record<string, unknown> = {}
     for (const dataEntry of options.data ?? []) embedded[dataEntry.id] = source.data?.[dataEntry.id] ?? {}

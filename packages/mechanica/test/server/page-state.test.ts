@@ -15,7 +15,7 @@ beforeEach(() => {
   fs.mkdirSync(join(mechDir, 'pages'), { recursive: true })
 })
 afterEach(() => {
-  setPageBlocks(undefined)
+  setPageBlocks(mechDir, undefined)
   fs.rmSync(mechDir, { recursive: true, force: true })
 })
 
@@ -44,7 +44,7 @@ describe('buildPageState block-prop defaults', () => {
     writePage('home.page.md', {
       content: [{ id: 'h', blockId: 'hero', data: { subtitle: 'kept' } }],
     })
-    setPageBlocks([heroMeta])
+    setPageBlocks(mechDir, [heroMeta])
 
     const state = buildPageState(mechDir, '/home')
     expect(state.content[0]!.data).toEqual({ title: 'Start here', subtitle: 'kept' })
@@ -184,7 +184,7 @@ describe('buildGeneratedState (programmatic routes)', () => {
   })
 
   it('bakes block-prop defaults like a file-backed page', () => {
-    setPageBlocks([heroMeta])
+    setPageBlocks(mechDir, [heroMeta])
     const state = buildGeneratedState(
       mechDir,
       vp({ content: [{ id: 'h', blockId: 'hero', data: { subtitle: 'kept' } }] }),

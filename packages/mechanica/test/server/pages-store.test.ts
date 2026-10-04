@@ -38,7 +38,7 @@ function writePage(relative: string, data: Record<string, unknown>) {
 }
 
 describe('image metadata manifest', () => {
-  afterEach(() => setPageBlocks(undefined))
+  afterEach(() => setPageBlocks(mechDir, undefined))
 
   const picBlock = {
     id: 'pic',
@@ -53,7 +53,7 @@ describe('image metadata manifest', () => {
   }
 
   it('savePage moves LQIP previews into images.json — .page.md stays blob-free', () => {
-    setPageBlocks([picBlock as never])
+    setPageBlocks(mechDir, [picBlock as never])
     savePage(mechDir, '/gallery', {
       content: [
         {
@@ -88,7 +88,7 @@ describe('image metadata manifest', () => {
   })
 
   it('fillImageMeta injects manifest entries into content read for state', () => {
-    setPageBlocks([picBlock as never])
+    setPageBlocks(mechDir, [picBlock as never])
     fs.writeFileSync(
       join(mechDir, 'images.json'),
       JSON.stringify({ 'photo.png': { width: 640, height: 480, previewSrc: 'data:image/webp;base64,x' } }),
@@ -105,13 +105,13 @@ describe('image metadata manifest', () => {
 })
 
 describe('schema migrations on read', () => {
-  afterEach(() => setPageBlocks(undefined))
+  afterEach(() => setPageBlocks(mechDir, undefined))
 
   it('upgrades old block data when block metadata is configured', () => {
     writePage('home.page.md', {
       content: [{ id: 'h', blockId: 'hero', data: { title: 'Hi' } }],
     })
-    setPageBlocks([
+    setPageBlocks(mechDir, [
       {
         id: 'hero',
         name: 'Hero',

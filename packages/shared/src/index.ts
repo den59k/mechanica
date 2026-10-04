@@ -35,6 +35,8 @@ export {
   type ComposedBlockResponse,
 } from './editor-protocol'
 
+export { SITE_MANIFEST_FILE, type SiteManifest } from './site-manifest'
+
 export { normalizeClassManifest } from './composer-manifest'
 
 export {

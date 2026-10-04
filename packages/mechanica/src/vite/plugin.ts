@@ -9,11 +9,11 @@ import {
   registerFieldSchemas,
   areFieldSchemasRegistered,
   type LocalesConfig,
+  type SiteManifest,
   type VirtualPage,
 } from 'mechanica-shared'
 import {
   collectGeneratedPages,
-  generatedServedPath,
   type PageProvider,
   type PageProviderCtx,
 } from './generate-pages'
@@ -33,11 +33,10 @@ import {
 import { createDevMiddleware } from './dev/middleware'
 import { createPreviewMiddleware } from './dev/preview'
 import { createComposerMiddleware } from './dev/composer'
-import { setPageCodec, setPageBlocks, pageUrlOf } from '../server/pages-store'
-import { toBlockMeta, composedBlockMeta } from '../editor/lib/block-meta'
+import { pageUrlOf } from '../server/pages-store'
 import { buildPageState, buildGeneratedState } from '../server/page-state'
 import { wasRecentlyMutated } from '../server/fs-utils'
-import { buildRichTextCodec } from './rich-text-codec'
+import { buildSiteManifest, configureSite, indexGeneratedPages, type GeneratedIndex } from '../server/site'
 import { BLOCKS_MANIFEST_FILE } from '../cli/page-assets'
 
 /** Virtual module exposing the collected block components. */
@@ -210,23 +209,12 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
     }
     return generatedPagesCache
   }
-  interface GeneratedIndex {
-    pages: VirtualPage[]
-    byServed: Map<string, VirtualPage>
-    logical: Set<string>
-  }
   let generatedIndexCache: Promise<GeneratedIndex> | null = null
   const loadGeneratedIndex = (): Promise<GeneratedIndex> => {
     if (!generatedIndexCache) {
-      generatedIndexCache = loadGeneratedPages().then((pages) => {
-        const byServed = new Map<string, VirtualPage>()
-        const logical = new Set<string>()
-        for (const page of pages) {
-          byServed.set(generatedServedPath(page, locales), page)
-          logical.add(page.path)
-        }
-        return { pages, byServed, logical }
-      })
+      generatedIndexCache = loadGeneratedPages().then((pages) =>
+        indexGeneratedPages({ format: 1, blocks: [], locales, generated: pages }),
+      )
     }
     return generatedIndexCache
   }
@@ -315,44 +303,43 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
   const isComposedFile = (file: string): boolean =>
     file.endsWith(COMPOSED_EXT) && slash(file).startsWith(slash(composedDir) + '/')
 
-  // Configure the page store's rich-text codec once, from the project's block
-  // schemas (loaded via SSR so we read the compiled `blockSchema`). Memoized;
-  // failures degrade to plain-string regions rather than breaking the server.
-  let codecReady: Promise<void> | null = null
-  const ensurePageCodec = (server: import('vite').ViteDevServer): Promise<void> => {
-    if (!codecReady) {
-      codecReady = server
-        .ssrLoadModule(BLOCKS_MODULE_ID)
-        .then((mod) => {
-          setPageCodec(buildRichTextCodec(mod.blocksList ?? []))
-          // The same block set feeds page-read schema migrations. Composed
-          // blocks join it so their placed data gets schema defaults filled
-          // (in dev) exactly like compiled blocks.
+  // The site manifest — what the code offers, as data (block schemas loaded via
+  // SSR so we read the compiled `blockSchema`, composed definitions, locales,
+  // generated pages). It configures the page stores (rich-text codec, schema
+  // defaults, migrations) and is what the editor API serves from. Memoized
+  // until a block changes; a failed load degrades to a block-less manifest
+  // (plain-string rich text) rather than breaking the server, and is retried.
+  let siteReady: Promise<SiteManifest> | null = null
+  const loadSite = (server: import('vite').ViteDevServer): Promise<SiteManifest> => {
+    if (!siteReady) {
+      const attempt = Promise.all([server.ssrLoadModule(BLOCKS_MODULE_ID), loadGeneratedPages()])
+        .then(([mod, generated]) => {
           const composed = loadComposedDefinitions(composedDir, (file, error) =>
             server.config.logger.warn(`[mechanica] skipped ${slash(file)}: ${error}`),
           )
-          setPageBlocks([
-            ...(mod.blocksList ?? []).map(toBlockMeta),
-            ...composed.map(composedBlockMeta),
-          ])
+          const manifest = buildSiteManifest({ components: mod.blocksList ?? [], composed, locales, generated })
+          configureSite(mechDir, manifest)
+          return manifest
         })
-        .catch((error) => {
-          server.config.logger.warn(`[mechanica] rich-text codec unavailable: ${error}`)
-          codecReady = null
+        .catch((error): SiteManifest => {
+          server.config.logger.warn(`[mechanica] block schemas unavailable: ${error}`)
+          if (siteReady === attempt) siteReady = null
+          return { format: 1, blocks: [], locales, generated: [] }
         })
+      siteReady = attempt
     }
-    return codecReady
+    return siteReady
   }
 
   // Re-collect `virtual:mechanica/blocks` and reload every client. Used when a
   // block file is added/removed or its schema changes: the editor reads block
   // metadata once at startup, so a full reload is the only honest refresh.
   const invalidateBlocks = (server: import('vite').ViteDevServer): void => {
-    codecReady = null
+    siteReady = null
     const mod = server.moduleGraph.getModuleById(RESOLVED_BLOCKS_ID)
     if (mod) server.moduleGraph.invalidateModule(mod)
     server.ws.send({ type: 'full-reload' })
-    void ensurePageCodec(server)
+    void loadSite(server)
   }
 
   // Re-collect `virtual:mechanica/widgets` and reload when a widget module is
@@ -368,11 +355,11 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
   // file is added/removed/edited. Also resets the page codec so the fresh
   // definition feeds default-filling (like a compiled block's schema change).
   const invalidateComposed = (server: import('vite').ViteDevServer): void => {
-    codecReady = null
+    siteReady = null
     const mod = server.moduleGraph.getModuleById(RESOLVED_COMPOSED_ID)
     if (mod) server.moduleGraph.invalidateModule(mod)
     server.ws.send({ type: 'full-reload' })
-    void ensurePageCodec(server)
+    void loadSite(server)
   }
 
   // Regenerate the manifest-derived modules when the composer file appears,
@@ -574,29 +561,10 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       server.middlewares.use('/@mechanica/composer', createComposerMiddleware())
       server.middlewares.use(
         '/@mechanica',
-        createDevMiddleware(mechDir, {
-          locales,
-          // Resolve generated routes for `/state` and guard them read-only on
-          // `/save` — they have no file to write.
-          generated: () => loadGeneratedIndex(),
-          ready: () => ensurePageCodec(server),
-          // Block listing for `mechanica thumbs --blocks` — loaded fresh so a
-          // re-collected blocks module (HMR add/remove) is reflected. Composed
-          // blocks join it so they get palette thumbnails too.
-          blocks: async () => {
-            const mod = await server.ssrLoadModule(BLOCKS_MODULE_ID)
-            const compiled = ((mod.blocksList ?? []) as Parameters<typeof toBlockMeta>[0][]).map((component) => {
-              const meta = toBlockMeta(component)
-              return { id: meta.id, name: meta.name, hidden: meta.hidden }
-            })
-            const composed = loadComposedDefinitions(composedDir).map((def) => ({
-              id: def.id,
-              name: def.name,
-              hidden: def.hidden,
-            }))
-            return [...compiled, ...composed]
-          },
-        }),
+        // The service takes everything it knows about the code from the
+        // manifest — re-read per request, so a re-collected blocks module (HMR
+        // add/remove) or an edited composed block is reflected.
+        createDevMiddleware(mechDir, { site: () => loadSite(server) }),
       )
       // Start loading block schemas early so saves convert richText correctly
       // even before the first page render awaits the codec — but only once the
@@ -606,9 +574,9 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       // as `ssrError` on the module node, so every later attempt rethrows it
       // until the block file is touched (bites every cold start).
       if (server.httpServer && !server.httpServer.listening) {
-        server.httpServer.once('listening', () => void ensurePageCodec(server))
+        server.httpServer.once('listening', () => void loadSite(server))
       } else {
-        void ensurePageCodec(server)
+        void loadSite(server)
       }
 
       // Adding or removing a block file re-collects the blocks module and
@@ -701,7 +669,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         const withEditor = !url.searchParams.has('mechanica-shot')
 
         // Ensure richText fields hydrate as Block[] (not raw Markdown).
-        if (ctx.server) await ensurePageCodec(ctx.server)
+        if (ctx.server) await loadSite(ctx.server)
         // A programmatically generated route (plugin `generatePages`) has no
         // page file — synthesize its state from the baked page instead. Falls
         // through to the file-based resolver for authored pages.

@@ -15,10 +15,15 @@ beforeEach(async () => {
   fs.mkdirSync(join(mechDir, 'pages'), { recursive: true })
 
   const middleware = createDevMiddleware(mechDir, {
-    blocks: () => [
-      { id: 'hero', name: 'Hero' },
-      { id: 'internal', name: 'Internal', hidden: true },
-    ],
+    site: {
+      format: 1,
+      blocks: [
+        { id: 'hero', name: 'Hero' },
+        { id: 'internal', name: 'Internal', hidden: true },
+      ] as never,
+      locales: null,
+      generated: [],
+    },
   })
   server = createServer((req, res) =>
     middleware(req as never, res as never, () => {

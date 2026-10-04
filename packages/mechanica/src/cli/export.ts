@@ -25,6 +25,7 @@ import {
   type QuerySource,
   type RenderResult,
   type SitemapEntry,
+  SITE_MANIFEST_FILE,
   type VirtualPage,
 } from 'mechanica-shared'
 import { parsePage, type RichTextCodec } from 'mechanica-shared/page-format'
@@ -41,7 +42,7 @@ import {
 import { readSiteData, readFoldersData, readFolderData, readSiteLocaleOverride } from '../server/data-store'
 import { analyzeImageBuffer, hasSharp } from '../server/image-preview'
 import { getPagePath, listPages, setPageCodec } from '../server/pages-store'
-import { buildRichTextCodec } from '../vite/rich-text-codec'
+import { buildRichTextCodec } from '../server/rich-text-codec'
 import { blockAssetLinks, BLOCKS_MANIFEST_FILE, type BlockChunkRef, type ViteManifest } from './page-assets'
 
 interface ExportPage {
@@ -551,7 +552,7 @@ export async function exportProject(
   // against the same `.mech` store, memoized per (page-number, key) across the
   // whole export — a nav query shared by 100 pages resolves once. The codec is
   // installed so page data read by `listPages` matches what pages render with.
-  setPageCodec(richText)
+  setPageCodec(join(cwd, '.mech'), richText)
   const querySource: QuerySource = {
     listPages: (opts) => listPages(join(cwd, '.mech'), { ...opts, generated: ssr.generatedPages }),
     fetchJson:
@@ -633,7 +634,7 @@ export async function exportProject(
   // Ship everything the build produced except its private artifacts: the
   // bundled assets plus whatever Vite copied from `public/` (favicon,
   // robots.txt, fonts, site-verification files) — those must reach the export.
-  const DIST_PRIVATE = new Set(['index.html', 'ssr.js', 'ssr.js.map', '.vite', BLOCKS_MANIFEST_FILE])
+  const DIST_PRIVATE = new Set(['index.html', 'ssr.js', 'ssr.js.map', '.vite', BLOCKS_MANIFEST_FILE, SITE_MANIFEST_FILE])
   const distEntries = (await readdir(join(cwd, 'dist')).catch(() => [])) as string[]
   for (const entry of distEntries) {
     if (DIST_PRIVATE.has(entry)) continue
