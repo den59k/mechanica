@@ -51,7 +51,7 @@ import {
 import VIcon from './VIcon.vue'
 import VPopover from './VPopover.vue'
 import { navigationKey, fallbackNavigation } from '../lib/navigation'
-import type { PageItem } from '../lib/page-list'
+import { editorBackend } from '../lib/backend'
 
 const navigation = inject(navigationKey, null) ?? fallbackNavigation()
 
@@ -82,7 +82,7 @@ const isPresent = (code: string) => code === config?.default || available.value.
 async function refresh(): Promise<void> {
   if (!config) return
   try {
-    const pages: PageItem[] = await fetch('/@mechanica/pages').then((r) => r.json())
+    const pages = await editorBackend().pages.list()
     available.value = pages.find((p) => p.path === logicalPath.value)?.locales ?? [config.default]
   } catch {
     available.value = [config.default]
@@ -103,11 +103,7 @@ async function choose(code: string): Promise<void> {
   if (needsCreate) {
     busy.value = true
     try {
-      const res = await fetch(
-        `/@mechanica/pages/translation?path=${encodeURIComponent(logicalPath.value)}&locale=${encodeURIComponent(code)}`,
-        { method: 'POST' },
-      )
-      if (!res.ok && res.status !== 400) throw new Error(`Create failed (${res.status})`)
+      await editorBackend().pages.createTranslation(logicalPath.value, code)
       await refresh()
     } catch {
       busy.value = false

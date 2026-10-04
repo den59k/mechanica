@@ -19,6 +19,22 @@ export type {
   VirtualPage,
 } from './types'
 
+export {
+  EDITOR_API_BASE,
+  UPLOADS_PREFIX,
+  type EditorCapabilities,
+  type EditorHostConfig,
+  type EditorPageListing,
+  type EditorPageState,
+  type SaveTarget,
+  type SavePageRequest,
+  type SavePageResponse,
+  type PageFormInput,
+  type UploadResult,
+  type ImageListing,
+  type ComposedBlockResponse,
+} from './editor-protocol'
+
 export { normalizeClassManifest } from './composer-manifest'
 
 export {

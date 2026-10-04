@@ -14,7 +14,7 @@ import { computed, inject, ref, watch } from 'vue'
 import { useDialog } from '../ui/dialog'
 import PagesDialog from '../dialogs/PagesDialog.vue'
 import VIcon from './VIcon.vue'
-import type { PageItem } from '../lib/page-list'
+import { editorBackend } from '../lib/backend'
 import { navigationKey, fallbackNavigation } from '../lib/navigation'
 
 const dialog = useDialog()
@@ -27,10 +27,10 @@ watch(
   current,
   async (path) => {
     try {
-      const pages: PageItem[] = await fetch('/@mechanica/pages').then((response) => response.json())
+      const pages = await editorBackend().pages.list()
       currentName.value = pages.find((page) => page.path === path)?.name ?? ''
     } catch {
-      /* dev server unavailable */
+      /* host unavailable */
     }
   },
   { immediate: true },

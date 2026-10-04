@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import { join, parse } from 'node:path'
-import { walkSchema, walkTree, type Block, type ContentBlock } from 'mechanica-shared'
+import { UPLOADS_PREFIX, walkSchema, walkTree, type Block, type ContentBlock } from 'mechanica-shared'
 import { analyzeImageBuffer, isRasterImage, type ServerImageInfo } from './image-preview'
 import { writeFileAtomic } from './fs-utils'
 
@@ -21,7 +21,7 @@ export function getUniqueName(dir: string, fileName: string): string {
 const assetsDir = (mechDir: string) => join(mechDir, 'assets')
 
 /** The URL prefix uploaded assets are referenced by in page data. */
-export const UPLOADS_PREFIX = '/@mechanica/assets/'
+export { UPLOADS_PREFIX }
 
 /** Public URL the dev server serves an asset under. */
 const assetUrl = (fileName: string) => `${UPLOADS_PREFIX}${fileName}`

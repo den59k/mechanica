@@ -2,22 +2,25 @@ import { createApp, shallowRef } from 'vue'
 import { blocksList } from 'virtual:mechanica/blocks'
 import { composedList } from 'virtual:mechanica/composed'
 import { widgetsList } from 'virtual:mechanica/widgets'
-import { registerFieldSchemas, type State } from 'mechanica-shared'
+import { registerFieldSchemas, type SavePageRequest, type SaveTarget, type State } from 'mechanica-shared'
 import { getDataEntries } from '../core/data-registry'
 import { createComposedComponent } from '../core/composed'
 import { registerBuiltinFieldEditors } from './fields/builtin'
 import { registerRichTextWidgets } from './fields/richtext/widgets'
 import EditorApp from './EditorApp.vue'
 import type { EditorSnapshot, SaveController } from './lib/types'
-import { createSaveQueue, SaveConflictError } from './lib/save-queue'
+import { createSaveQueue } from './lib/save-queue'
 import type { PageNavigation } from './lib/navigation'
+import { editorBackend } from './lib/backend'
 import './styles/editor.scss'
 
 /**
- * Dev-only editor entry. Injected into the page by the Vite plugin: it mounts
- * the overlay editor, which drives the live page through the bridge and
- * persists edits to the `/@mechanica` dev server.
+ * The editor entry. Injected into the page by its host (the Vite plugin in
+ * dev): it mounts the overlay editor, which drives the live page through the
+ * bridge and persists edits through the host's editor API (`lib/backend.ts`).
  */
+const backend = editorBackend()
+
 registerFieldSchemas()
 registerBuiltinFieldEditors()
 registerRichTextWidgets(widgetsList)
@@ -34,11 +37,7 @@ let pagePath = state.page?.path ?? location.pathname
 // saves ride it so a translation writes its own `<name>@<locale>.page.md` file
 // (the server ignores the default locale, so this is inert on single-lang sites).
 let pageLocale = state.page?.locale
-const savePath = () => {
-  const params = new URLSearchParams({ path: pagePath })
-  if (pageLocale) params.set('locale', pageLocale)
-  return `/@mechanica/save?${params}`
-}
+const saveTarget = (): SaveTarget => ({ path: pagePath, locale: pageLocale })
 
 // Optimistic concurrency: saves carry the version of the page we loaded; the
 // dev server rejects the save (409) when the file changed externally, so the
@@ -60,7 +59,7 @@ const localizedIds = new Set(dataEntries.filter((entry) => entry.localized).map(
  * `siteData`/`folderData`; `localized` entries move to `siteDataI18n`/
  * `folderDataI18n` so the server can persist them per locale.
  */
-function saveBody(snapshot: EditorSnapshot): Record<string, unknown> {
+function saveBody(snapshot: EditorSnapshot): SavePageRequest {
   const split = (bucket: Record<string, unknown> = {}) => {
     const shared: Record<string, unknown> = {}
     const i18n: Record<string, unknown> = {}
@@ -88,21 +87,11 @@ const saveQueue = createSaveQueue<EditorSnapshot>({
   send: async (snapshot) => {
     const force = forceNextSave
     forceNextSave = false
-    const response = await fetch(savePath(), {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...saveBody(snapshot), version: pageVersion, force }),
-    })
-    if (response.status === 409) throw new SaveConflictError()
-    if (!response.ok) throw new Error(`Save failed (${response.status})`)
-    const result = (await response.json().catch(() => null)) as { version?: string | null } | null
-    if (result?.version != null) pageVersion = result.version
+    const result = await backend.pages.save(saveTarget(), { ...saveBody(snapshot), version: pageVersion, force })
+    if (result.version != null) pageVersion = result.version
   },
   beacon: (snapshot) =>
-    navigator.sendBeacon(
-      savePath(),
-      new Blob([JSON.stringify({ ...saveBody(snapshot), version: pageVersion })], { type: 'application/json' }),
-    ),
+    backend.pages.saveOnUnload(saveTarget(), { ...saveBody(snapshot), version: pageVersion }),
 })
 
 // Leaving the page (including Vite's full reload) flushes pending edits via
@@ -122,11 +111,10 @@ const externalState = shallowRef<State | null>(null)
 
 const normalizePathname = (p: string) => (p.length > 1 ? p.replace(/\/+$/, '') : p)
 
-/** Fetch a page's dev state and make it the editor's current state. */
+/** Fetch a page's state from the host and make it the editor's current state. */
 async function loadState(path: string): Promise<boolean> {
-  const response = await fetch(`/@mechanica/state?path=${encodeURIComponent(path)}`)
-  if (!response.ok) return false
-  const fresh = (await response.json()) as State & { version?: string | null }
+  const fresh = await backend.pages.state(path)
+  if (!fresh) return false
   pageVersion = fresh.version ?? null
   pagePath = fresh.page?.path ?? path
   pageLocale = fresh.page?.locale
@@ -135,13 +123,11 @@ async function loadState(path: string): Promise<boolean> {
   return true
 }
 
-if (import.meta.hot) {
-  import.meta.hot.on('mechanica:store-changed', (data: { path?: string } | undefined) => {
-    if (data?.path && normalizePathname(data.path) !== normalizePathname(pagePath)) return
-    if (saveQueue.hasUnsaved()) return
-    void loadState(location.pathname)
-  })
-}
+backend.onStoreChange((change) => {
+  if (change.path && normalizePathname(change.path) !== normalizePathname(pagePath)) return
+  if (saveQueue.hasUnsaved()) return
+  void loadState(location.pathname)
+})
 
 // In-place page switching: flush pending saves, fetch the target page's state,
 // and swap it into the running editor + runtime — no full page reload. The
@@ -184,46 +170,6 @@ const saveController: SaveController = {
   },
 }
 
-/** Upload response: the public src, plus dimensions + LQIP `previewSrc` when
- *  the dev server has the optional `sharp` dependency installed. */
-interface UploadResult {
-  src: string
-  previewSrc?: string
-  width?: number
-  height?: number
-}
-
-/** Upload a picked file to the dev server. */
-const uploadFile = async (file: File): Promise<UploadResult> => {
-  const response = await fetch('/@mechanica/upload', {
-    method: 'POST',
-    headers: { 'x-file-name': encodeURIComponent(file.name) },
-    body: file,
-  })
-  if (!response.ok) throw new Error(`Upload failed (${response.status})`)
-  const { src, previewSrc, width, height } = (await response.json()) as UploadResult
-  return { src, previewSrc, width, height }
-}
-
-/** Upload a cropped derivative under a deterministic name (kept out of the library). */
-const uploadDerived = async (blob: Blob, name: string): Promise<{ src: string }> => {
-  const response = await fetch('/@mechanica/upload', {
-    method: 'POST',
-    headers: { 'x-file-name': encodeURIComponent(name), 'x-derived-asset': '1' },
-    body: blob,
-  })
-  if (!response.ok) throw new Error(`Upload failed (${response.status})`)
-  const { src } = (await response.json()) as { src: string }
-  return { src }
-}
-
-/** List images already uploaded under the project's `.mech/assets`. */
-const listImages = async (): Promise<{ id: string; name: string; src: string }[]> => {
-  const response = await fetch('/@mechanica/images')
-  if (!response.ok) return []
-  return (await response.json()) as { id: string; name: string; src: string }[]
-}
-
 const mountPoint = document.createElement('div')
 mountPoint.id = 'mechanica-editor'
 document.body.appendChild(mountPoint)
@@ -237,9 +183,9 @@ createApp(EditorApp, {
   state,
   components: [...blocksList, ...composedComponents] as never,
   dataEntries,
-  uploadFile,
-  uploadDerived,
-  listImages,
+  uploadFile: backend.assets.upload,
+  uploadDerived: backend.assets.uploadDerived,
+  listImages: backend.assets.images,
   onChange: (snapshot: EditorSnapshot) => {
     if (!readOnly) saveQueue.push(snapshot)
   },

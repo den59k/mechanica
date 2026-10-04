@@ -1,20 +1,8 @@
-/** A page as returned by the dev server's `/@mechanica/pages` endpoint. */
-export interface PageItem {
-  path: string
-  name: string
-  folderPath?: string | null
-  /** A work-in-progress page — hidden from queries and the static export. */
-  draft?: boolean
-  /** The page's explicit layout — absent for pages on the app's default layout. */
-  layout?: string
-  /**
-   * Locales this logical page has (default + translations), on multi-language
-   * sites — for the language coverage badges. Absent when i18n is off.
-   */
-  locales?: string[]
-  /** A programmatically generated page (plugin `generatePages`) — read-only, no file. */
-  generated?: boolean
-}
+import type { EditorPageListing } from 'mechanica-shared'
+import { editorBackend } from './backend'
+
+/** A page as the editor's host lists it. */
+export type PageItem = EditorPageListing
 
 let pagesPromise: Promise<PageItem[]> | null = null
 
@@ -24,22 +12,19 @@ let pagesPromise: Promise<PageItem[]> | null = null
  */
 export function fetchPages(): Promise<PageItem[]> {
   if (!pagesPromise) {
-    pagesPromise = fetch('/@mechanica/pages')
-      .then((response) => response.json())
+    pagesPromise = editorBackend()
+      .pages.list()
       .catch(() => [] as PageItem[])
   }
   return pagesPromise
 }
 
 /**
- * The dev-server URL of a page's thumbnail (written by `mechanica thumbs` into
- * `.mech/thumbs/`). Slug mirrors the CLI's `pageSlug`: `/` → `index`,
- * `/docs/api` → `docs-api`. The file may not exist — callers need a fallback.
+ * The URL of a page's thumbnail (written by `mechanica thumbs` into
+ * `.mech/thumbs/`). The file may not exist — callers need a fallback.
  */
 export function pageThumbUrl(path: string): string {
-  const trimmed = path.replace(/^\/+|\/+$/g, '')
-  const slug = trimmed ? trimmed.replace(/\//g, '-') : 'index'
-  return `/@mechanica/thumbs/${slug}.png`
+  return editorBackend().urls.pageThumb(path)
 }
 
 /**

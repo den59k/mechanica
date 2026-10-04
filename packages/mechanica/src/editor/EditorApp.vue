@@ -32,8 +32,10 @@
         <button type="button" class="mech-icon-button" title="Duplicate" @click="store.duplicate(selected.id)"><VIcon name="copy" /></button>
         <!-- A composed block is edited in the composer (the only entry point for
              palette-hidden one-off page designs); anything else can become one. -->
-        <button v-if="selectedComposed" type="button" class="mech-icon-button" title="Edit in the composer" @click="editInComposer"><VIcon name="pencil" /></button>
-        <button v-else type="button" class="mech-icon-button" title="Save as a reusable block" @click="saveAsBlock"><VIcon name="frame" /></button>
+        <template v-if="canCompose">
+          <button v-if="selectedComposed" type="button" class="mech-icon-button" title="Edit in the composer" @click="editInComposer"><VIcon name="pencil" /></button>
+          <button v-else type="button" class="mech-icon-button" title="Save as a reusable block" @click="saveAsBlock"><VIcon name="frame" /></button>
+        </template>
         <button type="button" class="mech-icon-button is-danger" title="Delete" @click="store.remove(selected.id)"><VIcon name="trash" /></button>
       </div>
 
@@ -164,6 +166,7 @@ import { createDragController, dragKey } from './lib/drag-controller'
 import { createHistory } from './lib/history'
 import { resolveShortcut } from './lib/shortcuts'
 import { pushStateUpdate, runtimeLayoutNames } from './lib/bridge'
+import { editorBackend } from './lib/backend'
 import { useBlockFrames } from './lib/use-block-frames'
 import type { BlockComponent } from './lib/block-meta'
 import { dataEntryAvailableIn } from './lib/data-meta'
@@ -203,6 +206,10 @@ const props = defineProps<{
   /** In-place page switching (current path + switchPage), provided to dialogs. */
   navigation?: PageNavigation
 }>()
+
+// The host decides whether the composer exists; without it its entry points go.
+const backend = editorBackend()
+const canCompose = backend.capabilities.composer
 
 const store = createEditorStore(props.state, props.components, props.dataEntries)
 provide(editorStoreKey, store)
@@ -308,17 +315,11 @@ async function saveAsBlock(): Promise<void> {
   if (!name?.trim()) return
   const id = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'block'
   const def = { id, name: name.trim(), template: [cloneBlock(sel)] }
-  const res = await fetch('/@mechanica/composed/create', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(def),
-  })
-  if (res.ok) {
+  try {
+    await backend.composed.create(def)
     window.location.reload() // refresh the palette + runtime with the new block
-  } else {
-    const err = (await res.json().catch(() => null)) as { error?: { id?: string } | string } | null
-    const message = typeof err?.error === 'object' ? err?.error?.id : err?.error
-    window.alert(`Could not save block: ${message ?? res.status}`)
+  } catch (error) {
+    window.alert(`Could not save block: ${(error as Error).message}`)
   }
 }
 
@@ -341,7 +342,7 @@ const selectedComposed = computed(
 // Leaving for the composer flushes pending edits via the beforeunload beacon.
 function editInComposer(): void {
   if (!store.selected) return
-  window.location.assign(`/@mechanica/composer/${encodeURIComponent(store.selected.blockId)}`)
+  window.location.assign(backend.urls.composer(store.selected.blockId))
 }
 // Toolbar sits above the block, or just inside it when near the viewport top.
 const toolbarTop = computed(() => {

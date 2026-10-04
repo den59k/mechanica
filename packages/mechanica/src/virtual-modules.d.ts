@@ -19,5 +19,6 @@ declare module 'virtual:mechanica/composed' {
 interface ImportMeta {
   readonly hot?: {
     on(event: string, callback: (data: any) => void): void
+    off(event: string, callback: (data: any) => void): void
   }
 }

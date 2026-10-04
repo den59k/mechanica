@@ -7,7 +7,7 @@
       @input="search = ($event.target as HTMLInputElement).value"
     />
 
-    <button type="button" class="mech-button mech-palette__new" title="Build a new block in the composer" @click="newBlock">
+    <button v-if="canCompose" type="button" class="mech-button mech-palette__new" title="Build a new block in the composer" @click="newBlock">
       <VIcon name="plus" />
       <span>New block</span>
     </button>
@@ -19,7 +19,7 @@
              design: a palette-hidden composed block placed as the page's sole
              content, opened straight in the composer. -->
         <button
-          v-if="group.action"
+          v-if="group.action && canCompose"
           type="button"
           class="mech-palette__item mech-palette__item--action"
           title="Create a block just for this page and design it in the composer"
@@ -52,7 +52,7 @@
               @error="thumbFailed.add(block.id)"
             />
             <!-- Composed blocks (built in the composer) get Edit/Delete on hover. -->
-            <span v-if="block.composed" class="mech-palette__card-actions">
+            <span v-if="block.composed && canCompose" class="mech-palette__card-actions">
               <span
                 class="mech-palette__card-action"
                 title="Edit in the composer"
@@ -99,6 +99,7 @@ import { runtimeLayoutNames } from '../lib/bridge'
 import { navigationKey, fallbackNavigation } from '../lib/navigation'
 import { createRootFrame } from '../composer/lib/normalize-template'
 import { uid } from '../lib/content-tree'
+import { editorBackend } from '../lib/backend'
 import VIcon from './VIcon.vue'
 import BlockPreview from './BlockPreview.vue'
 
@@ -186,12 +187,16 @@ const displayGroups = computed<PaletteGroup[]>(() => {
   return list
 })
 
+// The host decides whether the composer exists; without it its entry points go.
+const backend = editorBackend()
+const canCompose = backend.capabilities.composer
+
 const monogram = (block: Block) => block.name.charAt(0).toUpperCase()
 
 // Card thumbnails, pre-rendered by `mechanica thumbs --blocks`. Blocks without
 // one 404 once and keep their icon/monogram fallback.
 const thumbFailed = ref(new Set<string>())
-const thumbSrc = (id: string) => `/@mechanica/thumbs/blocks/${encodeURIComponent(id)}.png`
+const thumbSrc = (id: string) => backend.urls.blockThumb(id)
 
 // A press begins a drag (or a tap to append) — drop any hover preview so it
 // doesn't linger over the page while dragging.
@@ -239,7 +244,7 @@ onBeforeUnmount(clearHover)
 // Navigating leaves the page editor; its beforeunload beacon flushes any
 // pending save first, so edits are never lost.
 function newBlock() {
-  window.location.assign('/@mechanica/composer/~new')
+  window.location.assign(backend.urls.composer('~new'))
 }
 // "Design this page": a one-off composed block bound to this page. It's created
 // `hidden: true` (never offered under "Site blocks" elsewhere — untick in the
@@ -257,28 +262,23 @@ async function designPage() {
   for (let n = 2; store.blocksById.has(id); n++) id = `${base}-${n}`
   const name = slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, ' ') + ' page'
   const def = { id, name, hidden: true, template: [createRootFrame()] }
-  const res = await fetch('/@mechanica/composed/create', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(def),
-  })
-  if (!res.ok) {
-    const err = (await res.json().catch(() => null)) as { error?: { id?: string } | string } | null
-    const message = typeof err?.error === 'object' ? err?.error?.id : err?.error
-    window.alert(`Could not create the block: ${message ?? res.status}`)
+  try {
+    await backend.composed.create(def)
+  } catch (error) {
+    window.alert(`Could not create the block: ${(error as Error).message}`)
     return
   }
   store.content.push({ id: uid(), blockId: id, data: {} })
-  window.location.assign(`/@mechanica/composer/${encodeURIComponent(id)}`)
+  window.location.assign(backend.urls.composer(id))
 }
 function editBlock(block: Block) {
   clearHover()
-  window.location.assign(`/@mechanica/composer/${encodeURIComponent(block.id)}`)
+  window.location.assign(backend.urls.composer(block.id))
 }
 async function deleteBlock(block: Block) {
   clearHover()
   if (!window.confirm(`Delete block “${block.name}”? Pages using it will render nothing.`)) return
-  await fetch(`/@mechanica/composed/delete?id=${encodeURIComponent(block.id)}`, { method: 'POST' })
+  await backend.composed.remove(block.id)
   // Our own delete is skipped by the file watcher (no auto-reload) — refresh
   // so the palette and the live runtime drop the block.
   window.location.reload()

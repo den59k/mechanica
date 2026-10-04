@@ -10,7 +10,8 @@ import { createMechanica } from '../../core/create-mechanica'
 import type { BlocksMap } from '../../core/state'
 import { registerBuiltinFieldEditors } from '../fields/builtin'
 import { toBlockMeta, type BlockComponent } from '../lib/block-meta'
-import { createSaveQueue, SaveConflictError } from '../lib/save-queue'
+import { createSaveQueue } from '../lib/save-queue'
+import { editorBackend } from '../lib/backend'
 import ComposerApp from './ComposerApp.vue'
 import type { ComposerSnapshot } from './lib/composer-store'
 import type { SaveController } from '../lib/types'
@@ -76,38 +77,6 @@ function slugify(name: string): string {
 
 const newDefinition = (): ComposedBlockDefinition => ({ id: '', name: 'Untitled block', template: [] })
 
-/** Upload a picked file to the dev server, returning its public src (plus
- *  dimensions + LQIP previewSrc when the server has the optional `sharp`). */
-const uploadFile = async (
-  file: File,
-): Promise<{ src: string; previewSrc?: string; width?: number; height?: number }> => {
-  const response = await fetch('/@mechanica/upload', {
-    method: 'POST',
-    headers: { 'x-file-name': encodeURIComponent(file.name) },
-    body: file,
-  })
-  if (!response.ok) throw new Error(`Upload failed (${response.status})`)
-  return (await response.json()) as { src: string; previewSrc?: string; width?: number; height?: number }
-}
-
-/** Upload a cropped derivative under a deterministic name (kept out of the library). */
-const uploadDerived = async (blob: Blob, name: string): Promise<{ src: string }> => {
-  const response = await fetch('/@mechanica/upload', {
-    method: 'POST',
-    headers: { 'x-file-name': encodeURIComponent(name), 'x-derived-asset': '1' },
-    body: blob,
-  })
-  if (!response.ok) throw new Error(`Upload failed (${response.status})`)
-  return (await response.json()) as { src: string }
-}
-
-/** List images already uploaded under the project's `.mech/assets`. */
-const listImages = async (): Promise<{ id: string; name: string; src: string }[]> => {
-  const response = await fetch('/@mechanica/images')
-  if (!response.ok) return []
-  return (await response.json()) as { id: string; name: string; src: string }[]
-}
-
 /**
  * Mount the Block Composer. Called by the generated composer entry
  * (`virtual:mechanica/composer`). Loads the target block (or a fresh one),
@@ -117,6 +86,7 @@ const listImages = async (): Promise<{ id: string; name: string; src: string }[]
 export async function mountComposerApp(options: MountComposerOptions): Promise<void> {
   registerFieldSchemas()
   registerBuiltinFieldEditors()
+  const backend = editorBackend()
 
   const req = (window as ComposerWindow).__MECHANICA_COMPOSER__ ?? {}
   const requestedId = req.blockId && req.blockId !== '~new' ? req.blockId : null
@@ -126,9 +96,8 @@ export async function mountComposerApp(options: MountComposerOptions): Promise<v
   let version: string | null = null
   let def: ComposedBlockDefinition | null = null
   if (requestedId) {
-    const res = await fetch(`/@mechanica/composed/get?id=${encodeURIComponent(requestedId)}`)
-    if (res.ok) {
-      const data = (await res.json()) as { def: ComposedBlockDefinition; version: string }
+    const data = await backend.composed.get(requestedId)
+    if (data) {
       def = data.def
       version = data.version
     }
@@ -136,9 +105,7 @@ export async function mountComposerApp(options: MountComposerOptions): Promise<v
   if (!def) def = newDefinition()
 
   // Site-scope data so blocks reading shared data render with real values.
-  const siteState = await fetch('/@mechanica/state?path=/')
-    .then((res) => (res.ok ? res.json() : null))
-    .catch(() => null)
+  const siteState = await backend.pages.state('/').catch(() => null)
 
   const target =
     typeof options.target === 'string' ? document.querySelector(options.target) : options.target
@@ -159,25 +126,11 @@ export async function mountComposerApp(options: MountComposerOptions): Promise<v
     send: async (snapshot) => {
       if (version === null) {
         const id = snapshot.id || slugify(snapshot.name)
-        const res = await fetch('/@mechanica/composed/create', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ ...snapshot, id }),
-        })
-        if (res.status === 409) throw new SaveConflictError()
-        if (!res.ok) throw new Error(`Create failed (${res.status})`)
-        const result = (await res.json()) as { version?: string }
+        const result = await backend.composed.create({ ...snapshot, id })
         currentId = id
-        version = result.version ?? null
+        version = result.version
       } else {
-        const res = await fetch(`/@mechanica/composed/save?id=${encodeURIComponent(currentId!)}`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ def: { ...snapshot, id: currentId }, version }),
-        })
-        if (res.status === 409) throw new SaveConflictError()
-        if (!res.ok) throw new Error(`Save failed (${res.status})`)
-        const result = (await res.json()) as { version?: string }
+        const result = await backend.composed.save(currentId!, { ...snapshot, id: currentId! }, version)
         version = result.version ?? version
       }
     },
@@ -213,8 +166,8 @@ export async function mountComposerApp(options: MountComposerOptions): Promise<v
     }),
   )
   // Image fields (button/image inspectors) reuse the editor's upload services.
-  app.provide('mechFileUploader', uploadFile)
-  app.provide('mechDerivedUploader', uploadDerived)
-  app.provide('mechImageLibrary', listImages)
+  app.provide('mechFileUploader', backend.assets.upload)
+  app.provide('mechDerivedUploader', backend.assets.uploadDerived)
+  app.provide('mechImageLibrary', backend.assets.images)
   app.mount(target)
 }

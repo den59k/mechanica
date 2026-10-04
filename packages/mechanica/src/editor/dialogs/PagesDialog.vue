@@ -169,6 +169,7 @@ import PageFormDialog from './PageFormDialog.vue'
 import { useDialog } from '../ui/dialog'
 import { contextMenuKey } from '../lib/context-menu'
 import { filterPages, groupPagesByFolder, pageThumbUrl, type PageItem } from '../lib/page-list'
+import { editorBackend } from '../lib/backend'
 import { humanize } from '../props-panel/humanize'
 import { navigationKey, fallbackNavigation } from '../lib/navigation'
 import { recordRecent } from '../lib/recents'
@@ -289,6 +290,7 @@ watch(activePath, async () => {
 
 // Thumbnails are regenerated in place by `mechanica thumbs`; the stamp busts
 // the browser cache (and retries failures) each time the list reloads.
+const backend = editorBackend()
 const thumbStamp = ref(0)
 const thumbFailed = reactive(new Set<string>())
 const thumbSrc = (page: PageItem) => `${pageThumbUrl(page.path)}?v=${thumbStamp.value}`
@@ -299,11 +301,11 @@ const onThumbError = (event: Event) => {
 
 async function load() {
   try {
-    pages.value = await fetch('/@mechanica/pages').then((response) => response.json())
+    pages.value = await backend.pages.list()
     thumbStamp.value = Date.now()
     thumbFailed.clear()
   } catch {
-    /* dev server unavailable */
+    /* host unavailable */
   }
 }
 
@@ -392,21 +394,15 @@ async function submitPage(
   source: PageItem | null,
   input: { name: string; path: string },
 ): Promise<string | null> {
-  const url =
+  const result =
     mode === 'duplicate'
-      ? `/@mechanica/pages/duplicate?path=${encodeURIComponent(source!.path)}`
+      ? await backend.pages.duplicate(source!.path, input)
       : mode === 'edit'
-        ? `/@mechanica/pages?path=${encodeURIComponent(source!.path)}`
-        : '/@mechanica/pages'
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(input),
-  })
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok) return data?.error?.path ?? 'Could not save the page'
+        ? await backend.pages.update(source!.path, input)
+        : await backend.pages.create(input)
+  if (!result.ok) return result.error
 
-  const nextPath = data.path ?? input.path
+  const nextPath = result.path ?? input.path
   // Editing the page we're on (incl. a path change) switches to it; editing
   // another page just refreshes the list. New/duplicate open the new page.
   if (mode === 'edit' && source!.path !== current.value) await load()
@@ -425,8 +421,7 @@ function confirmRemove(page: PageItem) {
 }
 
 async function remove(page: PageItem) {
-  const response = await fetch(`/@mechanica/pages?path=${encodeURIComponent(page.path)}`, { method: 'DELETE' })
-  if (!response.ok) return
+  if (!(await backend.pages.remove(page.path))) return
   await load()
   // If we deleted the page we're editing, move somewhere that still exists.
   if (page.path === current.value) openPath(pages.value[0]?.path ?? '/')
@@ -434,12 +429,7 @@ async function remove(page: PageItem) {
 
 /** Toggle a page's draft flag (drafts drop out of queries and the export). */
 async function toggleDraft(page: PageItem) {
-  const response = await fetch(`/@mechanica/pages/draft?path=${encodeURIComponent(page.path)}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ draft: !page.draft }),
-  })
-  if (response.ok) await load()
+  if (await backend.pages.setDraft(page.path, !page.draft)) await load()
 }
 </script>
 

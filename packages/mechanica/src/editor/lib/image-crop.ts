@@ -1,7 +1,5 @@
+import { UPLOADS_PREFIX } from 'mechanica-shared'
 import type { CropTarget, NormalizedRect } from './image-size'
-
-/** URL prefix uploaded assets are served under (mirrors the dev assets-store). */
-const UPLOADS_PREFIX = '/@mechanica/assets/'
 
 /** The image-field value as the editor holds it (see `builtinFields` in shared). */
 export interface EditorImageValue {
