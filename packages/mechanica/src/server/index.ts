@@ -12,4 +12,5 @@ export {
 } from './service'
 export { toNodeMiddleware, type NodeMiddleware } from './node-adapter'
 export { buildSiteManifest, readSiteManifest, configureSite, type SiteManifestInput } from './site'
-export { SITE_MANIFEST_FILE, type SiteManifest } from 'mechanica-shared'
+export { renderEditablePage, readEditorTemplate, type EditablePageOptions } from './editor-page'
+export { SITE_MANIFEST_FILE, EDITOR_DIST_DIR, type SiteManifest, type EditorHostConfig } from 'mechanica-shared'

@@ -37,6 +37,7 @@ import { pageUrlOf } from '../server/pages-store'
 import { buildPageState, buildGeneratedState } from '../server/page-state'
 import { wasRecentlyMutated } from '../server/fs-utils'
 import { buildSiteManifest, configureSite, indexGeneratedPages, type GeneratedIndex } from '../server/site'
+import { renderEditablePage } from '../server/editor-page'
 import { BLOCKS_MANIFEST_FILE } from '../cli/page-assets'
 
 /** Virtual module exposing the collected block components. */
@@ -193,6 +194,8 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
   // The client (non-SSR) production build code-splits blocks: the blocks
   // virtual module becomes dynamic imports and the entry loads per page.
   let isClientBuild = false
+  // `mechanica build --editor`: a client build shaped like the dev page (see below).
+  let isEditorBuild = false
   // blockId → source file, captured when the lazy blocks module is generated;
   // emitted as `mechanica-blocks.json` for `mechanica export`.
   let lazyBlockFiles: Map<string, string> | null = null
@@ -317,7 +320,13 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
           const composed = loadComposedDefinitions(composedDir, (file, error) =>
             server.config.logger.warn(`[mechanica] skipped ${slash(file)}: ${error}`),
           )
-          const manifest = buildSiteManifest({ components: mod.blocksList ?? [], composed, locales, generated })
+          const manifest = buildSiteManifest({
+            components: mod.blocksList ?? [],
+            composed,
+            site: { url: options.siteUrl, name: options.siteName },
+            locales,
+            generated,
+          })
           configureSite(mechDir, manifest)
           return manifest
         })
@@ -387,6 +396,8 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       // rolldown's default chunking, so in `per-block` mode unmarked blocks
       // still split one chunk per block via their dynamic imports.
       if (env.command !== 'build' || env.isSsrBuild) return
+      // The editor build keeps every block eager (the palette needs them all).
+      if (process.env.MECHANICA_EDITOR_BUILD) return
       // `meta` is absent when a test calls the hook bare.
       const label = supportsGroupDebugName(this.meta?.rolldownVersion) ? { debugName: 'mechanica:blocks' } : {}
       return {
@@ -430,7 +441,12 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       root = config.root
       locales = normalizeLocales(options.locales)
       isDev = config.command === 'serve'
-      isClientBuild = config.command === 'build' && !config.build?.ssr
+      // The editor build is a client build that keeps what the editor needs:
+      // block metadata, eager blocks, the runtime in `dev` mode — everything
+      // keyed off `isClientBuild` (stripping, code splitting, the blocks
+      // manifest) stays off for it.
+      isEditorBuild = config.command === 'build' && !config.build?.ssr && !!process.env.MECHANICA_EDITOR_BUILD
+      isClientBuild = config.command === 'build' && !config.build?.ssr && !isEditorBuild
 
       // Scoped-CSS ids must agree between the client build (which emits the
       // CSS) and the SSR build (which emits the `data-v-*` attributes into the
@@ -494,7 +510,7 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         return lazy.code
       }
       if (id === RESOLVED_CLIENT_ID) {
-        return generateClientEntry({ userEntry, mount, mode: isDev ? 'dev' : 'client', lazy: isClientBuild })
+        return generateClientEntry({ userEntry, mount, mode: isDev || isEditorBuild ? 'dev' : 'client', lazy: isClientBuild })
       }
       if (id === RESOLVED_SSR_ID) {
         return generateSsrEntry({
@@ -656,7 +672,13 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       async handler(html, ctx) {
         // Production build: bundle the client entry so the built HTML hydrates.
         if (!isDev) {
-          const clientScript = `<script type="module">import ${JSON.stringify(CLIENT_MODULE_ID)}</script>`
+          // The editor build boots like the dev page: the client entry, then
+          // the editor overlay (in that order — the editor attaches to the
+          // mounted runtime). Its host injects `window.state` per page.
+          const imports = isEditorBuild
+            ? `import ${JSON.stringify(CLIENT_MODULE_ID)}\nimport 'mechanica/editor'\n`
+            : `import ${JSON.stringify(CLIENT_MODULE_ID)}`
+          const clientScript = `<script type="module">${imports}</script>`
           return html.replace('</body>', `${clientScript}\n</body>`)
         }
 
@@ -680,22 +702,17 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         const state = generated
           ? buildGeneratedState(mechDir, generated, locales)
           : buildPageState(mechDir, urlPath, locales)
-        const inject = [
-          `<script>window.state=${serializeState(state)}</script>`,
-          `<script type="module">`,
-          `import ${JSON.stringify(CLIENT_MODULE_ID)}`,
-          ...(withEditor ? [`import 'mechanica/editor'`] : []),
-          `</script>`,
-        ].join('\n')
-        // Resolve `{{ … }}` head placeholders the same way the build does, so the
-        // dev preview shows real <title>/<meta> values. Template before injecting
-        // the state script (whose JSON must not be touched).
-        const templated = passDataToHTML(html, {
-          ...state.data,
+        // `{{ … }}` head placeholders resolve the same way the build does, so
+        // the dev preview shows real <title>/<meta> values.
+        return renderEditablePage(html, state, {
           site: { url: options.siteUrl, name: options.siteName },
-          page: state.page,
+          scripts: [
+            `<script type="module">`,
+            `import ${JSON.stringify(CLIENT_MODULE_ID)}`,
+            ...(withEditor ? [`import 'mechanica/editor'`] : []),
+            `</script>`,
+          ].join('\n'),
         })
-        return templated.replace('<body>', `<body>\n${inject}`)
       },
     },
   }

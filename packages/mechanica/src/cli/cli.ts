@@ -12,6 +12,9 @@ const HELP = `mechanica — build Vue 3 sites with a visual block editor
 
 Usage:
   mechanica build           Build the client + SSR bundles into dist/
+                            (--editor also builds dist/mechanica-editor/: the
+                             site with the editor overlay, for a host that
+                             serves editing without the dev server)
   mechanica export          Build, then statically render every page into export/
                             (a site url — the plugin's siteUrl option or
                              --site-url <origin> — also turns on the automatic
@@ -50,7 +53,7 @@ export async function run(argv: string[]): Promise<void> {
 
   switch (command) {
     case 'build':
-      return runBuild()
+      return runBuild({ editor: flags.editor === true })
     case 'export':
       return runExport({
         siteUrl: str(flags['site-url']),

@@ -2,7 +2,7 @@ import { writeFile, mkdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { build } from 'vite'
-import { SITE_MANIFEST_FILE } from 'mechanica-shared'
+import { EDITOR_DIST_DIR, SITE_MANIFEST_FILE } from 'mechanica-shared'
 import { buildSiteManifest } from '../server/site'
 import { engineVersion } from './platform/engine-version'
 
@@ -15,7 +15,7 @@ import { engineVersion } from './platform/engine-version'
  * SSR module — the plugin generates the actual entry, so its options (user
  * entry, site url/name) all ride the bundle without duplication here.
  */
-export async function runBuild(): Promise<void> {
+export async function runBuild(options: { editor?: boolean } = {}): Promise<void> {
   console.info('Building client bundle…')
   // `manifest` maps each module to its emitted chunk + CSS, so `export` can
   // preload exactly the block chunks a page uses (blocks are code-split).
@@ -42,6 +42,20 @@ export async function runBuild(): Promise<void> {
 
   await writeSiteManifest(join(process.cwd(), 'dist'))
 
+  if (options.editor) {
+    console.info('Building editor bundle…')
+    // The plugin reads this flag: the editor build is the page as the dev
+    // server serves it — eager blocks with their full metadata, the runtime in
+    // `dev` mode, the editor overlay — so a host can offer editing without Vite.
+    // An env flag rather than a Vite `mode`, which would switch the `.env` files.
+    process.env.MECHANICA_EDITOR_BUILD = '1'
+    try {
+      await build({ build: { outDir: join('dist', EDITOR_DIST_DIR), emptyOutDir: true } })
+    } finally {
+      delete process.env.MECHANICA_EDITOR_BUILD
+    }
+  }
+
   console.info('Build complete → dist/')
 }
 
@@ -60,6 +74,7 @@ async function writeSiteManifest(distDir: string): Promise<void> {
     composed: ssr.composedList ?? [],
     locales: ssr.locales ?? null,
     generated: ssr.generatedPages ?? [],
+    site: ssr.site,
     engine: engineVersion(),
   })
   await writeFile(join(distDir, SITE_MANIFEST_FILE), JSON.stringify(manifest))

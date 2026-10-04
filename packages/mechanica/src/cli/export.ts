@@ -26,6 +26,7 @@ import {
   type RenderResult,
   type SitemapEntry,
   SITE_MANIFEST_FILE,
+  EDITOR_DIST_DIR,
   type VirtualPage,
 } from 'mechanica-shared'
 import { parsePage, type RichTextCodec } from 'mechanica-shared/page-format'
@@ -634,7 +635,7 @@ export async function exportProject(
   // Ship everything the build produced except its private artifacts: the
   // bundled assets plus whatever Vite copied from `public/` (favicon,
   // robots.txt, fonts, site-verification files) — those must reach the export.
-  const DIST_PRIVATE = new Set(['index.html', 'ssr.js', 'ssr.js.map', '.vite', BLOCKS_MANIFEST_FILE, SITE_MANIFEST_FILE])
+  const DIST_PRIVATE = new Set(['index.html', 'ssr.js', 'ssr.js.map', '.vite', BLOCKS_MANIFEST_FILE, SITE_MANIFEST_FILE, EDITOR_DIST_DIR])
   const distEntries = (await readdir(join(cwd, 'dist')).catch(() => [])) as string[]
   for (const entry of distEntries) {
     if (DIST_PRIVATE.has(entry)) continue

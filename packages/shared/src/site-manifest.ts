@@ -5,6 +5,13 @@ import type { LocalesConfig } from './locale'
 export const SITE_MANIFEST_FILE = 'mechanica-site.json'
 
 /**
+ * The folder `mechanica build --editor` writes the editor build to, inside
+ * `dist/`: the static root of an editing origin, plus the `index.html` a host
+ * turns into editable pages.
+ */
+export const EDITOR_DIST_DIR = 'mechanica-editor'
+
+/**
  * What a site's **code** offers, as plain data: everything the editor API
  * (`mechanica/server`) needs to know about the code in order to serve the
  * site's content — without running any of it.
@@ -24,6 +31,8 @@ export interface SiteManifest {
   engine?: string
   /** Every block the site has — compiled and composed — with unfolded prop schemas. */
   blocks: Block[]
+  /** The site's public url/name (the plugin's `siteUrl` / `siteName`), for `{{ site.* }}` templating. */
+  site?: { url?: string; name?: string }
   /** The site's locale config; null when it is single-language. */
   locales: LocalesConfig | null
   /** Programmatically generated pages (plugin `generatePages`), baked as data. */

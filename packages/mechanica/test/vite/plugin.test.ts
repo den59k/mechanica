@@ -243,4 +243,45 @@ describe('dev HTML injection', () => {
     expect(html).not.toContain('window.state')
     expect(html).not.toContain('mechanica/editor')
   })
+
+  describe('editor build (mechanica build --editor)', () => {
+    /** Run `fn` with the flag `runBuild` sets around the editor bundle. */
+    async function editorBuild<T>(fn: () => T | Promise<T>): Promise<T> {
+      process.env.MECHANICA_EDITOR_BUILD = '1'
+      try {
+        return await fn()
+      } finally {
+        delete process.env.MECHANICA_EDITOR_BUILD
+      }
+    }
+
+    it('boots the page like dev: the client entry, then the editor, state left to the host', async () => {
+      await editorBuild(async () => {
+        const plugin = mechanica()
+        callHook(plugin.configResolved, { root, command: 'build', build: {} })
+        const html: string = await callHook(plugin.transformIndexHtml, '<body></body>', { originalUrl: '/' })
+        expect(html).not.toContain('window.state')
+        // The editor attaches to the mounted runtime, so it comes second.
+        expect(html.indexOf('virtual:mechanica/client')).toBeGreaterThan(-1)
+        expect(html.indexOf('mechanica/editor')).toBeGreaterThan(html.indexOf('virtual:mechanica/client'))
+      })
+    })
+
+    it('keeps block metadata, eager blocks and the dev runtime mode', async () => {
+      await editorBuild(async () => {
+        const plugin = mechanica()
+        // No code-splitting groups: every block stays in the page.
+        expect(callHook(plugin.config, {}, { command: 'build' })).toBeUndefined()
+        callHook(plugin.configResolved, { root: '/r', command: 'build', build: {} })
+
+        const compiled = callHook(plugin.transform, block, '/r/src/blocks/Hero.vue')
+        expect(compiled.code).toContain('blockSchema')
+
+        const entry: string = await callHook(plugin.load, '\0virtual:mechanica/client')
+        expect(entry).toContain(`mode: "dev"`)
+        expect(entry).toContain('blocksMap')
+        expect(entry).not.toContain('blockLoaders')
+      })
+    })
+  })
 })

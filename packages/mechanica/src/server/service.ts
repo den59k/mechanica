@@ -1,7 +1,13 @@
 import fs from 'node:fs'
 import { extname, resolve, sep } from 'node:path'
 import { Readable } from 'node:stream'
-import type { ComposedBlockDefinition, PageFormInput, SavePageRequest, SiteManifest } from 'mechanica-shared'
+import type {
+  ComposedBlockDefinition,
+  EditorHostConfig,
+  PageFormInput,
+  SavePageRequest,
+  SiteManifest,
+} from 'mechanica-shared'
 import {
   createPage,
   duplicatePage,
@@ -37,6 +43,7 @@ import {
   ComposedBlockExistsError,
 } from './composed-store'
 import { configureSite, indexGeneratedPages, type GeneratedIndex } from './site'
+import { renderEditablePage } from './editor-page'
 
 /** What `/blocks` reports per block — enough for the thumbs CLI to walk them. */
 export interface BlockListing {
@@ -56,6 +63,13 @@ export interface EditorServiceOptions {
    * disk and the site is single-language.
    */
   site?: SiteManifest | (() => SiteManifest | Promise<SiteManifest>)
+  /**
+   * The page template of the site's editor build (`readEditorTemplate`) —
+   * enables {@link EditorService.page}. A function is called per page.
+   */
+  editorHtml?: string | (() => string | Promise<string>)
+  /** How the pages this service renders configure their editor (`window.__MECHANICA_EDITOR__`). */
+  hostConfig?: EditorHostConfig
 }
 
 /**
@@ -74,6 +88,14 @@ export interface EditorService {
    * service doesn't own, so the host can fall through.
    */
   handle(request: Request): Promise<Response | null>
+  /**
+   * The editable HTML page for a site URL path (`/about`, `/ru/blog/2`): the
+   * editor build's template with that page's state injected. Resolves to
+   * `null` when the service has no `editorHtml`. The host serves the template's
+   * sibling files (`dist/mechanica-editor/`) as static files and calls this
+   * for everything else outside the API prefix.
+   */
+  page(urlPath: string): Promise<Response | null>
 }
 
 const json = (data: unknown, status = 200): Response =>
@@ -424,6 +446,18 @@ export function createEditorService(mechDir: string, options: EditorServiceOptio
       } catch (error) {
         return json({ error: String(error) }, 500)
       }
+    },
+    async page(urlPath) {
+      if (!options.editorHtml) return null
+      const site = await currentSite()
+      const template = typeof options.editorHtml === 'function' ? await options.editorHtml() : options.editorHtml
+      const generated = site ? generatedIndex?.byServed.get(urlPath) : undefined
+      const locales = site?.locales ?? null
+      const state = generated
+        ? buildGeneratedState(mechDir, generated, locales)
+        : buildPageState(mechDir, urlPath, locales)
+      const html = renderEditablePage(template, state, { site: site?.site, hostConfig: options.hostConfig })
+      return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } })
     },
   }
 }

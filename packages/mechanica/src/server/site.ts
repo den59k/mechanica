@@ -19,6 +19,7 @@ export interface SiteManifestInput {
   components: Iterable<BlockComponent>
   /** The site's composed-block definitions. */
   composed?: ComposedBlockDefinition[]
+  site?: SiteManifest['site']
   locales?: LocalesConfig | null
   generated?: VirtualPage[]
   engine?: string
@@ -32,6 +33,7 @@ export function buildSiteManifest(input: SiteManifestInput): SiteManifest {
     format: 1,
     ...(input.engine ? { engine: input.engine } : {}),
     blocks: [...[...input.components].map(toBlockMeta), ...(input.composed ?? []).map(composedBlockMeta)],
+    ...(input.site?.url || input.site?.name ? { site: input.site } : {}),
     locales: input.locales ?? null,
     generated: input.generated ?? [],
   }
