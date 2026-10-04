@@ -100,7 +100,8 @@ export async function runPush(): Promise<void> {
   let deployId: number | null = null
 
   if (status.needsBundle) {
-    await runBuild()
+    // With the editor build: the platform serves the online editor from the bundle.
+    await runBuild({ editor: true })
     const body = await packBundle(join(cwd, 'dist'), { commit: head, engine: engineVersion() })
     console.info(`Uploading the bundle (${(body.length / 1024 / 1024).toFixed(1)} MB)…`)
     const uploaded = await request<{ deployId: number | null; reason?: string }>(
