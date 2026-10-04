@@ -5,7 +5,9 @@ import {
   translationsOf,
   fillContentDefaults,
   fillImageMeta,
+  imageNamesOf,
 } from './pages-store'
+import type { AssetStore } from './assets-store'
 import { readSiteData, readFolderData, folderOf } from './data-store'
 import type { Mech } from './content-files'
 
@@ -39,6 +41,10 @@ function paginatedVariantOf(
  * A paginated variant URL (`/blog/2`) serves its base page's state with
  * `page.pagination` set — `page.path` stays the base path, so editing the
  * variant edits (and saves to) the real page.
+ *
+ * Image info (LQIP previews, dimensions) is not in the result — page files
+ * don't carry it and the asset store that does is asynchronous: follow up with
+ * {@link fillStateImages}.
  *
  * A locale-prefixed URL (`/ru/about`) serves that page's translation: the
  * prefix is stripped to the logical path, `page.locale`/`page.locales` are set,
@@ -93,9 +99,6 @@ export function buildPageState(
   // export — a hand-authored page omitting a defaulted prop renders the same
   // in dev and production (blocks never apply defaults at render time).
   fillContentDefaults(mech, content)
-  // Inject cached image metadata (LQIP previews, dimensions) from
-  // `.mech/images.json` — page files don't carry the preview blobs.
-  fillImageMeta(mech, content)
   // On a non-default locale, ship the default-locale content too (normalized the
   // same way) so the editor can mark which fields this translation overrides vs
   // inherits, and offer a reset to the inherited value.
@@ -103,7 +106,6 @@ export function buildPageState(
   if (localeCode && pageVersion(mech, pagePath) != null) {
     const base = readPage(mech, pagePath).content ?? []
     fillContentDefaults(mech, base)
-    fillImageMeta(mech, base)
     baseContent = base
   }
   const folder = folderOf(mech, pagePath)
@@ -146,7 +148,6 @@ export function buildPageState(
 export function buildGeneratedState(mech: Mech, vp: VirtualPage, config?: LocalesConfig | null) {
   const content = vp.content ?? []
   fillContentDefaults(mech, content)
-  fillImageMeta(mech, content)
 
   const isDefaultLocale = !config || !vp.locale || vp.locale === config.default
   const localeCode = isDefaultLocale ? undefined : vp.locale
@@ -172,4 +173,23 @@ export function buildGeneratedState(mech: Mech, vp: VirtualPage, config?: Locale
     generated: true,
     ...(config ? { locales: config } : {}),
   }
+}
+
+/**
+ * Complete a page state with the image info its content refers to — previews
+ * and dimensions come from the asset store, the one lookup a state needs that
+ * is not a content file. Fills `content` and, on a translation, `baseContent`.
+ */
+export async function fillStateImages<State extends { content: any[]; baseContent?: any[] }>(
+  mech: Mech,
+  assets: AssetStore | null | undefined,
+  state: State,
+): Promise<State> {
+  if (!assets) return state
+  const lists = [state.content, ...(state.baseContent ? [state.baseContent] : [])]
+  const names = [...new Set(lists.flatMap((content) => imageNamesOf(mech, content)))]
+  if (!names.length) return state
+  const images = await assets.info(names)
+  for (const content of lists) fillImageMeta(mech, content, images)
+  return state
 }

@@ -189,6 +189,25 @@ describe('mechanica export (golden)', () => {
     expect(warnings.some((w) => w.includes('orphan.png'))).toBe(true)
   })
 
+  it('copies an upload referenced at /media — the address it keeps on the exported site', async () => {
+    await mkdir(join(dir, '.mech/assets'), { recursive: true })
+    await writeFile(join(dir, '.mech/assets/pic-0a1b2c3d.png'), 'PIC')
+    await writeFile(
+      join(dir, '.mech/pages/gallery.page.md'),
+      serializePage({
+        content: [{ id: 'g', blockId: 'pic', data: { image: { src: '/media/pic-0a1b2c3d.png' } } }],
+        data: {},
+      }),
+    )
+
+    const warnings: string[] = []
+    await exportProject(dir, ssr, { onWarn: (message) => warnings.push(message) })
+
+    expect(await readFile(join(dir, 'export/media/pic-0a1b2c3d.png'), 'utf-8')).toBe('PIC')
+    expect(await readFile(join(dir, 'export/gallery/index.html'), 'utf-8')).toContain('/media/pic-0a1b2c3d.png')
+    expect(warnings.filter((w) => w.includes('upload'))).toEqual([])
+  })
+
   it('serves /assets and /media from a CDN base with assetsUrl, still copying files locally', async () => {
     // A build asset referenced by the template, and an uploaded image on a page.
     await writeFile(

@@ -56,8 +56,16 @@ describe('editor service', () => {
     expect(await ok!.text()).toBe('<svg/>')
 
     expect((await call('/assets/missing.png'))!.status).toBe(404)
-    expect((await call('/assets/..%2Fdata.json'))!.status).toBe(403)
+    expect((await call('/assets/..%2Fdata.json'))!.status).toBe(404)
     expect((await call('/assets/%E0%A4%A'))!.status).toBe(400)
+
+    // The same files at the address content refers to them by: `service.asset`,
+    // which the host mounts at `/media/` and which lets other names fall through.
+    const media = await service.asset('logo%20mark.svg')
+    expect(media!.headers.get('content-type')).toBe('image/svg+xml')
+    expect(await media!.text()).toBe('<svg/>')
+    expect(await service.asset('missing.png')).toBeNull()
+    expect(await service.asset('..%2Fdata.json')).toBeNull()
   })
 
   it('stores an upload under its decoded name', async () => {
@@ -67,7 +75,8 @@ describe('editor service', () => {
       body: 'hello',
     })
     const { src } = (await response!.json()) as { src: string }
-    expect(src.startsWith('/@mechanica/assets/')).toBe(true)
-    expect(fs.readdirSync(join(mechDir, 'assets'))).toHaveLength(1)
+    expect(src).toMatch(/^\/media\/мой файл-[0-9a-f]{8}\.txt$/)
+    expect(fs.readdirSync(join(mechDir, 'assets'))).toEqual([src.slice('/media/'.length)])
+    expect(await (await service.asset(encodeURIComponent(src.slice('/media/'.length))))!.text()).toBe('hello')
   })
 })

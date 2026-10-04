@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import type { Plugin } from 'vite'
+import type { Connect, Plugin } from 'vite'
 import { parseVueRequest } from '@vitejs/plugin-vue'
 import {
   passDataToHTML,
@@ -8,6 +8,7 @@ import {
   normalizeLocales,
   registerFieldSchemas,
   areFieldSchemasRegistered,
+  UPLOADS_PREFIX,
   type LocalesConfig,
   type SiteManifest,
   type VirtualPage,
@@ -30,11 +31,13 @@ import {
   generatePreviewEntry,
   generateSsrEntry,
 } from './entries'
-import { createDevMiddleware } from './dev/middleware'
 import { createPreviewMiddleware } from './dev/preview'
 import { createComposerMiddleware } from './dev/composer'
 import { pageUrlOf } from '../server/pages-store'
-import { buildPageState, buildGeneratedState } from '../server/page-state'
+import { buildPageState, buildGeneratedState, fillStateImages } from '../server/page-state'
+import { fsAssetStore } from '../server/assets-store'
+import { createEditorService } from '../server/service'
+import { toNodeMiddleware, toAssetMiddleware } from '../server/node-adapter'
 import { wasRecentlyMutated } from '../server/fs-utils'
 import { buildSiteManifest, configureSite, indexGeneratedPages, type GeneratedIndex } from '../server/site'
 import { renderEditablePage } from '../server/editor-page'
@@ -575,13 +578,14 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       // `/composer/…` never fall through to the page-CRUD handler.
       server.middlewares.use('/@mechanica/preview', createPreviewMiddleware())
       server.middlewares.use('/@mechanica/composer', createComposerMiddleware())
-      server.middlewares.use(
-        '/@mechanica',
-        // The service takes everything it knows about the code from the
-        // manifest — re-read per request, so a re-collected blocks module (HMR
-        // add/remove) or an edited composed block is reflected.
-        createDevMiddleware(mechDir, { site: () => loadSite(server) }),
-      )
+      // The service takes everything it knows about the code from the
+      // manifest — re-read per request, so a re-collected blocks module (HMR
+      // add/remove) or an edited composed block is reflected.
+      const service = createEditorService(mechDir, { site: () => loadSite(server) })
+      server.middlewares.use('/@mechanica', toNodeMiddleware(service) as Connect.NextHandleFunction)
+      // Uploads are served where content refers to them — and where the export
+      // publishes them — `/media/<name>`. Anything else under it falls through.
+      server.middlewares.use(UPLOADS_PREFIX.replace(/\/$/, ''), toAssetMiddleware(service) as Connect.NextHandleFunction)
       // Start loading block schemas early so saves convert richText correctly
       // even before the first page render awaits the codec — but only once the
       // server is listening: `configureServer` runs before plugin `buildStart`
@@ -699,9 +703,11 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         // Site < folder < page resolution plus the editor's scope buckets and
         // the page's on-disk version (for optimistic-concurrency saves). A
         // locale-prefixed URL (`/ru/about`) resolves to that translation.
-        const state = generated
-          ? buildGeneratedState(mechDir, generated, locales)
-          : buildPageState(mechDir, urlPath, locales)
+        const state = await fillStateImages(
+          mechDir,
+          fsAssetStore(mechDir),
+          generated ? buildGeneratedState(mechDir, generated, locales) : buildPageState(mechDir, urlPath, locales),
+        )
         // `{{ … }}` head placeholders resolve the same way the build does, so
         // the dev preview shows real <title>/<meta> values.
         return renderEditablePage(html, state, {

@@ -36,13 +36,34 @@ export function toNodeMiddleware(service: EditorService): NodeMiddleware {
 
       const response = await service.handle(request)
       if (!response) return next()
+      await send(res, response)
+    })().catch(next)
+  }
+}
 
-      res.statusCode = response.status
-      response.headers.forEach((value, name) => res.setHeader(name, value))
-      if (response.body) {
-        for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) res.write(chunk)
-      }
-      res.end()
+async function send(res: ServerResponse, response: Response): Promise<void> {
+  res.statusCode = response.status
+  response.headers.forEach((value, name) => res.setHeader(name, value))
+  if (response.body) {
+    for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) res.write(chunk)
+  }
+  res.end()
+}
+
+/**
+ * Serve a site's uploads on a Node HTTP stack. Mount it at the uploads prefix
+ * (`app.use('/media', …)`, see `UPLOADS_PREFIX`) — `req.url` then arrives as
+ * `/<name>`. A name that is not an upload falls through to `next()`, so files
+ * a site keeps in `public/media` are still served by whatever comes after.
+ */
+export function toAssetMiddleware(service: EditorService): NodeMiddleware {
+  return (req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next()
+    void (async () => {
+      const name = (req.url ?? '/').split('?')[0]!.slice(1)
+      const response = name ? await service.asset(name) : null
+      if (!response) return next()
+      await send(res, response)
     })().catch(next)
   }
 }

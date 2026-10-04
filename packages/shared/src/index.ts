@@ -22,6 +22,8 @@ export type {
 export {
   EDITOR_API_BASE,
   UPLOADS_PREFIX,
+  LEGACY_UPLOADS_PREFIX,
+  uploadNameOf,
   type EditorCapabilities,
   type EditorHostConfig,
   type EditorPageListing,

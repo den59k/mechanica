@@ -22,8 +22,11 @@ import {
   createTranslation,
   deleteTranslation,
   PageExistsError,
+  readPage,
+  imageNamesOf,
+  harvestPageImages,
 } from './pages-store'
-import { saveUpload, saveDerivedAsset, listImages } from './assets-store'
+import { fsAssetStore, isAssetName, listUploads, storeUpload, type AssetStore } from './assets-store'
 import { resolveDevQuery } from './query-dev'
 import {
   mergeSiteData,
@@ -32,7 +35,7 @@ import {
   mergeLocaleFolderData,
   folderOf,
 } from './data-store'
-import { buildPageState, buildGeneratedState } from './page-state'
+import { buildPageState, buildGeneratedState, fillStateImages } from './page-state'
 import {
   listComposedBlocks,
   readComposedBlock,
@@ -71,6 +74,13 @@ export interface EditorServiceOptions {
   editorHtml?: string | (() => string | Promise<string>)
   /** How the pages this service renders configure their editor (`window.__MECHANICA_EDITOR__`). */
   hostConfig?: EditorHostConfig
+  /**
+   * Where the site's uploads and their image info live. Defaults to the
+   * `.mech` directory's `assets/` + `images.json` when the service is created
+   * over a directory; over a set of content files there is no default, and
+   * without one uploads are refused and pages carry no image info.
+   */
+  assets?: AssetStore
 }
 
 /**
@@ -97,6 +107,13 @@ export interface EditorService {
    * for everything else outside the API prefix.
    */
   page(urlPath: string): Promise<Response | null>
+  /**
+   * An uploaded file by its name — what content refers to as `/media/<name>`
+   * (`UPLOADS_PREFIX`). The host mounts this at that prefix on the site's
+   * origin. Resolves to `null` when there is no such upload, so the host can
+   * fall through (to a `public/media` file, to a 404).
+   */
+  asset(name: string): Promise<Response | null>
 }
 
 const json = (data: unknown, status = 200): Response =>
@@ -164,6 +181,21 @@ function validateComposed(def: unknown): Record<string, string> | null {
  */
 export function createEditorService(mech: Mech, options: EditorServiceOptions = {}): EditorService {
   const mechDir = typeof mech === 'string' ? mech : null
+  const assets = options.assets ?? (mechDir ? fsAssetStore(mechDir) : null)
+
+  const asset = async (encoded: string): Promise<Response | null> => {
+    let name: string
+    try {
+      name = decodeURIComponent(encoded)
+    } catch {
+      return new Response('Bad request', { status: 400 })
+    }
+    if (!assets || !isAssetName(name)) return null
+    const body = await assets.open(name)
+    if (!body) return null
+    const type = MIME[extname(name).toLowerCase()]
+    return new Response(body as BodyInit, { headers: type ? { 'content-type': type } : {} })
+  }
   // The manifest the stores are configured with, and its generated-page index
   // (routes without a file: served for `/state`, listed, rejected on writes).
   let configured: SiteManifest | null = null
@@ -198,9 +230,9 @@ export function createEditorService(mech: Mech, options: EditorServiceOptions = 
     const generatedGuard = (path: string | null): Response | null =>
       path && gen?.logical.has(path) ? json({ error: 'This page is generated and read-only' }, 409) : null
 
+    // The address uploads had before `/media/` — old content still points here.
     if (pathname.startsWith('/assets/')) {
-      if (!mechDir) return json({ error: 'No asset storage' }, 501)
-      return serveFile(resolve(mechDir, 'assets'), pathname.slice('/assets/'.length))
+      return (await asset(pathname.slice('/assets/'.length))) ?? new Response('Not found', { status: 404 })
     }
     if (pathname.startsWith('/thumbs/')) {
       if (!mechDir) return new Response('Not found', { status: 404 })
@@ -208,7 +240,7 @@ export function createEditorService(mech: Mech, options: EditorServiceOptions = 
       return serveFile(resolve(mechDir, 'thumbs'), pathname.slice('/thumbs/'.length), { 'cache-control': 'no-cache' })
     }
 
-    if (pathname === '/images' && method === 'GET') return json(mechDir ? listImages(mechDir) : [])
+    if (pathname === '/images' && method === 'GET') return json(assets ? await listUploads(assets) : [])
     if (pathname === '/folders' && method === 'GET') return json(listFolders(mech))
 
     if (pathname === '/query' && method === 'GET') {
@@ -223,8 +255,8 @@ export function createEditorService(mech: Mech, options: EditorServiceOptions = 
     }
 
     if (pathname === '/upload' && method === 'POST') {
-      if (!mechDir) return json({ error: 'No asset storage' }, 501)
-      const bytes = Buffer.from(await request.arrayBuffer())
+      if (!assets) return json({ error: 'No asset storage' }, 501)
+      const bytes = new Uint8Array(await request.arrayBuffer())
       const header = request.headers.get('x-file-name') ?? 'file'
       // The client percent-encodes the name so spaces/unicode survive the header.
       let name = header
@@ -235,16 +267,15 @@ export function createEditorService(mech: Mech, options: EditorServiceOptions = 
       }
       // `x-derived-asset` marks a cropped derivative: written verbatim under
       // the deterministic name the client computed, kept out of the library.
-      if (request.headers.get('x-derived-asset')) return json(await saveDerivedAsset(mechDir, name, bytes))
-      return json(await saveUpload(mechDir, name, bytes))
+      return json(await storeUpload(assets, name, bytes, { derived: request.headers.has('x-derived-asset') }))
     }
 
     if (pathname === '/state' && method === 'GET') {
       const pathParam = query.get('path')
       if (!pathParam) return json({ error: 'Missing path' }, 400)
       const generated = gen?.byServed.get(pathParam)
-      if (generated) return json(buildGeneratedState(mech, generated, config))
-      return json(buildPageState(mech, pathParam, config))
+      const state = generated ? buildGeneratedState(mech, generated, config) : buildPageState(mech, pathParam, config)
+      return json(await fillStateImages(mech, assets, state))
     }
 
     if (pathname === '/pages' && method === 'GET') {
@@ -375,11 +406,20 @@ export function createEditorService(mech: Mech, options: EditorServiceOptions = 
       // folderDataI18n) go to the current locale's override file — or the base
       // when editing the default locale.
       const folder = folderOf(mech, pathParam)
+      // Image info the editor captured (previews, dimensions) goes to the asset
+      // store, not into the page file. A translation is compared with the
+      // default-locale page, which needs that page's image info.
+      if (assets && Array.isArray(save.content)) {
+        await assets.saveInfo(harvestPageImages(mech, save.content as never))
+      }
+      const baseNames = assets && locale ? imageNamesOf(mech, readPage(mech, pathParam).content ?? []) : []
+      const baseImages = assets && baseNames.length ? await assets.info(baseNames) : {}
       const version = savePage(
         mech,
         pathParam,
         { content: save.content as never, data: save.pageData ?? {}, layout: save.layout },
         locale,
+        baseImages,
       )
       const siteI18n = save.siteDataI18n ?? {}
       const folderI18n = save.folderDataI18n ?? {}
@@ -456,15 +496,18 @@ export function createEditorService(mech: Mech, options: EditorServiceOptions = 
         return json({ error: String(error) }, 500)
       }
     },
+    asset,
     async page(urlPath) {
       if (!options.editorHtml) return null
       const site = await currentSite()
       const template = typeof options.editorHtml === 'function' ? await options.editorHtml() : options.editorHtml
       const generated = site ? generatedIndex?.byServed.get(urlPath) : undefined
       const locales = site?.locales ?? null
-      const state = generated
-        ? buildGeneratedState(mech, generated, locales)
-        : buildPageState(mech, urlPath, locales)
+      const state = await fillStateImages(
+        mech,
+        assets,
+        generated ? buildGeneratedState(mech, generated, locales) : buildPageState(mech, urlPath, locales),
+      )
       const html = renderEditablePage(template, state, { site: site?.site, hostConfig: options.hostConfig })
       return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } })
     },

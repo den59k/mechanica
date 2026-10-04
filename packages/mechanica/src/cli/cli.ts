@@ -2,6 +2,7 @@ import { parseArgs } from './args'
 import { runBuild } from './build'
 import { runExport } from './run-export'
 import { runImages } from './images'
+import { runMigrate } from './migrate'
 import { runLink } from './platform/link'
 import { runLogin } from './platform/login'
 import { runPush } from './platform/push'
@@ -43,6 +44,8 @@ Usage:
                             previews) for .mech/assets into .mech/images.json —
                             for pages authored without the browser editor
                             (needs the optional sharp dependency; --force redoes all)
+  mechanica migrate         Bring .mech content up to the current format: uploads
+                            are referenced as /media/<file> (was /@mechanica/assets/)
 `
 
 /** CLI entry: dispatch a command to its handler. */
@@ -62,6 +65,8 @@ export async function run(argv: string[]): Promise<void> {
       })
     case 'images':
       return runImages({ force: flags.force === true })
+    case 'migrate':
+      return void (await runMigrate())
     case 'login':
       return runLogin({ host: str(flags.host), token: str(flags.token) })
     case 'link':

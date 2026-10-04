@@ -10,7 +10,7 @@ export {
   type EditorServiceOptions,
   type BlockListing,
 } from './service'
-export { toNodeMiddleware, type NodeMiddleware } from './node-adapter'
+export { toNodeMiddleware, toAssetMiddleware, type NodeMiddleware } from './node-adapter'
 export {
   fsContentFiles,
   memoryContentFiles,
@@ -20,6 +20,21 @@ export {
   type Mech,
 } from './content-files'
 export { pageOfFile } from './pages-store'
+export {
+  fsAssetStore,
+  uploadName,
+  isDerivedAsset,
+  type AssetStore,
+  type ImageManifest,
+  type ImageManifestEntry,
+} from './assets-store'
 export { buildSiteManifest, readSiteManifest, configureSite, type SiteManifestInput } from './site'
 export { renderEditablePage, readEditorTemplate, type EditablePageOptions } from './editor-page'
-export { SITE_MANIFEST_FILE, EDITOR_DIST_DIR, type SiteManifest, type EditorHostConfig } from 'mechanica-shared'
+export {
+  SITE_MANIFEST_FILE,
+  EDITOR_DIST_DIR,
+  UPLOADS_PREFIX,
+  uploadNameOf,
+  type SiteManifest,
+  type EditorHostConfig,
+} from 'mechanica-shared'

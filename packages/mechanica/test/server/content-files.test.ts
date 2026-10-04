@@ -7,7 +7,9 @@ import {
   fsContentFiles,
   memoryContentFiles,
   pageOfFile,
+  type AssetStore,
   type ContentFiles,
+  type ImageManifest,
   type SiteManifest,
 } from '@/server'
 
@@ -299,10 +301,112 @@ describe('the editor service over memory files matches the one over a directory'
     ])
   })
 
-  it('has no place for uploads without a directory', async () => {
+  it('has no place for uploads without a directory or an asset store', async () => {
     const service = createEditorService(memoryContentFiles({}))
     const upload = await service.handle(new Request('http://host/upload', { method: 'POST', body: 'x' }))
     expect(upload!.status).toBe(501)
     expect(await (await service.handle(new Request('http://host/images')))!.json()).toEqual([])
+    expect(await service.asset('a.png')).toBeNull()
+  })
+})
+
+// Uploads and image info go wherever the host's asset store keeps them — here a
+// pair of maps, the way a hosted editor would use object storage and a table.
+describe('the editor service over a host-supplied asset store', () => {
+  const site: SiteManifest = {
+    format: 1,
+    blocks: [
+      {
+        id: 'pic',
+        name: 'Pic',
+        props: {
+          type: 'object',
+          properties: { image: { type: 'object', format: 'image', properties: { src: { type: 'string' } } } },
+          required: ['image'],
+        },
+      } as never,
+    ],
+    locales: { default: 'en', all: ['en', 'ru'] },
+    generated: [],
+  }
+
+  const setup = (seed: Record<string, string> = {}) => {
+    const stored = new Map<string, Uint8Array>()
+    const info: ImageManifest = {}
+    const asked: string[][] = []
+    const assets: AssetStore = {
+      write: async (name, data) => void stored.set(name, data),
+      open: async (name) => stored.get(name) ?? null,
+      list: async () => [...stored.keys()],
+      info: async (names) => {
+        asked.push(names)
+        return Object.fromEntries(names.filter((name) => info[name]).map((name) => [name, info[name]!]))
+      },
+      saveInfo: async (entries) => {
+        for (const [name, entry] of Object.entries(entries)) info[name] = { ...info[name], ...entry }
+      },
+    }
+    const files = memoryContentFiles(seed)
+    const service = createEditorService(files, { site, assets })
+    const call = (path: string, init?: RequestInit) => service.handle(new Request(`http://host${path}`, init))
+    return { stored, info, asked, files, service, call }
+  }
+
+  const pic = (id: string, image: Record<string, unknown>) => ({ id, blockId: 'pic', data: { image } })
+  const post = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) })
+
+  it('stores an upload there and serves it at its name', async () => {
+    const { stored, call, service } = setup()
+    const upload = await call('/upload', { method: 'POST', headers: { 'x-file-name': 'a.txt' }, body: 'hello' })
+    const { src } = (await upload!.json()) as { src: string }
+    const name = src.slice('/media/'.length)
+
+    expect([...stored.keys()]).toEqual([name])
+    expect(await (await service.asset(name))!.text()).toBe('hello')
+    expect(await (await call('/images'))!.json()).toEqual([{ id: name.slice(0, -4), name, src }])
+  })
+
+  it('keeps previews out of the page and in the store, and puts them back into the state', async () => {
+    const { info, asked, files, call } = setup({ 'pages/index.page.md': '---\nname: Home\n---\n' })
+
+    const saved = await call(
+      '/save?path=/',
+      post({
+        content: [pic('p1', { src: '/media/photo.png', previewSrc: 'data:image/webp;base64,blob', width: 8, height: 6 })],
+        pageData: {},
+      }),
+    )
+    expect(saved!.status).toBe(200)
+    expect(info).toEqual({ 'photo.png': { width: 8, height: 6, previewSrc: 'data:image/webp;base64,blob' } })
+    expect(files.read('pages/index.page.md')).not.toContain('data:image/webp')
+    // Image info is not a content file any more.
+    expect(files.has('images.json')).toBe(false)
+
+    const state = (await (await call('/state?path=/'))!.json()) as { content: { data: { image: unknown } }[] }
+    expect(state.content[0]!.data.image).toEqual({
+      src: '/media/photo.png',
+      width: 8,
+      height: 6,
+      previewSrc: 'data:image/webp;base64,blob',
+    })
+    // Asked only about the images on the page.
+    expect(asked.at(-1)).toEqual(['photo.png'])
+  })
+
+  it('a translation that changes nothing about an image stores nothing about it', async () => {
+    const { info, files, call } = setup({
+      'pages/index.page.md': '---\nname: Home\n---\n\n::: pic #p1\nimage:\n  src: /media/photo.png\n  alt: A photo\n:::\n',
+    })
+    // The info the base page's image is filled with when the editor loads it.
+    info['photo.png'] = { width: 8, height: 6, previewSrc: 'data:image/webp;base64,blob' }
+
+    const state = (await (await call('/state?path=/ru'))!.json()) as { content: unknown[]; baseContent: unknown[] }
+    expect((state.baseContent[0] as { data: { image: { width: number } } }).data.image.width).toBe(8)
+
+    // The editor saves the translation exactly as it loaded it.
+    await call('/save?path=/&locale=ru', post({ content: state.content, pageData: {} }))
+    const translation = files.read('pages/index@ru.page.md')!
+    expect(translation).not.toContain('photo.png')
+    expect(translation).not.toContain('width')
   })
 })

@@ -12,11 +12,37 @@ import type { ComposedBlockDefinition, ContentBlock, State } from './types'
 export const EDITOR_API_BASE = '/@mechanica'
 
 /**
- * The URL prefix uploaded assets are referenced by **in page data**. Unlike the
- * API base this is a persisted format — it is written into `.page.md` files —
- * so every host serves uploads under it and it is never configurable.
+ * The URL prefix uploaded files are referenced by **in page data**:
+ * `/media/<name>`. Unlike the API base this is a persisted format — it is
+ * written into `.page.md` files — so it is never configurable, and it is the
+ * address an upload has everywhere: the dev server, an editing host and the
+ * exported site all serve it there. `/media/` is therefore reserved on a site.
  */
-export const UPLOADS_PREFIX = '/@mechanica/assets/'
+export const UPLOADS_PREFIX = '/media/'
+
+/**
+ * The prefix uploads were referenced by before 2.1 — a dev-server route the
+ * export rewrote to `/media/`. Still read wherever uploads are recognized;
+ * never written (`mechanica migrate` rewrites existing content).
+ */
+export const LEGACY_UPLOADS_PREFIX = '/@mechanica/assets/'
+
+/** The name of the uploaded file a `src` refers to, or null for any other URL. */
+export function uploadNameOf(src: unknown): string | null {
+  if (typeof src !== 'string') return null
+  const prefix = src.startsWith(UPLOADS_PREFIX)
+    ? UPLOADS_PREFIX
+    : src.startsWith(LEGACY_UPLOADS_PREFIX)
+      ? LEGACY_UPLOADS_PREFIX
+      : null
+  if (!prefix) return null
+  const file = src.slice(prefix.length)
+  try {
+    return decodeURIComponent(file)
+  } catch {
+    return file
+  }
+}
 
 /** What a host can do; the editor hides the surfaces a host doesn't offer. */
 export interface EditorCapabilities {

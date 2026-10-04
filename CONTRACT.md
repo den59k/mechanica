@@ -139,7 +139,7 @@ Scalars, nested objects (`secondary: { url: /docs, openNewTab: true }`), and
 arrays of objects all live here as ordinary YAML.
 
 **Image values stay lean.** An `image`-field prop is authored as
-`image: { src: /@mechanica/assets/<file>, alt: "…" }` (plus optional
+`image: { src: /media/<file>, alt: "…" }` — `<file>` is its name in `.mech/assets/` — (plus optional
 `width`/`height`). Never inline a `previewSrc` data URI — the blur-up preview
 and any missing dimensions live in the **image manifest**
 (`.mech/images.json`), maintained by the editor automatically and generated

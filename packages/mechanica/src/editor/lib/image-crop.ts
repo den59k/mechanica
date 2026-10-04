@@ -1,4 +1,4 @@
-import { UPLOADS_PREFIX } from 'mechanica-shared'
+import { uploadNameOf } from 'mechanica-shared'
 import type { CropTarget, NormalizedRect } from './image-size'
 
 /** The image-field value as the editor holds it (see `builtinFields` in shared). */
@@ -149,13 +149,8 @@ export function derivativeName(src: string, rect: NormalizedRect, target: CropTa
 
 /** A readable, filename-safe stem for an asset src (`hero` from `…/hero.png`). */
 function baseName(src: string): string {
-  if (!src.startsWith(UPLOADS_PREFIX)) return 'image'
-  let file = src.slice(UPLOADS_PREFIX.length)
-  try {
-    file = decodeURIComponent(file)
-  } catch {
-    /* keep the raw value */
-  }
+  const file = uploadNameOf(src)
+  if (file == null) return 'image'
   const dot = file.lastIndexOf('.')
   const stem = dot > 0 ? file.slice(0, dot) : file
   return stem.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'image'

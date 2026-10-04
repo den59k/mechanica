@@ -20,6 +20,8 @@ import {
   pageUrlOf,
   setPageBlocks,
   fillImageMeta,
+  harvestPageImages,
+  imageNamesOf,
   PageExistsError,
 } from '@/server/pages-store'
 
@@ -52,7 +54,7 @@ describe('image metadata manifest', () => {
     },
   }
 
-  it('savePage moves LQIP previews into images.json — .page.md stays blob-free', () => {
+  it('savePage keeps LQIP previews out of the page file, and harvestPageImages hands them over', () => {
     setPageBlocks(mechDir, [picBlock as never])
     savePage(mechDir, '/gallery', {
       content: [
@@ -78,23 +80,27 @@ describe('image metadata manifest', () => {
     expect(raw).toContain('width: 800')
     expect(raw).toContain('alt: A photo')
 
-    // …which landed in the manifest, keyed by asset filename.
-    const manifest = JSON.parse(fs.readFileSync(join(mechDir, 'images.json'), 'utf-8'))
-    expect(manifest['photo.png']).toEqual({
-      width: 800,
-      height: 600,
-      previewSrc: 'data:image/webp;base64,blob',
+    // …which the caller takes out of the content for the asset store, keyed by asset filename.
+    const content = [
+      {
+        id: 'g',
+        blockId: 'pic',
+        data: { image: { src: '/media/photo.png', previewSrc: 'data:image/webp;base64,blob', width: 800, height: 600 } },
+      },
+    ]
+    expect(harvestPageImages(mechDir, content as never)).toEqual({
+      'photo.png': { width: 800, height: 600, previewSrc: 'data:image/webp;base64,blob' },
     })
+    expect(content[0]!.data.image.previewSrc).toBeUndefined()
+    expect(imageNamesOf(mechDir, content as never)).toEqual(['photo.png'])
   })
 
-  it('fillImageMeta injects manifest entries into content read for state', () => {
+  it('fillImageMeta injects image info into content read for state', () => {
     setPageBlocks(mechDir, [picBlock as never])
-    fs.writeFileSync(
-      join(mechDir, 'images.json'),
-      JSON.stringify({ 'photo.png': { width: 640, height: 480, previewSrc: 'data:image/webp;base64,x' } }),
-    )
     const content = [{ id: 'g', blockId: 'pic', data: { image: { src: '/@mechanica/assets/photo.png' } } }]
-    fillImageMeta(mechDir, content as never)
+    fillImageMeta(mechDir, content as never, {
+      'photo.png': { width: 640, height: 480, previewSrc: 'data:image/webp;base64,x' },
+    })
     expect((content[0]!.data as Record<string, unknown>).image).toEqual({
       src: '/@mechanica/assets/photo.png',
       previewSrc: 'data:image/webp;base64,x',

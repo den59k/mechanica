@@ -11,7 +11,7 @@ import {
   type VirtualPage,
 } from 'mechanica-shared'
 import { parsePage, serializePage, type PageDoc, type RichTextCodec } from 'mechanica-shared/page-format'
-import { applyImageManifest, harvestImageMeta, readImageManifest, updateImageManifest } from './assets-store'
+import { applyImageManifest, contentImageNames, harvestImageMeta, type ImageManifest } from './assets-store'
 import { contentFilesOf, type ContentFiles, type Mech } from './content-files'
 
 /** Shape of a page file under `<mech>/pages` (the parsed `.page.md` document). */
@@ -121,15 +121,32 @@ export function fillContentDefaults(mech: Mech, content: ContentBlock[]): void {
 }
 
 /**
- * Inject cached image metadata (`.mech/images.json`: LQIP previews and
- * intrinsic dimensions) into the content's image field values — the inverse
- * of the harvesting {@link savePage} does, so page files stay blob-free while
- * runtime state is complete. A no-op until {@link setPageBlocks} has run.
+ * Inject image info (LQIP previews and intrinsic dimensions, kept by the asset
+ * store) into the content's image field values — the inverse of the harvesting
+ * a save does, so page files stay blob-free while runtime state is complete.
+ * A no-op until {@link setPageBlocks} has run.
  */
-export function fillImageMeta(mech: Mech, content: ContentBlock[]): void {
+export function fillImageMeta(mech: Mech, content: ContentBlock[], images: ImageManifest): void {
   const blocksMeta = siteOf(mech).blocks
   if (!blocksMeta) return
-  applyImageManifest(content, blocksMeta, readImageManifest(mech))
+  applyImageManifest(content, blocksMeta, images)
+}
+
+/** The uploaded images a content tree refers to — whose info {@link fillImageMeta} wants. */
+export function imageNamesOf(mech: Mech, content: ContentBlock[]): string[] {
+  const blocksMeta = siteOf(mech).blocks
+  return blocksMeta ? contentImageNames(content, blocksMeta) : []
+}
+
+/**
+ * Take the image info out of content that is about to be saved: the preview
+ * blobs are removed from the values (see `harvestImageMeta`) and returned, with
+ * any dimensions, for the asset store to keep. Empty until {@link setPageBlocks}
+ * has run.
+ */
+export function harvestPageImages(mech: Mech, content: ContentBlock[]): ImageManifest {
+  const blocksMeta = siteOf(mech).blocks
+  return blocksMeta ? harvestImageMeta(content, blocksMeta) : {}
 }
 
 /** A page entry as returned by {@link listPages}. */
@@ -399,12 +416,17 @@ export function movePage(mech: Mech, fromPath: string, toPath: string): { path: 
  * Merge content/data into a page and persist it. A `locale` (a non-default
  * code) writes to that translation's variant file — creating it if this is the
  * page's first edit in that locale. Returns the new on-disk version.
+ *
+ * Saving a translation compares it with the default-locale page, which needs
+ * that page's image info to compare like with like: pass it as `baseImages`
+ * (the info of {@link imageNamesOf} the base content).
  */
 export function savePage(
   mech: Mech,
   urlPath: string,
   patch: { content?: unknown[]; data?: Record<string, unknown>; layout?: string | null },
   locale?: string,
+  baseImages: ImageManifest = {},
 ): string | null {
   const file = fileOf(mech, urlPath, locale)
   const page = has(mech, file) ? readFile(mech, file) : emptyPage()
@@ -417,14 +439,12 @@ export function savePage(
     if (patch.layout) page.layout = patch.layout
     else delete page.layout
   }
-  // Derived image metadata (LQIP previews) moves to `.mech/images.json` on the
-  // way to disk — `.page.md` stays free of base64 blobs, and the state builder
-  // injects the entries back (fillImageMeta). This is also how client-side
-  // captured previews reach the manifest when `sharp` isn't installed.
+  // Derived image metadata (LQIP previews) never reaches the page file —
+  // `.page.md` stays free of base64 blobs. The caller that wants to keep it
+  // (the editor service, for the asset store) harvests it before saving; this
+  // pass only guarantees the file is clean either way.
   const blocksMeta = siteOf(mech).blocks
-  if (blocksMeta && page.content) {
-    updateImageManifest(mech, harvestImageMeta(page.content, blocksMeta))
-  }
+  if (blocksMeta && page.content) harvestImageMeta(page.content, blocksMeta)
   // A translation stores only what differs from the default-locale page — shared
   // fields (images, links, layout) inherit at read time. Diff against a base
   // normalized the same way (defaults + image meta filled, then LQIP stripped)
@@ -433,7 +453,7 @@ export function savePage(
     const base = readPage(mech, urlPath)
     if (blocksMeta && base.content) {
       fillContentDefaults(mech, base.content)
-      fillImageMeta(mech, base.content)
+      fillImageMeta(mech, base.content, baseImages)
       harvestImageMeta(base.content, blocksMeta)
     }
     const sparse = diffTranslation(

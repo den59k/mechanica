@@ -36,7 +36,6 @@ import {
   isDerivedAsset,
   readImageManifest,
   updateImageManifest,
-  UPLOADS_PREFIX,
   type ImageManifest,
   type ImageManifestEntry,
 } from '../server/assets-store'
@@ -452,8 +451,8 @@ async function backfillImageMeta(
  * `<cwd>/.mech`.
  *
  * Beyond the pages it also: rewrites + copies uploaded assets
- * (`/@mechanica/assets/…` → `/media/…`, or `<assetsUrl>/media/…` when a CDN
- * base is set), warns about dead internal links,
+ * (they already sit at `/media/…` in content — only a CDN base, `<assetsUrl>/media/…`,
+ * or the pre-2.1 `/@mechanica/assets/…` prefix changes the URL), warns about dead internal links,
  * orphaned uploads and page-level SEO issues, emits `404.html` when a `/404`
  * page exists, and — when a site url is known (plugin `siteUrl` option or
  * `--site-url`) — injects the automatic SEO tags (canonical, `og:url`,
@@ -642,12 +641,13 @@ export async function exportProject(
     await cp(join(cwd, 'dist', entry), join(exportDir, entry), { recursive: true })
   }
 
-  // Uploaded assets (`.mech/assets`): rewrite their dev URLs to `/media/…` and
-  // remember which files pages actually reference, so we copy exactly those.
+  // Uploaded assets (`.mech/assets`): remember which files pages actually
+  // reference, so we copy exactly those to `media/` — where content already
+  // points. The URL only changes for a CDN base or the pre-2.1 prefix.
   const referenced = new Set<string>()
   const onFile = (src: string): string => {
-    if (typeof src !== 'string' || !src.startsWith(UPLOADS_PREFIX)) return src
-    const relative = decodeURIComponent(src.slice(UPLOADS_PREFIX.length))
+    const relative = assetFileOf(src)
+    if (relative == null) return src
     referenced.add(relative)
     // `assetsBase` is a trimmed CDN origin (or '' — then this stays root-relative).
     return `${assetsBase}/${MEDIA_DIR}/${relative}`

@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { createServer, type Server } from 'node:http'
 import { parsePage, serializePage } from 'mechanica-shared/page-format'
 import { createDevMiddleware } from '@/vite/dev/middleware'
+import { createEditorService, toAssetMiddleware } from '@/server'
 
 let mechDir: string
 let server: Server
@@ -155,10 +156,40 @@ describe('dev middleware', () => {
       body: 'hello',
     })
     const { src } = await upload.json()
-    expect(src).toBe('/@mechanica/assets/a.txt')
+    expect(src).toMatch(/^\/media\/a-[0-9a-f]{8}\.txt$/)
 
-    const served = await fetch(`${base}${src.replace('/@mechanica', '')}`)
+    // Still reachable at the pre-2.1 address under the API prefix.
+    const served = await fetch(`${base}${src.replace('/media/', '/assets/')}`)
     expect(await served.text()).toBe('hello')
+  })
+
+  it('serves uploads at /media and lets other names through', async () => {
+    fs.mkdirSync(join(mechDir, 'assets'), { recursive: true })
+    fs.writeFileSync(join(mechDir, 'assets', 'team photo.jpg'), 'JPG')
+    fs.writeFileSync(join(mechDir, 'data.json'), '{"secret":true}')
+
+    // Mounted the way the plugin mounts it: under the uploads prefix, with the
+    // rest of the stack (Vite's `public/` handling) behind it.
+    const media = toAssetMiddleware(createEditorService(mechDir))
+    const mediaServer = createServer((req, res) => {
+      if (!req.url!.startsWith('/media/')) return void res.writeHead(404).end()
+      req.url = req.url!.slice('/media'.length)
+      media(req, res, () => res.writeHead(200).end('next'))
+    })
+    await new Promise<void>((resolve) => mediaServer.listen(0, resolve))
+    const address = mediaServer.address()
+    const origin = `http://localhost:${typeof address === 'object' && address ? address.port : 0}`
+    try {
+      const served = await fetch(`${origin}/media/team%20photo.jpg?v=1`)
+      expect(served.headers.get('content-type')).toBe('image/jpeg')
+      expect(await served.text()).toBe('JPG')
+
+      expect(await (await fetch(`${origin}/media/from-public.png`)).text()).toBe('next')
+      expect(await (await fetch(`${origin}/media/..%2Fdata.json`)).text()).toBe('next')
+      expect(await (await fetch(`${origin}/media/team%20photo.jpg`, { method: 'POST' })).text()).toBe('next')
+    } finally {
+      await new Promise<void>((resolve) => mediaServer.close(() => resolve()))
+    }
   })
 
   it('serves merged page state with the on-disk version', async () => {
@@ -225,13 +256,14 @@ describe('dev middleware', () => {
     // Encoded `..` survives client-side URL normalization; the middleware
     // decodes it and must still contain the path.
     const traversal = await fetch(`${base}/assets/..%2Fdata.json`)
-    expect(traversal.status).toBe(403)
+    expect(traversal.status).toBe(404)
+    expect(await traversal.text()).not.toContain('secret')
 
     const deep = await fetch(`${base}/assets/..%2F..%2F..%2Fetc%2Fpasswd`)
-    expect(deep.status).toBe(403)
+    expect(deep.status).toBe(404)
 
     const absolute = await fetch(`${base}/assets/${encodeURIComponent(join(mechDir, 'data.json'))}`)
-    expect(absolute.status).toBe(403)
+    expect(absolute.status).toBe(404)
   })
 
   it('serves page thumbnails from .mech/thumbs with the same containment', async () => {

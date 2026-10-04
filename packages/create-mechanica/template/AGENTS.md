@@ -48,7 +48,7 @@ npx mechanica thumbs --blocks    # regenerate palette thumbnails
 - `src/App.vue` / `src/main.ts` — the app shell (site-wide header/footer go in `App.vue`, around `<Content/>`) and the entry (`defineMechanicaApp`).
 - `src/styles/site.css` — global design tokens (`--brand`, `--ink`, …) + a small reset. Block-specific styles live in each block's own `<style>`.
 - `.mech/pages/**.page.md` — the pages (see below).
-- `.mech/assets/` — uploaded files (copied to `/media/` on export).
+- `.mech/assets/` — uploaded files, served at `/media/<file>` in dev and on the exported site.
 - `index.html` — the document `<head>`, with `{{ }}` templating (see below).
 - `export/` — the built static site. **Generated — never hand-edit.**
 
@@ -145,7 +145,7 @@ The rules that trip up hand-authoring:
   and not even that inside a code fence.
 
 An `image` prop points at a file in `.mech/assets/`:
-`photo: { src: /@mechanica/assets/team.jpg, alt: "Our team" }`. After adding
+`photo: { src: /media/team.jpg, alt: "Our team" }`. After adding
 images by hand, run `npx mechanica images` (needs `npm install -D sharp`) to
 record their dimensions and blur-up previews — never inline a data URI.
 
