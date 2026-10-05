@@ -361,7 +361,7 @@ These drive a locally installed Chrome or Edge (or `--browser <path>`) and need 
 | `mechanica images` | Generate image dimensions and blur-up previews for `.mech/assets` (needs `sharp`; `--force` redoes all) |
 | `mechanica login` | Sign in to the Mechanica platform and save an access token for this machine (`--host`, `--token`) |
 | `mechanica link <slug>` | Point this repository at a site on the platform (`--create` makes the site); uploads are then kept by the platform, so `.mech/assets/` goes into `.gitignore` |
-| `mechanica push` | Publish the committed project to the platform: pull what was edited online, send the uploads it lacks, `git push`, build and upload the bundle when the code changed, wait for the deploy |
+| `mechanica push` | Publish the committed project to the platform: pull what was edited online, send the uploads it lacks, `git push`, build and upload the bundle when the code changed, wait for the deploy. It pushes the branch that is checked out, under its own name: the first branch a site is pushed is the site itself, any other is deployed to an address of its own (`<slug>--<branch>`) with its own online editor — a branch name is lowercase letters, digits and single hyphens |
 | `mechanica assets pull` | Download the uploads made in the platform's online editor that this project lacks (the dev server fetches them one by one on demand) |
 
 ## Plugin options

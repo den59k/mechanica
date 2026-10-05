@@ -30,7 +30,9 @@ Usage:
                             (--create makes the site, --name "Site name")
   mechanica push            Publish the committed project: pull what was edited
                             online, git push, build + upload the bundle when the
-                            code changed, and wait for the deploy
+                            code changed, and wait for the deploy. Pushes the
+                            branch that is checked out: the first one pushed is
+                            the site, any other gets an address of its own
   mechanica shot <blockId>  Screenshot one block via the dev preview route
   mechanica shot </path>    Screenshot a whole page (editor overlay stripped)
                             (--page </path>, --data <json|@file>, --width 1440,768,

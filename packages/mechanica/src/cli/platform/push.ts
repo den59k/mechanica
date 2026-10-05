@@ -21,6 +21,8 @@ interface DeployInfo {
 
 interface SiteStatus {
   url: string
+  /** The branch the status is of; absent on a platform from before branches. */
+  branch?: string | null
   head: string | null
   needsBundle: boolean
   latestDeploy: DeployInfo | null
@@ -34,7 +36,27 @@ const DEPLOY_TIMEOUT_MS = 5 * 60 * 1000
 const AUTO_DEPLOY_WAIT_MS = 10_000
 
 /**
- * `mechanica push`: publish the committed project to the platform.
+ * Why a branch cannot be pushed under its name, or null when it can. On the platform a branch
+ * is served at an address of its own (`<slug>--<branch>`), so its name must be able to be part
+ * of one: lowercase letters, digits and single hyphens. The platform checks the same (and how
+ * long the name may be for the site) — this only says it before anything is sent.
+ */
+export function branchProblem(name: string): string | null {
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(name) || name.length > 40 || name.includes('--') || name === 'edit') {
+    return (
+      `The branch "${name}" cannot be pushed under this name: on the platform a branch's name becomes part of ` +
+      'its address, so it is up to 40 lowercase letters, digits and single hyphens (and not "edit"). ' +
+      'Rename it — `git branch -m new-name` — and push again.'
+    )
+  }
+  return null
+}
+
+/**
+ * `mechanica push`: publish the committed project to the platform — the branch that is checked
+ * out, under its own name. The first branch a site is pushed becomes the site itself; any
+ * other is deployed to an address of its own, with its own online editor, and never touches
+ * the site.
  *
  *   1. bring in what was published online since the last pull (`pull --rebase`),
  *   2. send the uploads the platform lacks (they are not in git), then `git push`
@@ -77,11 +99,21 @@ export async function runPush(): Promise<void> {
     throw new Error(`Commit or stash your changes first — the working tree is not clean:\n${dirty}`)
   }
 
-  // 1. Content published online lives on the remote's main; put our commits on top of it.
-  const remoteHead = await gitOk(cwd, ['ls-remote', '--heads', REMOTE_NAME, 'main'], auth)
+  const current = await git(cwd, ['symbolic-ref', '--quiet', '--short', 'HEAD'])
+  if (current.code !== 0 || !current.stdout) {
+    throw new Error('No branch is checked out (a detached HEAD) — switch to the branch you want to push')
+  }
+  const branch = current.stdout
+  const problem = branchProblem(branch)
+  if (problem) throw new Error(problem)
+  const ref = `refs/heads/${branch}`
+  const query = `?branch=${encodeURIComponent(branch)}`
+
+  // 1. Content published online lives on the remote's branch; put our commits on top of it.
+  const remoteHead = await gitOk(cwd, ['ls-remote', '--heads', REMOTE_NAME, ref], auth)
   if (remoteHead) {
     console.info('Pulling changes from the platform…')
-    const pulled = await git(cwd, ['pull', '--rebase', REMOTE_NAME, 'main'], auth)
+    const pulled = await git(cwd, ['pull', '--rebase', REMOTE_NAME, branch], auth)
     if (pulled.code !== 0) {
       throw new Error(
         `Could not rebase onto the platform's changes:\n${pulled.stderr || pulled.stdout}\n` +
@@ -94,12 +126,12 @@ export async function runPush(): Promise<void> {
   await pushUploads(cwd, { ...link, uuid: site.uuid, token })
 
   const head = await gitOk(cwd, ['rev-parse', 'HEAD'])
-  console.info(`Pushing ${head.slice(0, 8)} to ${link.slug}…`)
-  const pushed = await git(cwd, ['push', REMOTE_NAME, 'HEAD:refs/heads/main'], auth)
+  console.info(`Pushing ${head.slice(0, 8)} to ${link.slug} (${branch})…`)
+  const pushed = await git(cwd, ['push', REMOTE_NAME, `HEAD:${ref}`], auth)
   if (pushed.code !== 0) throw new Error(`git push failed:\n${pushed.stderr || pushed.stdout}`)
 
   // 3.
-  const statusPath = `/api/sites/${site.uuid}/status`
+  const statusPath = `/api/sites/${site.uuid}/status${query}`
   let status = await request<SiteStatus>(link.origin, 'GET', statusPath, { token })
   let deployId: number | null = null
 
@@ -111,7 +143,7 @@ export async function runPush(): Promise<void> {
     const uploaded = await request<{ deployId: number | null; reason?: string }>(
       link.origin,
       'POST',
-      `/api/sites/${site.uuid}/bundles`,
+      `/api/sites/${site.uuid}/bundles${query}`,
       { token, raw: body },
     )
     if (uploaded.deployId === null) throw new Error(`The bundle was not deployed: ${uploaded.reason}`)
@@ -146,5 +178,5 @@ export async function runPush(): Promise<void> {
     if (deploy.log) console.error(`\n${deploy.log}\n`)
     throw new Error(`Deploy failed: ${deploy.error ?? 'unknown error'}. The previous version stays live.`)
   }
-  console.info(`\nLive at ${deploy.url ?? status.url} — ${deploy.pages} page(s)`)
+  console.info(`\n${branch} is live at ${deploy.url ?? status.url} — ${deploy.pages} page(s)`)
 }

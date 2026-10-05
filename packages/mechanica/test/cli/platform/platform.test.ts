@@ -7,6 +7,7 @@ import { parseRemoteUrl } from '@/cli/platform/api'
 import { getToken, hostOrigin, saveToken } from '@/cli/platform/credentials'
 import { gitAuthEnv } from '@/cli/platform/git'
 import { engineVersion } from '@/cli/platform/engine-version'
+import { branchProblem } from '@/cli/platform/push'
 
 let dir: string
 
@@ -137,5 +138,14 @@ describe('credentials', () => {
 describe('engine version', () => {
   it('reads the version of this package', () => {
     expect(engineVersion()).toMatch(/^\d+\.\d+\.\d+/)
+  })
+})
+
+describe('the branch a push sends', () => {
+  it('goes under its own name when the name can be part of an address', () => {
+    for (const name of ['main', 'master', 'new-menu', 'v2', 'a']) expect(branchProblem(name), name).toBeNull()
+    for (const name of ['feature/menu', 'Menu', 'new_menu', 'edit', 'double--hyphen', '-lead', 'trail-', 'x'.repeat(41)]) {
+      expect(branchProblem(name), name).toContain('git branch -m')
+    }
   })
 })
