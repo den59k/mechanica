@@ -363,6 +363,7 @@ These drive a locally installed Chrome or Edge (or `--browser <path>`) and need 
 | `mechanica link <slug>` | Point this repository at a site on the platform (`--create` makes the site); uploads are then kept by the platform, so `.mech/assets/` goes into `.gitignore` |
 | `mechanica push` | Publish the committed project to the platform: pull what was edited online, send the uploads it lacks, `git push`, build and upload the bundle when the code changed, wait for the deploy. It pushes the branch that is checked out, under its own name: the first branch a site is pushed is the site itself, any other is deployed to an address of its own (`<slug>--<branch>`) with its own online editor — a branch name is lowercase letters, digits and single hyphens |
 | `mechanica assets pull` | Download the uploads made in the platform's online editor that this project lacks (the dev server fetches them one by one on demand) |
+| `mechanica migrate` | Bring `.mech` content written by an older version up to the current format: uploads are addressed as `/media/<file>` (2.0 wrote `/@mechanica/assets/<file>`) |
 
 ## Plugin options
 
@@ -392,6 +393,12 @@ From `mechanica`:
 - **Helpers:** `imagePosition`
 
 From `mechanica/plugin`: `mechanica` and the `PageProvider` type. From `mechanica/widgets`: `defineWidget` and `useWidgetServices` (uploads and the image picker inside widget editors). `mechanica/editor` and `mechanica/composer` are loaded by the plugin in development; you don't import them. From `mechanica/export`: `exportBuilt(projectDir, options)`, which statically renders an already built project (`dist/` + `.mech/`) without running a build and resolves to `{ pages, warnings }` — for render services that receive a prebuilt bundle; `options.outDir` sets where the site is written, and `options.fetchJson` replaces how `useFetch` requests are made.
+
+## Upgrading from 2.0
+
+- Uploaded files are addressed as `/media/<file>` in page files, shared data and rich text; 2.0 wrote `/@mechanica/assets/<file>`. The old address still works everywhere, so nothing breaks — run `npx mechanica migrate` once to rewrite it, and don't serve anything of your own under `/media/`.
+- A file uploaded through the editor now gets a short content hash in its name (`photo-9f2c1a7b.jpg`). Files already in `.mech/assets/` keep their names.
+- In the page browser, "Mark as draft" / "Publish" became "Hide from site" / "Show on site". `draft: true` in the page file means the same as before.
 
 ## Upgrading from 1.x
 

@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.1.0 (unreleased)
+
+Released packages: `mechanica` 2.1.0, `mechanica-shared` 2.1.0 and `create-mechanica` 0.3.3. Everything below shipped first in the `2.1.0-beta.1` – `2.1.0-beta.7` prereleases (npm's `next` tag, 2026-10-04 – 2026-10-05).
+
+### Working with the Mechanica platform
+
+- **`mechanica push`** publishes the committed project to the platform: it refuses a dirty tree, pulls what was edited online, sends the uploads the platform lacks, pushes the checked-out branch under its own name, builds and uploads the bundle only when the code changed, and waits for the deploy. The first branch a site is pushed is the site itself; any other branch is deployed to an address of its own (`<slug>--<branch>`) with its own online editor, so a branch name is lowercase letters, digits and single hyphens.
+- **`mechanica login`** keeps one access token per platform origin in `~/.mechanica/credentials.json` (`MECHANICA_TOKEN` / `MECHANICA_HOST` override it); **`mechanica link <slug>`** makes the site a git remote named `mechanica` (`--create` makes the site) and adds `.mech/assets/` + `.mech/images.json` to `.gitignore`, because the platform keeps the uploads of a linked site out of git.
+- **`mechanica assets pull`** downloads the uploads made in the online editor that the project lacks. The dev server also fetches such an upload by itself the first time a page asks for it. A project that is not linked, not signed in or offline simply has no remote.
+
+### Uploads: `/media/<name>` and content-hashed names
+
+- Content refers to an upload as **`/media/<name>`** — the address it has in dev, in the online editor and on the exported site. 2.0 wrote `/@mechanica/assets/<name>`; that prefix is still read everywhere, and **`mechanica migrate`** rewrites it in `.mech` content. `/media/` is therefore reserved on every site.
+- A file uploaded through the editor gets a short content hash in its stored name (`photo.jpg` → `photo-9f2c1a7b.jpg`): the same name is the same file wherever it was uploaded, and a file uploaded twice is stored once (the `_1` suffixes are gone). Hand-placed files keep their names.
+- The export copies every upload whose `/media/<name>` address appears in a rendered page — a link typed into a plain string prop or kept in page data ships too, not only image, file and rich-text fields.
+
+### Editing without the dev server (for hosts)
+
+- **`mechanica/server`**: `createEditorService(mech, { site, assets, editorHtml, hostConfig })` answers the editor API as web-standard `Request` → `Response` (`toNodeMiddleware` / `toAssetMiddleware` for connect and Express). It never imports Vite and never runs the site's code: the site's blocks, schemas, locales and generated pages come from **`dist/mechanica-site.json`**, which `mechanica build` now writes (`readSiteManifest`).
+- **`mechanica build --editor`** writes `dist/mechanica-editor/`, the static root of an editing origin; `renderEditablePage` / `service.page(urlPath)` turn its `index.html` into editable pages. The composer, the preview route and thumbnails are not in it yet (a host passes `capabilities: { composer: false }`).
+- The stores read a site through **`ContentFiles`** (a `.mech` directory, or files held in memory that report their changes — `memoryContentFiles`) and uploads through **`AssetStore`** (`fsAssetStore`, `withRemoteAssets`, `withHostedAssets`, `uploadResponse`). Image info (`.mech/images.json`) is filled in around the stores (`fillStateImages`, `harvestPageImages`).
+- The editor reaches its host only through its backend module; a host configures it with `window.__MECHANICA_EDITOR__` (`base`, `headers`, `capabilities`) and can ask it to save before acting through `window.__MECHANICA_EDITOR_API__` (`hasUnsaved()`, `flush()`).
+- **`mechanica/export`**: `exportBuilt` takes an `assets` store, copies the referenced uploads it can open into `media/` and reports the rest it knows about as `uploads.hosted` — a hosted render serves those itself (`withHostedAssets`).
+
+### Editor
+
+- A page's context menu says **"Hide from site"** / **"Show on site"** (was "Mark as draft" / "Publish"), and the page browser's badge is "Hidden": a hidden page is editable but never exported, listed or reachable by URL. The file format (`draft: true`) is unchanged.
+- A page file that does not parse is reported with its path under `.mech` and the line, in the dev server, the export and the hosted editor — before, only the line.
+
+## 2.0.3 (2026-10-02)
+
+Released packages: `mechanica` 2.0.3 and `mechanica-shared` 2.0.3.
+
+- **`mechanica/export`**: a build-free static export for a render service. `exportBuilt(cwd, options)` renders an existing `dist/` + `.mech/` to `{ pages, warnings }`, registers the field schemas itself and never imports Vite; its `outDir` is emptied instead of removed (it may be a mount point), and `fetchJson` lets the caller perform `useFetch` requests (a hosted render has no network of its own).
+- The first `mechanica login` / `link` / `push` and the bundle format (`MCHB`: the commit and the engine version in the header, then the files of `dist/`).
+
 ## 2.0.2 (2026-09-30)
 
 Released packages: `mechanica` 2.0.2, `mechanica-shared` 2.0.2 and `create-mechanica` 0.3.2. Documentation and metadata only; no code changes.

@@ -94,7 +94,7 @@
             >
               <span class="mech-pages__cell-name">
                 <span class="mech-pages__name">{{ page.name || page.path }}</span>
-                <span v-if="page.draft" class="mech-pages__badge is-draft">Draft</span>
+                <span v-if="page.draft" class="mech-pages__badge is-draft" title="Editable, but not on the site">Hidden</span>
                 <span v-if="page.generated" class="mech-pages__badge">Generated</span>
                 <span v-if="page.path === currentLogical" class="mech-pages__badge">Current</span>
                 <span v-if="localeConfig && page.locales" class="mech-pages__locales">
@@ -353,8 +353,10 @@ function onRowMenu(event: MouseEvent, page: PageItem) {
     { label: 'Open', onClick: () => open(page) },
     { label: 'Rename', onClick: () => startEdit(page) },
     { label: 'Duplicate', onClick: () => startDuplicate(page) },
+    // The file keeps `draft: true`; the words are about the site, so they
+    // don't collide with a hosted "Publish" that carries changes live.
     {
-      label: page.draft ? 'Publish' : 'Mark as draft',
+      label: page.draft ? 'Show on site' : 'Hide from site',
       separatorBefore: true,
       onClick: () => void toggleDraft(page),
     },

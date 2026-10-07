@@ -39,6 +39,16 @@ function writePage(relative: string, data: Record<string, unknown>) {
   fs.writeFileSync(file, serializePage({ content: [], data: {}, ...data }))
 }
 
+describe('a page file that does not parse', () => {
+  it('is named in the error, by its path under .mech, with the line', () => {
+    writePage('index.page.md', { name: 'Home' })
+    fs.mkdirSync(join(mechDir, 'pages', 'blog'), { recursive: true })
+    fs.writeFileSync(join(mechDir, 'pages', 'blog', 'post.page.md'), ['---', 'name: Post', '---', '', '::: hero #h', ':::', ':::', ''].join('\n'))
+    expect(() => listPages(mechDir)).toThrow(/\(pages\/blog\/post\.page\.md, line 7\)/)
+    expect(() => readPage(mechDir, '/blog/post')).toThrow(/pages\/blog\/post\.page\.md/)
+  })
+})
+
 describe('image metadata manifest', () => {
   afterEach(() => setPageBlocks(mechDir, undefined))
 

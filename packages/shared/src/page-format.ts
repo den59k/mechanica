@@ -48,15 +48,28 @@ export interface PageCodecOptions {
   richText?: RichTextCodec
 }
 
-/** Thrown by {@link parsePage} with the 1-based source line of the problem. */
+/**
+ * Thrown by {@link parsePage} with the 1-based source line of the problem.
+ * `parsePage` sees only text, so whoever read the file names it with
+ * {@link PageParseError.inFile} — a site has many pages, and the message is
+ * all a user gets to find the one that is broken.
+ */
 export class PageParseError extends Error {
   constructor(
-    message: string,
+    /** What is wrong, without the location. */
+    public readonly reason: string,
     public readonly line: number,
+    /** The page file, relative to `.mech` (e.g. `pages/about.page.md`), when known. */
+    public readonly file?: string,
   ) {
-    super(`${message} (line ${line})`)
+    super(file ? `${reason} (${file}, line ${line})` : `${reason} (line ${line})`)
     this.name = 'PageParseError'
     Object.setPrototypeOf(this, PageParseError.prototype)
+  }
+
+  /** The same error, naming the file it came from. */
+  inFile(file: string): PageParseError {
+    return new PageParseError(this.reason, this.line, file)
   }
 }
 

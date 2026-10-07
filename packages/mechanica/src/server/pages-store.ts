@@ -10,7 +10,13 @@ import {
   type LocalesConfig,
   type VirtualPage,
 } from 'mechanica-shared'
-import { parsePage, serializePage, type PageDoc, type RichTextCodec } from 'mechanica-shared/page-format'
+import {
+  parsePage,
+  serializePage,
+  PageParseError,
+  type PageDoc,
+  type RichTextCodec,
+} from 'mechanica-shared/page-format'
 import { applyImageManifest, contentImageNames, harvestImageMeta, type ImageManifest } from './assets-store'
 import { contentFilesOf, type ContentFiles, type Mech } from './content-files'
 
@@ -192,8 +198,15 @@ const fileOf = (mech: Mech, urlPath: string, locale?: string) => pageFile(conten
 const has = (mech: Mech, file: string) => contentFilesOf(mech).has(file)
 const remove = (mech: Mech, file: string) => contentFilesOf(mech).remove(file)
 
-const readFile = (mech: Mech, file: string): PageFile =>
-  parsePage(contentFilesOf(mech).read(file) ?? '', codecOptions(mech))
+// A parse error names the file: a listing reads every page of the site, and a
+// hand edit that broke one of them has to be findable from the message alone.
+const readFile = (mech: Mech, file: string): PageFile => {
+  try {
+    return parsePage(contentFilesOf(mech).read(file) ?? '', codecOptions(mech))
+  } catch (error) {
+    throw error instanceof PageParseError ? error.inFile(file) : error
+  }
+}
 
 const writeFile = (mech: Mech, file: string, page: PageFile): void => {
   contentFilesOf(mech).write(file, serializePage(page, codecOptions(mech)))

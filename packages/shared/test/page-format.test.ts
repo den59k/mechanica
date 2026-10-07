@@ -280,6 +280,21 @@ describe('page-format: errors', () => {
     expect(() => parsePage(wrap('::: hero #h', ':::', ':::'))).toThrow(/no open block/)
   })
 
+  it('inFile names the file ahead of the line, keeping the reason and line', () => {
+    let err: PageParseError | undefined
+    try {
+      parsePage(wrap('::: hero #h', ':::', ':::'))
+    } catch (e) {
+      err = e as PageParseError
+    }
+    const named = err!.inFile('pages/about.page.md')
+    expect(named).toBeInstanceOf(PageParseError)
+    expect(named.message).toBe(`${err!.reason} (pages/about.page.md, line ${err!.line})`)
+    expect(named.file).toBe('pages/about.page.md')
+    expect(named.line).toBe(err!.line)
+    expect(err!.file).toBeUndefined()
+  })
+
   it('rejects an unknown fence attribute', () => {
     expect(() => parsePage(wrap('::: hero #h bogus=1', ':::'))).toThrow(/Unknown block attribute/)
   })

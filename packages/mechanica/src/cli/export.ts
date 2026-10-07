@@ -29,7 +29,7 @@ import {
   EDITOR_DIST_DIR,
   type VirtualPage,
 } from 'mechanica-shared'
-import { parsePage, type RichTextCodec } from 'mechanica-shared/page-format'
+import { parsePage, PageParseError, type PageDoc, type RichTextCodec } from 'mechanica-shared/page-format'
 import { toBlockMeta, composedBlockMeta, type BlockComponent } from '../editor/lib/block-meta'
 import {
   assetFileOf,
@@ -86,6 +86,15 @@ function setHtmlLang(html: string, lang: string): string {
   return html.replace(/<html\b([^>]*)>/i, `<html$1 lang="${lang}">`)
 }
 
+/** Parse a page file's text, naming the file (relative to `.mech`) in a parse error. */
+function parsePageFile(raw: string, file: string, richText?: RichTextCodec): PageDoc {
+  try {
+    return parsePage(raw, richText ? { richText } : undefined)
+  } catch (error) {
+    throw error instanceof PageParseError ? error.inFile(file) : error
+  }
+}
+
 /** Read every page JSON under `<mech>/pages` as an exportable page. */
 async function readPages(
   pagesDir: string,
@@ -109,7 +118,7 @@ async function readPages(
     // Translation files (`about@ru.page.md`) render per-locale, not as own pages.
     if (VARIANT_STEM_RE.test(base)) continue
     const filePath = join(pagesDir, relative)
-    const file = parsePage(await readFile(filePath, 'utf-8'), richText ? { richText } : undefined)
+    const file = parsePageFile(await readFile(filePath, 'utf-8'), `pages/${relative.replace(/\\/g, '/')}`, richText)
     // Draft pages are dev-only: never rendered, never in the sitemap.
     if (file.draft) continue
     const path = `/${dir}/${base === 'index' ? '' : base}`.replace('//', '/').replace(/\/$/, '') || '/'
@@ -155,9 +164,9 @@ async function readTranslation(
   } catch {
     return null
   }
-  const doc = parsePage(raw, richText ? { richText } : undefined)
-  if (doc.draft) return null
   const rel = relative(join(mechDir, 'pages'), file).replace(/\\/g, '/')
+  const doc = parsePageFile(raw, `pages/${rel}`, richText)
+  if (doc.draft) return null
   const dir = dirname(rel) === '.' ? '' : dirname(rel)
   // Overlay the sparse translation on the default-locale page: the base owns the
   // block structure, and shared fields (images, links, colors) the translation
