@@ -1,4 +1,5 @@
-import { PlatformError, REMOTE_NAME, request, requireToken, type PlatformSite } from './api'
+import { PlatformError, REMOTE_NAME, request, type PlatformSite } from './api'
+import { requireToken } from './session'
 import { hostOrigin } from './credentials'
 import { appendFile, readFile } from 'node:fs/promises'
 import { join } from 'node:path'

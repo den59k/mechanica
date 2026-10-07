@@ -24,8 +24,12 @@ Usage:
                              --site-name <name> adds WebSite JSON-LD;
                              --assets-url <origin> serves /assets and /media from
                              a CDN base — files still land in export/)
-  mechanica login           Sign in to the Mechanica platform and save an access
-                            token for this machine (--host <url>, --token <token>)
+  mechanica login           Sign in to the Mechanica platform: prints a link to
+                            open and approve in the browser, and keeps the access
+                            token for this machine. In a terminal it waits for the
+                            approval; otherwise the next link/push finishes the
+                            sign-in (--wait, --no-wait, --host <url>, or
+                            --token <token> to store a token made in the dashboard)
   mechanica link <slug>     Point this repository at a site on the platform
                             (--create makes the site, --name "Site name")
   mechanica push            Publish the committed project: pull what was edited
@@ -78,7 +82,11 @@ export async function run(argv: string[]): Promise<void> {
     case 'migrate':
       return void (await runMigrate())
     case 'login':
-      return runLogin({ host: str(flags.host), token: str(flags.token) })
+      return runLogin({
+        host: str(flags.host),
+        token: str(flags.token),
+        wait: flags.wait === true ? true : flags['no-wait'] === true ? false : undefined,
+      })
     case 'link':
       return runLink(args[0], { host: str(flags.host), create: flags.create === true, name: str(flags.name) })
     case 'push':

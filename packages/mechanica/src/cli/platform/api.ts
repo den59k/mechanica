@@ -1,4 +1,3 @@
-import { getToken } from './credentials'
 
 /** A failed platform request: the HTTP status plus the message the platform gave. */
 export class PlatformError extends Error {
@@ -62,13 +61,6 @@ export async function request<T = any>(
   const text = await response.text()
   if (!response.ok) throw new PlatformError(response.status, errorMessage(response.status, text))
   return (text ? JSON.parse(text) : null) as T
-}
-
-/** The saved token for `origin`, or an error telling the user to log in. */
-export async function requireToken(origin: string): Promise<string> {
-  const token = await getToken(origin)
-  if (!token) throw new Error(`Not logged in to ${origin} — run \`mechanica login\` first`)
-  return token
 }
 
 export interface PlatformSite {

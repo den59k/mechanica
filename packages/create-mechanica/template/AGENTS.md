@@ -39,7 +39,7 @@ npx mechanica thumbs --blocks    # regenerate palette thumbnails
 
 `shot` and `thumbs` drive a locally installed Chrome or Edge and need Node 22+ (or Bun).
 
-If the site is hosted on the Mechanica platform (the repository has a git remote named `mechanica`), `npx mechanica push` publishes the committed work: it pulls what was edited online, pushes the checked-out branch, builds and uploads the bundle when the code changed, and waits for the deploy. It refuses a dirty tree, so commit first. `npx mechanica assets pull` downloads the uploads made in the online editor (the dev server also fetches them one by one on demand). A project that is not linked yet is connected with `npx mechanica login` and `npx mechanica link <slug>`.
+If the site is hosted on the Mechanica platform (the repository has a git remote named `mechanica`), `npx mechanica push` publishes the committed work: it pulls what was edited online, pushes the checked-out branch, builds and uploads the bundle when the code changed, and waits for the deploy. It refuses a dirty tree, so commit first. `npx mechanica assets pull` downloads the uploads made in the online editor (the dev server also fetches them one by one on demand). A project that is not linked yet is connected with `npx mechanica login` and `npx mechanica link <slug> --create`. `login` prints a link: show it to the person you work for exactly as printed, wait until they say they approved it in the browser, then go on — the next `mechanica` command finishes the sign-in. Never ask for a password or a token.
 
 ## Layout
 
