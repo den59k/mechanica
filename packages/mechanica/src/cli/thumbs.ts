@@ -1,17 +1,9 @@
 import fs from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import { pageSlug, normalizePagePath, previewUrl } from './shot'
-import {
-  launchBrowser,
-  resolveServer,
-  setViewport,
-  evaluateValue,
-  waitForCondition,
-  settlePageMedia,
-  freezeAnimations,
-  type LaunchedBrowser,
-} from './headless'
+import { pageSlug, normalizePagePath, previewUrl, PREVIEW_READY } from './shot'
+import { openPage, type BrowserPage } from './browser'
+import { resolveServer } from './dev-server'
 
 export interface ThumbsOptions {
   /** Output directory. Default: `.mech/thumbs/` (served at `/@mechanica/thumbs/`). */
@@ -60,7 +52,7 @@ export async function runThumbs(prefix: string | undefined, options: ThumbsOptio
   const normalizedPrefix = prefix ? normalizePagePath(prefix) : undefined
 
   const server = await resolveServer(options.server)
-  let browser: LaunchedBrowser | undefined
+  let tab: BrowserPage | undefined
   try {
     const listed = await fetch(`${server.origin}/@mechanica/pages`)
     if (!listed.ok) throw new Error(`Could not list pages (${listed.status}) — is this a Mechanica project?`)
@@ -74,46 +66,23 @@ export async function runThumbs(prefix: string | undefined, options: ThumbsOptio
     const outDir = options.out ?? join('.mech', 'thumbs')
     await mkdir(outDir, { recursive: true })
 
-    browser = await launchBrowser(options.browser)
-    const cdp = browser.client
-    const { targetId } = await cdp.send('Target.createTarget', { url: 'about:blank' })
-    const { sessionId } = await cdp.send('Target.attachToTarget', { targetId, flatten: true })
-    await cdp.send('Page.enable', {}, sessionId)
-    await cdp.send('Runtime.enable', {}, sessionId)
-    await setViewport(cdp, sessionId, CAPTURE_WIDTH, VIEWPORT_HEIGHT)
-    await cdp.send(
-      'Emulation.setEmulatedMedia',
-      { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] },
-      sessionId,
-    )
+    tab = await openPage(undefined, { width: CAPTURE_WIDTH, height: VIEWPORT_HEIGHT, browser: options.browser })
 
     const failures: string[] = []
     for (const page of targets) {
       try {
-        const navigation = await cdp.send(
-          'Page.navigate',
-          { url: `${server.origin}${page.path}?mechanica-shot=1` },
-          sessionId,
-        )
-        if (navigation.errorText) throw new Error(navigation.errorText)
-        await waitForCondition(cdp, sessionId, "document.readyState === 'complete'", 15_000)
-        await settlePageMedia(cdp, sessionId)
-        await freezeAnimations(cdp, sessionId)
+        await tab.goto(`${server.origin}${page.path}?mechanica-shot=1`)
+        await tab.freezeAnimations()
 
-        const metrics = await cdp.send('Page.getLayoutMetrics', {}, sessionId)
+        const metrics = await tab.send('Page.getLayoutMetrics')
         const contentSize = metrics.cssContentSize ?? metrics.contentSize
         const height = Math.min(Math.ceil(contentSize.height), MAX_CAPTURE_HEIGHT)
-        const shot = await cdp.send(
-          'Page.captureScreenshot',
-          {
-            format: 'png',
-            captureBeyondViewport: true,
-            clip: { x: 0, y: 0, width: CAPTURE_WIDTH, height, scale: THUMB_WIDTH / CAPTURE_WIDTH },
-          },
-          sessionId,
-        )
+        const png = await tab.screenshot({
+          clip: { x: 0, y: 0, width: CAPTURE_WIDTH, height },
+          scale: THUMB_WIDTH / CAPTURE_WIDTH,
+        })
         const out = join(outDir, `${pageSlug(page.path)}.png`)
-        fs.writeFileSync(out, Buffer.from(shot.data as string, 'base64'))
+        fs.writeFileSync(out, png)
         console.info(`✓ ${page.path} → ${out}`)
       } catch (error) {
         failures.push(page.path)
@@ -134,7 +103,7 @@ export async function runThumbs(prefix: string | undefined, options: ThumbsOptio
       throw new Error(`Failed to render ${failures.length} page(s): ${failures.join(', ')}`)
     }
   } finally {
-    await browser?.close()
+    await tab?.close()
     await server.close()
   }
 }
@@ -154,7 +123,7 @@ const BLOCK_THUMB_WIDTH = 240
  */
 export async function runBlockThumbs(filter: string | undefined, options: ThumbsOptions = {}): Promise<void> {
   const server = await resolveServer(options.server)
-  let browser: LaunchedBrowser | undefined
+  let tab: BrowserPage | undefined
   try {
     const listed = await fetch(`${server.origin}/@mechanica/blocks`)
     if (!listed.ok) throw new Error(`Could not list blocks (${listed.status}) — is this a Mechanica project?`)
@@ -168,64 +137,34 @@ export async function runBlockThumbs(filter: string | undefined, options: Thumbs
     const outDir = options.out ?? join('.mech', 'thumbs', 'blocks')
     await mkdir(outDir, { recursive: true })
 
-    browser = await launchBrowser(options.browser)
-    const cdp = browser.client
-    const { targetId } = await cdp.send('Target.createTarget', { url: 'about:blank' })
-    const { sessionId } = await cdp.send('Target.attachToTarget', { targetId, flatten: true })
-    await cdp.send('Page.enable', {}, sessionId)
-    await cdp.send('Runtime.enable', {}, sessionId)
-    await setViewport(cdp, sessionId, BLOCK_CAPTURE_WIDTH, BLOCK_MAX_HEIGHT)
-    await cdp.send(
-      'Emulation.setEmulatedMedia',
-      { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] },
-      sessionId,
-    )
+    tab = await openPage(undefined, {
+      width: BLOCK_CAPTURE_WIDTH,
+      height: BLOCK_MAX_HEIGHT,
+      browser: options.browser,
+    })
 
     const failures: string[] = []
     for (const block of targets) {
       try {
-        const navigation = await cdp.send(
-          'Page.navigate',
-          { url: previewUrl(server.origin, block.id) },
-          sessionId,
-        )
-        if (navigation.errorText) throw new Error(navigation.errorText)
-        await waitForCondition(cdp, sessionId, 'window.__MECHANICA_PREVIEW_READY__ === true', 15_000)
-        const previewError = await evaluateValue<string | null>(
-          cdp,
-          sessionId,
-          'window.__MECHANICA_PREVIEW_ERROR__ ?? null',
-        )
+        await tab.goto(previewUrl(server.origin, block.id), { ready: PREVIEW_READY, settle: false })
+        const previewError = await tab.evaluate<string | null>('window.__MECHANICA_PREVIEW_ERROR__ ?? null')
         if (previewError) throw new Error(previewError)
-        await settlePageMedia(cdp, sessionId)
-        await freezeAnimations(cdp, sessionId)
+        await tab.settle()
+        await tab.freezeAnimations()
 
         // Clip to the block's own height (capped) so short blocks aren't mostly
         // white and tall ones show their top — matching the hover preview.
-        const measured = await evaluateValue<number>(
-          cdp,
-          sessionId,
+        const measured = await tab.evaluate<number>(
           `document.querySelector('[data-block-id]')?.getBoundingClientRect().height ?? 0`,
         )
         const height = Math.min(BLOCK_MAX_HEIGHT, Math.max(BLOCK_MIN_HEIGHT, Math.ceil(measured)))
 
-        const shot = await cdp.send(
-          'Page.captureScreenshot',
-          {
-            format: 'png',
-            captureBeyondViewport: true,
-            clip: {
-              x: 0,
-              y: 0,
-              width: BLOCK_CAPTURE_WIDTH,
-              height,
-              scale: BLOCK_THUMB_WIDTH / BLOCK_CAPTURE_WIDTH,
-            },
-          },
-          sessionId,
-        )
+        const png = await tab.screenshot({
+          clip: { x: 0, y: 0, width: BLOCK_CAPTURE_WIDTH, height },
+          scale: BLOCK_THUMB_WIDTH / BLOCK_CAPTURE_WIDTH,
+        })
         const out = join(outDir, `${block.id}.png`)
-        fs.writeFileSync(out, Buffer.from(shot.data as string, 'base64'))
+        fs.writeFileSync(out, png)
         console.info(`✓ ${block.id} → ${out}`)
       } catch (error) {
         failures.push(block.id)
@@ -246,7 +185,7 @@ export async function runBlockThumbs(filter: string | undefined, options: Thumbs
       throw new Error(`Failed to render ${failures.length} block(s): ${failures.join(', ')}`)
     }
   } finally {
-    await browser?.close()
+    await tab?.close()
     await server.close()
   }
 }

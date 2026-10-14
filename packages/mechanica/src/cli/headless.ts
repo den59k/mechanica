@@ -1,45 +1,31 @@
 /**
- * Headless-browser plumbing shared by `mechanica shot` and `mechanica thumbs`:
- * dev-server discovery, browser discovery/spawn, and a minimal CDP client.
+ * Headless-browser plumbing shared by `mechanica shot`, `mechanica thumbs` and
+ * the public `mechanica/browser` helper: browser discovery/spawn, a minimal
+ * CDP client, page-session helpers, and probing for a running dev server.
  *
  * Talks raw CDP over the platform `WebSocket` instead of using an automation
  * library: Playwright/Puppeteer launch handshakes rely on Node-only fd pipes
  * that hang under Bun, and screenshots need only a handful of CDP calls.
+ *
+ * Never imports Vite: booting an ephemeral dev server lives in `dev-server.ts`,
+ * so `mechanica/browser` stays usable from plain Node scripts.
  */
 import fs from 'node:fs'
 import os from 'node:os'
 import { join } from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
 
-// ── Dev server discovery ─────────────────────────────────────────────────────
+// ── Dev server probing ───────────────────────────────────────────────────────
 
-export interface ResolvedServer {
-  origin: string
-  close: () => Promise<void>
-}
+/** Where `mechanica shot`/`thumbs` look for a running dev server first. */
+export const DEV_SERVER_ORIGINS = ['http://127.0.0.1:5173', 'http://localhost:5173']
 
-/**
- * Find a dev server to render against: an explicit origin, a running local
- * Mechanica dev server, or an ephemeral one booted from the project's
- * `vite.config.ts` and torn down afterwards.
- */
-export async function resolveServer(flag?: string): Promise<ResolvedServer> {
-  if (flag) return { origin: flag.replace(/\/+$/, ''), close: async () => {} }
-
-  for (const origin of ['http://127.0.0.1:5173', 'http://localhost:5173']) {
-    if (await isMechanicaServer(origin)) return { origin, close: async () => {} }
+/** The origin of a running Mechanica dev server on the default port, or null. */
+export async function findDevServer(origins: string[] = DEV_SERVER_ORIGINS): Promise<string | null> {
+  for (const origin of origins) {
+    if (await isMechanicaServer(origin)) return origin
   }
-
-  console.info('No running dev server found — starting one…')
-  const { createServer } = await import('vite')
-  const server = await createServer({ logLevel: 'warn' })
-  await server.listen()
-  const origin = server.resolvedUrls?.local[0]?.replace(/\/+$/, '')
-  if (!origin) {
-    await server.close()
-    throw new Error('Failed to start a dev server (no resolved URL)')
-  }
-  return { origin, close: () => server.close() }
+  return null
 }
 
 async function isMechanicaServer(origin: string): Promise<boolean> {
@@ -94,16 +80,35 @@ export async function waitForCondition(
   throw new Error(`Timed out after ${timeout}ms waiting for the page to become ready`)
 }
 
-/** Wait for web fonts and all images — normal pages have no injected ready flag. */
-export async function settlePageMedia(cdp: CdpClient, sessionId: string): Promise<void> {
+/** Upper bound for {@link settlePageMedia}: a stalled image must not hang a shot. */
+export const SETTLE_TIMEOUT = 10_000
+
+/**
+ * Wait for web fonts and all images — normal pages have no injected ready flag.
+ * Lazy images are switched to eager first: below the fold they would never
+ * start loading in a headless tab (the wait used to hang on them), and a
+ * full-page capture should show them anyway. Gives up after `timeout` ms.
+ */
+export async function settlePageMedia(
+  cdp: CdpClient,
+  sessionId: string,
+  timeout = SETTLE_TIMEOUT,
+): Promise<void> {
   await cdp.send(
     'Runtime.evaluate',
     {
-      expression: `Promise.all([
-        document.fonts ? document.fonts.ready : null,
-        ...[...document.images].map((img) =>
-          img.complete ? null : new Promise((done) => { img.onload = done; img.onerror = done })),
-      ].filter(Boolean)).then(() => true)`,
+      expression: `(() => {
+        for (const img of document.images) if (img.loading === 'lazy') img.loading = 'eager'
+        const media = Promise.all([
+          document.fonts ? document.fonts.ready : null,
+          ...[...document.images].map((img) =>
+            img.complete ? null : new Promise((done) => {
+              img.addEventListener('load', done, { once: true })
+              img.addEventListener('error', done, { once: true })
+            })),
+        ].filter(Boolean))
+        return Promise.race([media, new Promise((done) => setTimeout(done, ${timeout}))]).then(() => true)
+      })()`,
       awaitPromise: true,
       returnByValue: true,
     },
@@ -111,16 +116,42 @@ export async function settlePageMedia(cdp: CdpClient, sessionId: string): Promis
   )
 }
 
-/** Freeze animations/transitions so captures are deterministic across runs. */
+const FREEZE_STYLE_ID = 'mechanica-freeze-animations'
+
+/** Freeze animations/transitions so captures are deterministic across runs. Idempotent. */
 export async function freezeAnimations(cdp: CdpClient, sessionId: string): Promise<void> {
   await cdp.send(
     'Runtime.evaluate',
     {
       expression: `{
-        const style = document.createElement('style')
-        style.textContent = '*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }'
-        document.head.appendChild(style)
+        if (!document.getElementById('${FREEZE_STYLE_ID}')) {
+          const style = document.createElement('style')
+          style.id = '${FREEZE_STYLE_ID}'
+          style.textContent = '*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }'
+          document.head.appendChild(style)
+        }
       }`,
+    },
+    sessionId,
+  )
+}
+
+/** Undo {@link freezeAnimations}: transitions and animations run again. */
+export async function unfreezeAnimations(cdp: CdpClient, sessionId: string): Promise<void> {
+  await cdp.send(
+    'Runtime.evaluate',
+    { expression: `document.getElementById('${FREEZE_STYLE_ID}')?.remove()` },
+    sessionId,
+  )
+}
+
+/** Wait two animation frames: a full style → layout → paint cycle has run. */
+export async function nextFrames(cdp: CdpClient, sessionId: string): Promise<void> {
+  await cdp.send(
+    'Runtime.evaluate',
+    {
+      expression: 'new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))',
+      awaitPromise: true,
     },
     sessionId,
   )
@@ -129,11 +160,16 @@ export async function freezeAnimations(cdp: CdpClient, sessionId: string): Promi
 /** Chromium refuses to encode arbitrarily tall captures — cap and say so. */
 export const MAX_SHOT_HEIGHT = 12_000
 
+/** A screenshot region in CSS pixels, relative to the document (not the viewport). */
+export interface Clip {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 /** The full document size as a screenshot clip. */
-export async function fullPageClip(
-  cdp: CdpClient,
-  sessionId: string,
-): Promise<{ x: number; y: number; width: number; height: number }> {
+export async function fullPageClip(cdp: CdpClient, sessionId: string): Promise<Clip> {
   const metrics = await cdp.send('Page.getLayoutMetrics', {}, sessionId)
   const size = metrics.cssContentSize ?? metrics.contentSize
   const height = Math.min(size.height, MAX_SHOT_HEIGHT)
@@ -141,6 +177,13 @@ export async function fullPageClip(
     console.info(`(page is ${Math.round(size.height)}px tall — clipped to ${MAX_SHOT_HEIGHT}px)`)
   }
   return { x: 0, y: 0, width: size.width, height }
+}
+
+/** What is on screen right now (the visual viewport at its scroll offset), as a clip. */
+export async function viewportClip(cdp: CdpClient, sessionId: string): Promise<Clip> {
+  const metrics = await cdp.send('Page.getLayoutMetrics', {}, sessionId)
+  const viewport = metrics.cssVisualViewport ?? metrics.visualViewport
+  return { x: viewport.pageX, y: viewport.pageY, width: viewport.clientWidth, height: viewport.clientHeight }
 }
 
 // ── Browser process + CDP transport ──────────────────────────────────────────

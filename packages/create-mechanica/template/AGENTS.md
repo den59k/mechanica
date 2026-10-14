@@ -34,10 +34,14 @@ Verify visual work with the dev server running:
 npx mechanica shot <blockId>     # screenshot one block (uses its previewData)
 npx mechanica shot /some/path    # screenshot a whole page
 npx mechanica shot <blockId> --width 1440,390   # check responsive
+npx mechanica shot /some/path --section "#hero"  # one PNG per --section (repeatable)
+npx mechanica shot /some/path --scroll 1200      # the viewport after scrolling (sticky / scroll-revealed states)
 npx mechanica thumbs --blocks    # regenerate palette thumbnails
 ```
 
 `shot` and `thumbs` drive a locally installed Chrome or Edge and need Node 22+ (or Bun).
+
+Building from a design (an HTML handoff, any URL)? `shot` renders it the same way, without the dev server: `npx mechanica shot design/landing/index.html --width 1440,390`. Shoot the design and your page with the same `--width`, `--section` and `--scroll` flags, and compare the PNGs section by section. Quote selectors (PowerShell treats an unquoted `#` as a comment). `--no-freeze` keeps animations running. `node_modules/mechanica/README.md` documents `mechanica/browser`, the same headless browser for your own measuring scripts.
 
 If the site is hosted on the Mechanica platform (the repository has a git remote named `mechanica`), `npx mechanica push` publishes the committed work: it pulls what was edited online, pushes the checked-out branch, builds and uploads the bundle when the code changed, and waits for the deploy. It refuses a dirty tree, so commit first. `npx mechanica assets pull` downloads the uploads made in the online editor (the dev server also fetches them one by one on demand). A project that is not linked yet is connected with `npx mechanica login` and `npx mechanica link <slug> --create`. `login` prints a link: show it to the person you work for exactly as printed, wait until they say they approved it in the browser, then go on — the next `mechanica` command finishes the sign-in. Never ask for a password or a token.
 

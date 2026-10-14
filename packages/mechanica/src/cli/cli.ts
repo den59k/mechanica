@@ -1,4 +1,4 @@
-import { parseArgs } from './args'
+import { parseArgs, flagValues } from './args'
 import { runBuild } from './build'
 import { runExport } from './run-export'
 import { runImages } from './images'
@@ -39,8 +39,14 @@ Usage:
                             the site, any other gets an address of its own
   mechanica shot <blockId>  Screenshot one block via the dev preview route
   mechanica shot </path>    Screenshot a whole page (editor overlay stripped)
+  mechanica shot <url | file.html>
+                            Screenshot any URL or local HTML file (a design
+                            handoff) the same way, without a dev server
                             (--page </path>, --data <json|@file>, --width 1440,768,
-                             --out <path>, --server <url>, --browser <path>, --full)
+                             --section <css> (repeatable: one PNG per section),
+                             --scroll <px[,px…]> (viewport after scrolling),
+                             --no-freeze, --full, --out <path>, --server <url>,
+                             --browser <path>)
   mechanica thumbs [/path]  Thumbnail every page (or those under /path) into
                             .mech/thumbs/ for the editor's page browser
                             (--out <dir>, --server <url>, --browser <path>)
@@ -59,11 +65,17 @@ Usage:
                             are referenced as /media/<file> (was /@mechanica/assets/)
 `
 
+// Flags that never take a value: `shot --no-freeze design/index.html` keeps the target positional.
+const PARSE_OPTIONS = { booleans: ['full', 'no-freeze'] }
+
 /** CLI entry: dispatch a command to its handler. */
 export async function run(argv: string[]): Promise<void> {
-  const { command, args, flags } = parseArgs(argv)
+  const { command, args, flags } = parseArgs(argv, PARSE_OPTIONS)
   const str = (value: string | boolean | undefined): string | undefined =>
     typeof value === 'string' ? value : undefined
+  // A value flag given bare (`--scroll` with nothing after it) reaches the
+  // command as '' so it is rejected rather than silently ignored.
+  const required = (value: string | boolean | undefined): string | undefined => (value === true ? '' : str(value))
 
   switch (command) {
     case 'build':
@@ -100,6 +112,9 @@ export async function run(argv: string[]): Promise<void> {
         server: str(flags.server),
         browser: str(flags.browser),
         full: flags.full === true,
+        section: flagValues(argv, 'section', PARSE_OPTIONS).map((value) => required(value) ?? ''),
+        scroll: required(flags.scroll),
+        noFreeze: flags['no-freeze'] === true,
       })
     case 'thumbs': {
       const thumbsOptions = { out: str(flags.out), server: str(flags.server), browser: str(flags.browser) }

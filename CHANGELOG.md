@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.0 (unreleased)
+
+### `mechanica shot`: designs, sections and scroll states
+
+- **`mechanica shot` renders any URL or local HTML file** (`https://…`, `file://…`, `design/landing/index.html`, `C:\…\index.html`) with the same browser, widths, waits and animation freeze as your own pages. It needs no dev server, so a design handoff and the page built from it can be compared side by side. The default name comes from the URL (host + path) or from the file's path (`design/evolve-level/index.html` → `design-evolve-level-index`). A missing file fails before the browser starts. Errors the document logs are reported but never fail the shot.
+- **`--section <css>`** clips the capture to the first element matching the selector, for pages, URLs and files. Repeat it for one PNG per section (`-hero`, `-stage-pin` in the name). A selector that matches nothing, or matches a hidden element, is reported, and the command exits non-zero. "No match" also lists the readable ids on the page.
+- **`--scroll <px[,px…]>`** scrolls the window there first, then captures the **viewport** (or the whole document with `--full`), so sticky stages, pinned strips and content revealed on scroll show their later states. Animations are frozen after each scroll, so the page's own scroll handlers and transitions run first and end at their final values. **`--no-freeze`** leaves animations and transitions running. `prefers-reduced-motion: reduce` is still emulated.
+- **`mechanica/browser`**: the headless browser behind `shot` and `thumbs`, for a site's own scripts (Node 22+ or Bun, never imports Vite). `openPage(url, { width, height, browser })` gives a page with `evaluate`, `setViewport`, `scrollTo`, `settle`, `freezeAnimations`, `sectionClip`, `screenshot({ clip, section, full, scale })`, `goto`, `messages` and `close`. `findDevServer()` finds a running dev server.
+- **Fixed:** page shots and thumbnails no longer hang on a `loading="lazy"` image below the fold (`<Image>` renders lazy images). The wait for images switches them to eager, so full-page captures show them, and gives up after 10 s. It also stopped overwriting the page's own `img.onload` handlers.
+- `--full` and `--no-freeze` never swallow the next argument: `mechanica shot --no-freeze design/index.html` keeps the file as the target.
+- Under Git Bash, a page path reaches the CLI rewritten into a Windows path (`/about` → `C:/Program Files/Git/about`). `shot` now says so and suggests `//about` or `MSYS_NO_PATHCONV=1`; before, it took the rewritten path for a block id.
+
 ## 2.1.0 (unreleased)
 
 Released packages: `mechanica` 2.1.0, `mechanica-shared` 2.1.0 and `create-mechanica` 0.3.3. Everything below shipped first in the `2.1.0-beta.1` – `2.1.0-beta.7` prereleases (npm's `next` tag, 2026-10-04 – 2026-10-05).

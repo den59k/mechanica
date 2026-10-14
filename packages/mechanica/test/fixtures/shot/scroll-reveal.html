@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Shot fixture: sections and scroll-driven states</title>
+  <style>
+    /* Solid colors so tests can sample pixels: hero red, reveal amber, pin green. */
+    html { scroll-behavior: smooth; }
+    body { margin: 0; font: 16px sans-serif; }
+    #hero { height: 600px; background: rgb(255, 0, 0); }
+    .spacer { height: 1200px; background: rgb(230, 230, 230); }
+    #reveal { height: 300px; background: rgb(255, 200, 0); opacity: 0; transition: opacity 0.6s linear; }
+    #reveal.is-visible { opacity: 1; }
+    #stage { height: 2000px; background: rgb(0, 0, 255); }
+    #stage .pin { position: sticky; top: 0; height: 400px; background: rgb(0, 128, 0); }
+    .tail { height: 1500px; background: rgb(200, 200, 255); }
+    #hidden { display: none; }
+  </style>
+</head>
+<body>
+  <section id="hero"></section>
+  <div class="spacer"></div>
+  <section id="reveal"></section>
+  <section id="stage"><div class="pin"></div></section>
+  <div class="tail"></div>
+  <div id="hidden"></div>
+  <script>
+    // Reveal on scroll: the class flips once the page is scrolled 800px down,
+    // and a CSS transition fades the section in.
+    addEventListener('scroll', () => {
+      if (scrollY >= 800) document.getElementById('reveal').classList.add('is-visible')
+    })
+  </script>
+</body>
+</html>

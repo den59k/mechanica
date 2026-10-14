@@ -344,11 +344,16 @@ By default all blocks share one `blocks` chunk, cached across pages. Mark heavy,
 ```bash
 npx mechanica shot hero                     # screenshot one block, from its previewData
 npx mechanica shot /about --width 1440,390  # a whole page, at two widths
+npx mechanica shot design/landing/index.html --width 1440,390   # a design handoff, the same way
+npx mechanica shot /about --section "#pricing" --section "footer" # one PNG per section
+npx mechanica shot /about --scroll 800,1600 # the viewport after scrolling (sticky, scroll-driven states)
 npx mechanica thumbs                        # page thumbnails for the editor's page browser
 npx mechanica thumbs --blocks               # block thumbnails for the palette
 ```
 
 These drive a locally installed Chrome or Edge (or `--browser <path>`) and need Node.js 22+ or Bun. They reuse a dev server running on port 5173 and start one if there isn't. Screenshots go to `.mech/shots/`, which is handy for reviewing a block or letting an AI assistant check its own work.
+
+`shot` also takes any `http(s)://` URL, a `file://` URL or a path to a local `.html` file, and renders it with the same browser, widths, waits and animation freeze as your own pages, without a dev server. That lets you compare a design handoff with the page you built from it, section by section: run both with the same `--width` and `--section` flags. `--scroll <px>` scrolls first and captures what is on screen, so sticky stages and scroll-revealed content show their later states. `--no-freeze` leaves animations and transitions running. For your own scripts (for example, measuring computed styles in the design and on the site), `mechanica/browser` exposes the same headless browser (see [API](#api)).
 
 ## CLI
 
@@ -356,7 +361,7 @@ These drive a locally installed Chrome or Edge (or `--browser <path>`) and need 
 | --- | --- |
 | `mechanica export` | Build, then render every page to static HTML in `export/`. Flags: `--site-url`, `--site-name`, `--assets-url` (serve `/assets` and `/media` from a CDN) |
 | `mechanica build` | Build the client and server bundles into `dist/` (`export` runs this for you) |
-| `mechanica shot <blockId \| /path>` | Screenshot a block or a page. Flags: `--width`, `--data`, `--out`, `--full`, `--server`, `--browser` |
+| `mechanica shot <blockId \| /path \| url \| file.html>` | Screenshot a block, a page, any URL or a local HTML file (a design handoff; no dev server needed). Flags: `--width`, `--section <css>` (repeatable, one PNG each), `--scroll <px[,px…]>` (the viewport after scrolling), `--no-freeze`, `--full`, `--data` (blocks), `--out`, `--server`, `--browser` |
 | `mechanica thumbs [--blocks]` | Regenerate page or block thumbnails for the editor |
 | `mechanica images` | Generate image dimensions and blur-up previews for `.mech/assets` (needs `sharp`; `--force` redoes all) |
 | `mechanica login` | Sign in to the Mechanica platform: it prints a link to open and approve in the browser (signing in or registering on the way) and keeps the access token for this machine. In a terminal it waits for the approval; run from a coding agent, it prints the link and returns, and the next `link` or `push` finishes the sign-in (`--wait`, `--no-wait`, `--host`, or `--token` to store a token made in the dashboard) |
@@ -393,6 +398,21 @@ From `mechanica`:
 - **Helpers:** `imagePosition`
 
 From `mechanica/plugin`: `mechanica` and the `PageProvider` type. From `mechanica/widgets`: `defineWidget` and `useWidgetServices` (uploads and the image picker inside widget editors). `mechanica/editor` and `mechanica/composer` are loaded by the plugin in development; you don't import them. From `mechanica/export`: `exportBuilt(projectDir, options)`, which statically renders an already built project (`dist/` + `.mech/`) without running a build and resolves to `{ pages, warnings }` — for render services that receive a prebuilt bundle; `options.outDir` sets where the site is written, and `options.fetchJson` replaces how `useFetch` requests are made.
+
+From `mechanica/browser`: the headless browser behind `mechanica shot`, for your own Node 22+ or Bun scripts. It needs no dev server and no Vite. `openPage(url, { width, height, browser })` launches a local Chrome or Edge and resolves to a page with `evaluate(expression)`, `setViewport(width, height)`, `scrollTo(y)`, `settle()` (fonts and images), `freezeAnimations()`, `sectionClip(selector)`, `screenshot({ clip, section, full, scale })` (a PNG `Buffer`; with no options, what is in the viewport), `goto(url)`, `messages` (console errors and page errors) and `close()`. `findDevServer()` returns the origin of a running dev server, or `null`.
+
+```js
+import { openPage } from 'mechanica/browser'
+
+const page = await openPage(new URL('design/landing/index.html', import.meta.url).href, { width: 390 })
+try {
+  const size = await page.evaluate(`getComputedStyle(document.querySelector('#hero h1')).fontSize`)
+  await page.scrollTo(1200)
+  const png = await page.screenshot({ section: '#hero' })
+} finally {
+  await page.close()
+}
+```
 
 ## Upgrading from 2.0
 

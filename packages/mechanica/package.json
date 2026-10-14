@@ -45,6 +45,10 @@
       "types": "./dist/types/server/index.d.ts",
       "import": "./dist/server.js"
     },
+    "./browser": {
+      "types": "./dist/types/cli/browser.d.ts",
+      "import": "./dist/browser.js"
+    },
     "./editor": {
       "import": "./dist/editor.js"
     },
