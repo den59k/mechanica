@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Shot fixture: sections inside shadow roots and Mechanica blocks</title>
+  <style>
+    /* Solid colors so tests can sample pixels: top red, abc blue, deep amber, block green. */
+    body { margin: 0; font: 16px sans-serif; }
+    #top { height: 300px; background: rgb(255, 0, 0); }
+    code-island, inner-island { display: block; }
+    .slotted { margin: 0; height: 50px; background: rgb(255, 255, 255); }
+    [data-block-id="credibility"] { height: 250px; background: rgb(0, 128, 0); }
+    .tail { height: 600px; }
+  </style>
+</head>
+<body>
+  <!--
+    Layout (CSS px), like a design handoff rendered by code islands:
+      #top                    0–300   red, light DOM
+      #island >>> section.abc 300–700 blue, in an open shadow root; the light
+                                      p.slotted (300–350) is slotted into it
+      inner-island >>> .deep  700–900 amber, in a shadow root nested in #island's
+      [data-block-id=credibility] 900–1150 green, a Mechanica block (no id)
+  -->
+  <section id="top"></section>
+  <code-island id="island"><p slot="note" class="slotted">slotted</p></code-island>
+  <div data-block-id="credibility"></div>
+  <div class="tail"></div>
+  <script>
+    customElements.define('code-island', class extends HTMLElement {
+      constructor() {
+        super()
+        this.attachShadow({ mode: 'open' }).innerHTML = `
+          <style>
+            section.abc { height: 400px; background: rgb(0, 0, 255); }
+          </style>
+          <section class="abc" id="inner-cred"><slot name="note"></slot></section>
+          <inner-island></inner-island>`
+      }
+    })
+    customElements.define('inner-island', class extends HTMLElement {
+      constructor() {
+        super()
+        this.attachShadow({ mode: 'open' }).innerHTML = `
+          <style>
+            :host { display: block; }
+            .deep { height: 200px; background: rgb(255, 200, 0); }
+          </style>
+          <section class="deep"><div data-block-id="shadow-block"></div></section>`
+      }
+    })
+  </script>
+</body>
+</html>

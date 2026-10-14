@@ -4,6 +4,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { openPage, NavigationError, type BrowserPage } from './browser'
 import { resolveServer, type ResolvedServer } from './dev-server'
+import { splitShadowSelector } from './section-query'
 
 export interface ShotOptions {
   /** Shoot a whole page by URL path instead of a block (`--page /docs`). */
@@ -20,7 +21,12 @@ export interface ShotOptions {
   browser?: string
   /** Screenshot the full page instead of clipping to the block element (or to the viewport with `scroll`). */
   full?: boolean
-  /** CSS selectors (`--section`, repeatable): one PNG each, clipped to the first match. Page/URL/file shots only. */
+  /**
+   * CSS selectors (`--section`, repeatable): one PNG each, clipped to the first
+   * match — in the document or an open shadow root (`host >>> inner` crosses
+   * one explicitly); a bare `#name` that matches nothing finds
+   * `[data-block-id="name"]`. Page/URL/file shots only.
+   */
   section?: string[]
   /** Scroll offset(s) in px, comma-separated: capture the viewport scrolled there. */
   scroll?: string
@@ -60,7 +66,9 @@ export interface ShotPlan {
 const USAGE =
   'Usage: mechanica shot <blockId | /page/path | URL | file.html> [--page </path>] [--data <json|@file>] ' +
   '[--width 1440,768] [--section <css>]… [--scroll <px[,px…]>] [--no-freeze] [--full] [--out <path>] ' +
-  '[--server <url>] [--browser <path>]'
+  '[--server <url>] [--browser <path>]\n' +
+  '--section also looks inside open shadow roots ("host >>> inner" crosses one explicitly); ' +
+  'a bare #name (or name) that matches nothing finds the Mechanica block [data-block-id="name"].'
 
 /** Readiness flag of the standalone block preview route. */
 export const PREVIEW_READY = 'window.__MECHANICA_PREVIEW_READY__ === true'
@@ -268,6 +276,13 @@ export function planShot(target: string | undefined, options: ShotOptions = {}, 
   }
   if (selectors.some((selector) => !selector.trim())) {
     throw new Error('--section needs a CSS selector, e.g. --section "#hero"')
+  }
+  for (const selector of selectors) {
+    try {
+      splitShadowSelector(selector)
+    } catch (error) {
+      throw new Error(`--section "${selector}": ${error instanceof Error ? error.message : error}`)
+    }
   }
   const slugs = sectionSlugs(selectors)
   const scrolls = parseScrolls(options.scroll)

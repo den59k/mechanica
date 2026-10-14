@@ -23,6 +23,7 @@ import {
   type Clip,
   type LaunchedBrowser,
 } from './headless'
+import { FIND_SECTION_SOURCE, blockIdFallback, splitShadowSelector } from './section-query'
 
 export { findDevServer, MAX_SHOT_HEIGHT, type Clip } from './headless'
 
@@ -47,7 +48,10 @@ export interface OpenPageOptions extends GotoOptions {
   width?: number
   /** Viewport height in CSS px. Default 900. */
   height?: number
-  /** A Chromium-based executable. Default: Edge or Chrome from their usual install paths. */
+  /**
+   * A Chromium-based executable. Default: the first installed browser that
+   * starts, from the usual install paths (on Windows Chrome, then Edge).
+   */
   browser?: string
   /**
    * Emulate `prefers-reduced-motion: reduce`, as `mechanica shot` does: pages
@@ -59,7 +63,7 @@ export interface OpenPageOptions extends GotoOptions {
 export interface ScreenshotOptions {
   /** An explicit region in document coordinates. Wins over everything else. */
   clip?: Clip
-  /** A CSS selector: the bounding box of the first matching element. */
+  /** A CSS selector: the bounding box of the first matching element (see {@link BrowserPage.sectionClip}). */
   section?: string
   /** The whole document (height capped at {@link MAX_SHOT_HEIGHT}). */
   full?: boolean
@@ -100,7 +104,13 @@ export interface BrowserPage {
   freezeAnimations(): Promise<void>
   /** Undo {@link freezeAnimations}. */
   unfreezeAnimations(): Promise<void>
-  /** The document-coordinate box of the first element matching `selector`. Throws when none matches or the box is empty. */
+  /**
+   * The document-coordinate box of the first element matching `selector`.
+   * Looks in the document, then in every open shadow root (`host >>> inner`
+   * crosses into `host`'s shadow root explicitly). A bare `#name` or `name`
+   * that matches nothing falls back to `[data-block-id="name"]`, a Mechanica
+   * block. Throws when nothing matches or the box is empty.
+   */
   sectionClip(selector: string): Promise<Clip>
   /**
    * A PNG of the page: `clip`, else `section`, else `full`, else what is in
@@ -145,7 +155,15 @@ export async function openPage(url?: string, options: OpenPageOptions = {}): Pro
 type SectionBox =
   | Clip
   | { error: 'invalid'; message: string }
-  | { error: 'missing'; ids: string[] }
+  | {
+      error: 'missing'
+      /** Readable ids on the page (`#name`), shadow roots included. */
+      ids: string[]
+      /** `data-block-id` values on the page. */
+      blockIds?: string[]
+      /** The block-id selector that was tried as well. */
+      fallback?: string | null
+    }
   | { error: 'empty'; width: number; height: number }
 
 /** The message for a `sectionClip` that found nothing usable. */
@@ -154,7 +172,12 @@ export function describeSectionError(selector: string, box: Exclude<SectionBox, 
     case 'invalid':
       return `"${selector}" is not a valid CSS selector (${box.message})`
     case 'missing':
-      return `No element matches "${selector}"` + (box.ids.length ? `. Ids on the page: ${box.ids.join(', ')}` : '')
+      return (
+        `No element matches "${selector}"` +
+        (box.fallback ? ` (nor ${box.fallback})` : '') +
+        (box.ids.length ? `. Ids on the page: ${box.ids.join(', ')}` : '') +
+        (box.blockIds?.length ? `. Block ids (data-block-id): ${box.blockIds.join(', ')}` : '')
+      )
     case 'empty':
       return (
         `"${selector}" matched an element with an empty box ` +
@@ -262,25 +285,20 @@ class HeadlessPage implements BrowserPage {
   }
 
   async sectionClip(selector: string): Promise<Clip> {
-    const box = await this.evaluate<SectionBox>(`((selector) => {
-      let element
-      try {
-        element = document.querySelector(selector)
-      } catch (error) {
-        return { error: 'invalid', message: String((error && error.message) || error) }
-      }
-      if (!element) {
-        // A hint for the next try: readable ids of page elements (not SVG internals or generated ids).
-        const ids = [...document.querySelectorAll('body [id]')]
-          .filter((el) => !el.closest('svg'))
-          .map((el) => el.id)
-          .filter((id) => /^[A-Za-z][\\w-]{0,39}$/.test(id) && !/^w-node-|[0-9a-f]{8}/i.test(id))
-        return { error: 'missing', ids: [...new Set(ids)].slice(0, 20).map((id) => '#' + id) }
-      }
-      const rect = element.getBoundingClientRect()
+    let parts: string[]
+    try {
+      parts = splitShadowSelector(selector)
+    } catch (error) {
+      throw new Error(describeSectionError(selector, { error: 'invalid', message: (error as Error).message }))
+    }
+    const fallback = parts.length === 1 ? blockIdFallback(selector) : null
+    const box = await this.evaluate<SectionBox>(`((find, parts, fallback) => {
+      const found = find(parts, fallback)
+      if (!found.element) return found
+      const rect = found.element.getBoundingClientRect()
       if (rect.width < 1 || rect.height < 1) return { error: 'empty', width: rect.width, height: rect.height }
       return { x: rect.x + scrollX, y: rect.y + scrollY, width: rect.width, height: rect.height }
-    })(${JSON.stringify(selector)})`)
+    })(${FIND_SECTION_SOURCE}, ${JSON.stringify(parts)}, ${JSON.stringify(fallback)})`)
     if ('error' in box) throw new Error(describeSectionError(selector, box))
     return box
   }

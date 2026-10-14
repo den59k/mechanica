@@ -223,6 +223,11 @@ describe('classifyTarget', () => {
     expect(() => classifyTarget(undefined)).toThrow(/Usage: mechanica shot/)
     expect(() => classifyTarget('  ')).toThrow(/Usage: mechanica shot/)
   })
+
+  it('explains shadow roots and the block-id fallback in the usage text', () => {
+    expect(() => classifyTarget(undefined)).toThrow(/open shadow roots \("host >>> inner"/)
+    expect(() => classifyTarget(undefined)).toThrow(/a bare #name \(or name\) that matches nothing finds the Mechanica block \[data-block-id="name"\]/)
+  })
 })
 
 describe('foreignShotName', () => {
@@ -301,6 +306,14 @@ describe('planShot', () => {
       { selector: '#hero', slug: 'hero' },
       { selector: '.stage > .pin', slug: 'stage-pin' },
     ])
+  })
+
+  it('accepts >>> in --section and rejects an empty side before any browser starts', () => {
+    const plan = planShot(design, { section: ['code-island >>> section.abc'] }, cwd)
+    expect(plan.sections).toEqual([{ selector: 'code-island >>> section.abc', slug: 'code-island-section-abc' }])
+    expect(() => planShot(design, { section: ['>>> .abc'] }, cwd)).toThrow(
+      '--section ">>> .abc": empty selector around ">>>"',
+    )
   })
 
   it('makes --scroll capture the viewport (or the full page with --full)', () => {

@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.1 (unreleased)
+
+### `mechanica shot`: sections in shadow DOM and blocks by id, a sturdier browser launch
+
+- **`--section` finds elements inside open shadow roots.** Design handoffs render their sections inside custom elements (`<code-island>`), where `--section "section.pricing"` used to report "no match". When nothing in the document matches, the selector is now tried in every open shadow root, depth first in page order, matching within that root. Slotted content is found in the page around its host. `host >>> inner` crosses into the shadow root of `host` explicitly (`--section "code-island >>> section.pricing"`). The same goes for `sectionClip` and `screenshot({ section })` in `mechanica/browser`.
+- **`--section "#hero"` finds the block `hero`.** Mechanica renders a block with `data-block-id="<node id>"` and no `id`, so `shot /page --section "#hero"` used to fail. A bare `#name` (or `name`) that matches nothing now falls back to `[data-block-id="name"]`, in shadow roots too, and also when the name is not a valid CSS id (`#1st`). A real `id` or tag of that name still wins.
+- "No match" now lists the block ids on the page next to the readable ids, both including those inside shadow roots, and says which block-id selector was tried as well.
+- **Windows: `shot` no longer fails with "browser exited early" or leaves a headless Edge running.** Started from Git Bash (or a tool that sets `__COMPAT_LAYER=RunAsInvoker`), Edge relaunched itself and exited at once while the relaunched instance kept running, once per shot. The browser now starts without that variable, and Chrome is tried before Edge (Edge ships with Windows and stays the fallback). macOS and Linux keep their order.
+- **A browser that fails to start no longer ends the shot.** When it exits before its DevTools endpoint is up, never prints it or refuses the connection, every process it started is ended (on Windows `taskkill /T`, plus any process still running on its temporary profile, which catches a relaunched instance), the profile is removed, and the next installed browser is tried. If none starts, the error names each one and why it failed (`browser exited early (code 0)`, with the last line the browser printed). `--browser <path>` still tries only that executable.
+
 ## 2.2.0 (unreleased)
 
 ### `mechanica shot`: designs, sections and scroll states

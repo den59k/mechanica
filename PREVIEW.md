@@ -119,12 +119,12 @@ mechanica shot design/landing/index.html --scroll 1200,2400
 | `--page </path>` | Explicit page mode (same as a `/…` target) |
 | `--data <json\|@file>` | Prop overrides (block shots only; tolerates a UTF-8 BOM in files) |
 | `--width <n[,n…]>` | Viewport width(s); default `1440` (height 900). Multiple widths suffix `-w<n>` |
-| `--section <css>` | Clip to the first element matching the selector. Repeat for one PNG per section. Not for block shots |
+| `--section <css>` | Clip to the first element matching the selector, in the document or an open shadow root (`#name` also finds the block `[data-block-id="name"]`). Repeat for one PNG per section. Not for block shots |
 | `--scroll <px[,px…]>` | Scroll the window there first, then capture the **viewport** (not the whole document). Several offsets give one PNG each |
 | `--no-freeze` | Leave CSS animations and transitions running |
 | `--out <path>` | Output PNG or directory; default `.mech/shots/` (gitignored) |
 | `--server <url>` | Dev server origin; default: probe `localhost:5173`, else boot an ephemeral server |
-| `--browser <path>` | Explicit Chromium-based executable |
+| `--browser <path>` | Explicit Chromium-based executable (no fallback to another browser) |
 | `--full` | The whole document, instead of the block element (block shots) or the viewport (`--scroll`) |
 
 ### Targets
@@ -161,11 +161,24 @@ can't hang the shot.
 
 `--section <css>` clips each capture to the bounding box of the first element
 that matches. It works for pages, URLs and files. Quote the selector:
-PowerShell starts a comment at an unquoted `#`. A selector that matches
-nothing, or matches an element with an empty box (hidden at that width),
-reports the problem. With "no match", it also lists the readable ids on the
-page. The other sections and widths are still written, and the command exits
-non-zero. Sections taller than 12 000 px are capped like full pages.
+PowerShell starts a comment at an unquoted `#`.
+
+- **Shadow DOM.** When nothing in the document matches, the selector is tried
+  in every open shadow root, depth first in page order, and matches within
+  that root (design handoffs render their sections inside custom elements such
+  as `<code-island>`). Slotted content belongs to the page around its host and
+  is found there. `host >>> inner` crosses into the shadow root of `host`
+  explicitly: `--section "code-island >>> section.pricing"`.
+- **Blocks.** Mechanica renders a block with `data-block-id="<node id>"` and no
+  `id`, so a bare `#name` (or `name`) that matches nothing falls back to
+  `[data-block-id="name"]`: `mechanica shot /landing --section "#hero"` clips
+  the `hero` block. A real `id` or tag of that name wins.
+
+A selector that matches nothing, or matches an element with an empty box
+(hidden at that width), reports the problem. With "no match", it also lists
+the readable ids and the block ids on the page, shadow roots included. The
+other sections and widths are still written, and the command exits non-zero.
+Sections taller than 12 000 px are capped like full pages.
 
 ### Scroll-driven states
 
@@ -268,6 +281,14 @@ mechanica thumbs --blocks pricing   # only ids matching / starting with "pricing
 own scripts). Playwright/Puppeteer are deliberately
 not used: their launch handshake relies on Node-only fd pipes that hang under
 Bun, and a screenshot needs only a handful of CDP calls. The command finds a
-Chromium-based browser already on the machine — Edge (ships with Windows),
-Chrome, or Chromium — spawns it headless with `--remote-debugging-port`, and
-connects to the endpoint it prints. **Zero dependencies, nothing to download.**
+Chromium-based browser already on the machine — on Windows Chrome, then Edge
+(it ships with Windows); on macOS Chrome, Edge, Chromium; on Linux Chrome,
+Chromium, Edge — spawns it headless with `--remote-debugging-port`, and
+connects to the endpoint it prints. A browser that exits before printing it,
+or never prints it, is shut down with every process it started (on Windows
+including an instance it relaunched), its temporary profile is removed, and
+the next installed browser is tried; the error names each one and why it
+failed. `--browser <path>` tries only that executable. On Windows the browser
+starts without `__COMPAT_LAYER` (Git Bash and some tool runners set it), which
+otherwise makes Edge relaunch itself and exit at once. **Zero dependencies,
+nothing to download.**

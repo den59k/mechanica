@@ -43,7 +43,9 @@ Usage:
                             Screenshot any URL or local HTML file (a design
                             handoff) the same way, without a dev server
                             (--page </path>, --data <json|@file>, --width 1440,768,
-                             --section <css> (repeatable: one PNG per section),
+                             --section <css> (repeatable: one PNG per section;
+                             looks inside open shadow roots, "host >>> inner"
+                             crosses one; #name also finds [data-block-id=name]),
                              --scroll <px[,px…]> (viewport after scrolling),
                              --no-freeze, --full, --out <path>, --server <url>,
                              --browser <path>)
