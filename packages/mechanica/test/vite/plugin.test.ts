@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { mergeConfig } from 'vite'
 import { tmpdir } from 'node:os'
 import { unfoldSchema } from 'compact-json-schema'
 import { passDefaultValue } from 'mechanica-shared'
@@ -108,6 +109,34 @@ const props = defineBlock({ chunk: 'charts', props: { title: 'string' } })
       callHook(mechanica().config, {}, { command: 'build', isSsrBuild: false })?.build?.rollupOptions
         ?.output?.codeSplitting?.groups,
     ).toHaveLength(1)
+  })
+
+  it("keeps a site's own codeSplitting groups, ahead of the blocks group", () => {
+    // Vite merges a `config` hook result into the user config array-wise, so a
+    // site may add its own groups next to the plugin's. Theirs come first, and
+    // rolldown prefers the earlier group at equal priority — a documented
+    // guarantee, not an accident.
+    const own = { name: 'visuals', test: /visuals/ }
+    const user = { build: { rollupOptions: { output: { codeSplitting: { groups: [own] } } } } }
+    const merged = mergeConfig(user, callHook(mechanica().config, user, { command: 'build', isSsrBuild: false }))
+    const groups = merged.build.rollupOptions.output.codeSplitting.groups
+    expect(groups).toHaveLength(2)
+    expect(groups[0]).toBe(own)
+    expect(typeof groups[1].name).toBe('function')
+    // The plugin's per-module membership applies to every group.
+    expect(merged.build.rollupOptions.output.codeSplitting.includeDependenciesRecursively).toBe(false)
+  })
+
+  it('exposes hydration mismatches in the production bundle on MECHANICA_HYDRATION_DEBUG', () => {
+    expect(callHook(mechanica().config, {}, { command: 'build', isSsrBuild: false }).define).toBeUndefined()
+    process.env.MECHANICA_HYDRATION_DEBUG = '1'
+    try {
+      expect(callHook(mechanica().config, {}, { command: 'build', isSsrBuild: false }).define).toEqual({
+        __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'true',
+      })
+    } finally {
+      delete process.env.MECHANICA_HYDRATION_DEBUG
+    }
   })
 
   it('labels the group with debugName only for a rolldown that accepts it', () => {
@@ -233,6 +262,30 @@ describe('dev HTML injection', () => {
     expect(html).toContain('window.state=')
     expect(html).toContain('virtual:mechanica/client')
     expect(html).not.toContain('mechanica/editor')
+  })
+
+  it('hydrates the prerendered page in the client build, mounts fresh in dev and the editor build', async () => {
+    const entry = async (plugin: ReturnType<typeof mechanica>) =>
+      (await callHook(plugin.load, '\0virtual:mechanica/client')) as string
+
+    const client = mechanica()
+    callHook(client.configResolved, { root, command: 'build', build: {} })
+    expect(await entry(client)).toContain('{ ssr: true, mode: "client"')
+
+    const dev = mechanica()
+    callHook(dev.configResolved, { root, command: 'serve' })
+    expect(await entry(dev)).toContain('{ mode: "dev"')
+    expect(await entry(dev)).not.toContain('ssr:')
+
+    process.env.MECHANICA_EDITOR_BUILD = '1'
+    try {
+      const editor = mechanica()
+      callHook(editor.configResolved, { root, command: 'build', build: {} })
+      expect(await entry(editor)).toContain('{ mode: "dev"')
+      expect(await entry(editor)).not.toContain('ssr:')
+    } finally {
+      delete process.env.MECHANICA_EDITOR_BUILD
+    }
   })
 
   it('injects only the client entry on build (no state, no editor)', async () => {

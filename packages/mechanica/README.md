@@ -156,6 +156,8 @@ Other `defineBlock` options: `icon`, `description` and `order` for the palette; 
 
 Give every block meaningful `previewData`: it drives the palette's hover preview, the standalone preview route and `mechanica shot`. A `$slots` key fills slots with child blocks, e.g. `$slots: { default: [{ blockId: 'card', data: { title: 'One' } }] }`.
 
+The exported site is prerendered, and the browser **hydrates** that HTML rather than rendering it again, so a block must render the same on the server and in the browser: read `window`, `document` or `matchMedia` only in `onMounted` (or behind a client-only flag set there), never in `setup` or the template. The dev server mounts into an empty page and never hydrates, so a mismatch shows only in the built site. To check, build with `MECHANICA_HYDRATION_DEBUG=1 mechanica build` and watch the browser console on the exported pages: each mismatch is logged with the element involved.
+
 ## Pages
 
 Each page is a `.page.md` file under `.mech/pages/`, and its path is the URL: `about.page.md` → `/about`, `blog/index.page.md` → `/blog`, `index.page.md` → `/`.
@@ -254,7 +256,7 @@ Editors can set a focal point and crop from the image field's **Position / Crop*
 
 ## Links and navigation
 
-`<Link :to="…">` takes a path string or a `smartLink` value. Internal links navigate client-side without a full reload, get an `is-active` class on the current page, and add the language prefix on multi-language sites. `useRouter().push(path)` navigates from code, and `useRoute().path` is the current path.
+`<Link :to="…">` takes a path string or a `smartLink` value. Internal links navigate client-side without a full reload, get an `is-active` class on the current page, and add the language prefix on multi-language sites. `useRouter().push(path)` navigates from code, and `useRoute().path` is the current path. A target the client-side navigation cannot take over (an error response, or a page without Mechanica state) is opened as a normal full-page navigation instead.
 
 ## Listing pages and pagination
 
@@ -338,6 +340,8 @@ Every export also warns about missing titles and descriptions, pages without exa
 ## Code splitting
 
 By default all blocks share one `blocks` chunk, cached across pages. Mark heavy, rarely used blocks with `chunk: 'charts'` in `defineBlock` to split them into their own chunk, or set the plugin's `blockChunks: 'per-block'`. The export adds per-page `<link rel="modulepreload">` and stylesheet tags, so each page loads exactly the block code it uses.
+
+Code outside blocks follows Vite's defaults. To group it yourself, add your own groups under `build.rollupOptions.output.codeSplitting.groups` in `vite.config.ts`: they are kept next to Mechanica's blocks group and listed before it, so at equal `priority` yours win. The plugin sets `includeDependenciesRecursively: false`, so a group holds exactly the modules its `test` matches.
 
 ## Checking your work visually
 

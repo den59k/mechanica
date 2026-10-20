@@ -88,15 +88,19 @@ export const Image = defineComponent({
       // A crop bakes a downscaled derivative — render it (and its own intrinsic
       // size) in place of the original; fall back to the original otherwise.
       const cropped = !!image.croppedSrc
+      // Key order matters: Vue sets attributes in this order on an element the
+      // client creates, and Chrome decides whether to defer the fetch when
+      // `src` is set, so a `loading="lazy"` applied after it is ignored. Server
+      // HTML is parsed whole, so only client-created elements are affected.
       return h('img', {
         ref: el,
+        loading: props.eager ? 'eager' : 'lazy',
+        fetchpriority: props.eager ? 'high' : undefined,
+        decoding: 'async',
         src: cropped ? image.croppedSrc : image.src,
         alt: image.alt ?? '',
         width: (cropped ? image.croppedWidth : image.width) ?? undefined,
         height: (cropped ? image.croppedHeight : image.height) ?? undefined,
-        loading: props.eager ? 'eager' : 'lazy',
-        fetchpriority: props.eager ? 'high' : undefined,
-        decoding: 'async',
         style: lqipStyle.value,
         onLoad: () => {
           loaded.value = true

@@ -12,6 +12,15 @@ export interface ClientEntryOptions {
    * components while unused blocks stay in their own chunks, never downloaded.
    */
   lazy?: boolean
+  /**
+   * Hydrate the server-rendered HTML (`createSSRApp`) instead of mounting
+   * into an empty container. The production client build: the export
+   * prerenders every page, and re-rendering would throw that DOM away and
+   * refetch every image at once (elements the client creates start their
+   * fetch before `loading="lazy"` applies). Dev and the editor build mount
+   * into an empty `#app`, so they keep `createApp`.
+   */
+  hydrate?: boolean
 }
 
 /**
@@ -20,6 +29,7 @@ export interface ClientEntryOptions {
  * `createApp().mount()` with an explicit, generated entry.
  */
 export function generateClientEntry(options: ClientEntryOptions): string {
+  const hydrate = options.hydrate ? 'ssr: true, ' : ''
   if (options.lazy) {
     return [
       `import 'virtual:mechanica/elements.css'`,
@@ -35,7 +45,7 @@ export function generateClientEntry(options: ClientEntryOptions): string {
       `const composedMap = new Map(composedList.map((def) => [def.id, def]))`,
       `loadBlocks(blockLoaders, state.content ?? [], undefined, composedMap).then((blocks) => {`,
       `  registerComponents(blocks)`,
-      `  createMechanicaApp(definition, { mode: ${JSON.stringify(options.mode)}, state, blocks, blockLoaders, composed: composedList })`,
+      `  createMechanicaApp(definition, { ${hydrate}mode: ${JSON.stringify(options.mode)}, state, blocks, blockLoaders, composed: composedList })`,
       `    .mount(${JSON.stringify(options.mount)})`,
       `})`,
       ``,
@@ -68,7 +78,7 @@ export function generateClientEntry(options: ClientEntryOptions): string {
     `const state = window.state ?? { content: [], data: {} }`,
     `registerComponents(blocksMap)`,
     ...resolveQuery,
-    `createMechanicaApp(definition, { mode: ${JSON.stringify(options.mode)}, state, blocks: blocksMap, composed: composedList${options.mode === 'dev' ? ', resolveQuery' : ''} })`,
+    `createMechanicaApp(definition, { ${hydrate}mode: ${JSON.stringify(options.mode)}, state, blocks: blocksMap, composed: composedList${options.mode === 'dev' ? ', resolveQuery' : ''} })`,
     `  .mount(${JSON.stringify(options.mount)})`,
     ``,
   ].join('\n')

@@ -74,7 +74,7 @@ describe('SPA navigation across paginated variants', () => {
 
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => ({ text: async () => pageHtml(variantState(2)) })),
+      vi.fn(async () => ({ ok: true, text: async () => pageHtml(variantState(2)) })),
     )
     await ctx.router.push('/blog/2')
     await nextTick()
@@ -91,6 +91,7 @@ describe('SPA navigation across paginated variants', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
+        ok: true,
         text: async () => pageHtml({ content: [], data: {}, page: { path: '/about' } }),
       })),
     )

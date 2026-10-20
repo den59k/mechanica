@@ -12,6 +12,7 @@ import { loadBlocks, type BlockLoaders } from './load-blocks'
 import { registerElements } from '../elements'
 import { createComposedComponent } from './composed'
 import { exposeRuntime, mergeData } from '../editor/lib/bridge'
+import { servedPagePath } from './page-path'
 
 export interface CreateMechanicaOptions {
   /** Initial runtime state. Defaults to `window.state` (client hydration). */
@@ -83,6 +84,7 @@ export function createMechanica(options: CreateMechanicaOptions = {}): Plugin {
         router: createRouter(content, data, {
           mode,
           baseUrl: initial?.baseUrl,
+          initialPath: servedPagePath(initial?.page, initial?.locales),
           ensureBlocks: loaders
             ? async (next) => {
                 await loadBlocks(loaders, next, blocks, composedMap)
@@ -119,7 +121,9 @@ export function createMechanica(options: CreateMechanicaOptions = {}): Plugin {
           setPage: (next) => {
             applyPage(next)
             // Keep <Link> active classes in step with in-place page switches.
-            if (next.path) context.router.currentRoute.path = context.router.normalizePath(next.path)
+            if (next.path) {
+              context.router.currentRoute.path = context.router.normalizePath(servedPagePath(next, initial?.locales))
+            }
           },
         })
       }

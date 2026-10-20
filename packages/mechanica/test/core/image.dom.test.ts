@@ -24,6 +24,16 @@ describe('<Image>', () => {
     app.unmount()
   })
 
+  it('sets loading before src, so a client-created image really is lazy', () => {
+    // Chrome decides whether to defer the fetch when `src` is set; a
+    // `loading="lazy"` applied afterwards is ignored (SPA navigation, v-if).
+    const { img, app } = mount({ image: { src: '/media/a.jpg' } })
+    const names = Array.from(img!.attributes).map((attr) => attr.name)
+    expect(names.indexOf('loading')).toBeLessThan(names.indexOf('src'))
+    expect(names.indexOf('decoding')).toBeLessThan(names.indexOf('src'))
+    app.unmount()
+  })
+
   it('eager mode fetches immediately at high priority (hero/LCP images)', () => {
     const { img, app } = mount({ image: { src: '/hero.jpg' }, eager: true })
     expect(img!.getAttribute('loading')).toBe('eager')

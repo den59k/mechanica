@@ -44,7 +44,7 @@ const stubScroll = () => {
 const stubPageFetch = (content: ContentBlock[] = []) => {
   const state = JSON.stringify({ content, data: {} })
   const html = `<html><head><title>Next</title></head><body><script>window.state=${state}</script></body></html>`
-  const fetchMock = vi.fn(async () => ({ text: async () => html }))
+  const fetchMock = vi.fn(async () => ({ ok: true, text: async () => html }))
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock
 }
@@ -134,5 +134,67 @@ describe('scroll on navigation', () => {
     await makeRouter().push('/next#missing')
 
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'instant' })
+  })
+})
+
+describe('the server-side route', () => {
+  it('starts at the served path the runtime passes (there is no address bar)', () => {
+    const router = createRouter(shallowRef<ContentBlock[]>([]), {}, { mode: 'server', initialPath: '/ru/about' })
+    expect(router.currentRoute.path).toBe('/ru/about')
+  })
+
+  it('normalizes it like the client does, base URL included', () => {
+    const router = createRouter(shallowRef<ContentBlock[]>([]), {}, { mode: 'server', baseUrl: '/site', initialPath: '/about/' })
+    expect(router.currentRoute.path).toBe('/site/about')
+    expect(createRouter(shallowRef<ContentBlock[]>([]), {}, { mode: 'server' }).currentRoute.path).toBe('/')
+  })
+})
+
+describe('a page the SPA cannot take over', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  /** jsdom's `location` is unforgeable — swap the whole object for a stub. */
+  const stubLocation = () => {
+    const assign = vi.fn()
+    const original = window.location
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...original, pathname: '/', hash: '', assign },
+    })
+    return { assign, restore: () => Object.defineProperty(window, 'location', { configurable: true, value: original }) }
+  }
+
+  it('hands an error response to the browser instead of caching an empty page', async () => {
+    stubScroll()
+    const { assign, restore } = stubLocation()
+    try {
+      vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 429, text: async () => 'Too Many Requests' })))
+      const content = shallowRef<ContentBlock[]>([{ id: '1', blockId: 'hero', data: {} }])
+      const router = createRouter(content, {}, { mode: 'client' })
+
+      await router.push('/next')
+      expect(assign).toHaveBeenCalledWith('/next')
+      // Nothing swapped, nothing remembered: the next attempt fetches again.
+      expect(content.value).toHaveLength(1)
+      expect(router.currentRoute.path).toBe('/')
+      await router.push('/next')
+      expect(fetch).toHaveBeenCalledTimes(2)
+    } finally {
+      restore()
+    }
+  })
+
+  it('does the same for a document without Mechanica state', async () => {
+    stubScroll()
+    const { assign, restore } = stubLocation()
+    try {
+      vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, text: async () => '<html><body>Not a Mechanica page</body></html>' })))
+      const content = shallowRef<ContentBlock[]>([])
+      const router = createRouter(content, {}, { mode: 'client' })
+      await router.push('/elsewhere')
+      expect(assign).toHaveBeenCalledWith('/elsewhere')
+    } finally {
+      restore()
+    }
   })
 })

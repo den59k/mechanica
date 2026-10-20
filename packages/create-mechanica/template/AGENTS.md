@@ -87,6 +87,12 @@ Render an image field with `<Image>` and a link with `<Link>` (both `import … 
 lazy-loading and SPA routing work. Heavy, rarely-used blocks can set `chunk: '<name>'`
 to code-split out of the main bundle.
 
+**Blocks render on the server and hydrate in the browser.** The render must be identical
+on both: read `window`, `document` or `matchMedia` only in `onMounted` (or behind a
+client-only flag set there), never in `setup` or the template. The dev server never
+hydrates, so a mismatch shows only in the built site — check with
+`MECHANICA_HYDRATION_DEBUG=1 npx mechanica build` and the browser console on the export.
+
 **After creating or visually changing a block, run `npx mechanica shot <blockId>`
 and look at the PNG** before considering it done.
 

@@ -27,6 +27,13 @@ export interface CreateRouterOptions {
    * runtime context.
    */
   applyState?: (state: State) => void
+  /**
+   * The address the rendered page is served at (locale prefix and pagination
+   * variant included). The server has no address bar, so this seeds its
+   * current route: `<Link>` then computes the same `is-active` the client
+   * will on hydration. The client reads `window.location` instead.
+   */
+  initialPath?: string
 }
 
 /**
@@ -66,7 +73,9 @@ export function createRouter(
     return path.startsWith(baseUrl) ? path.slice(baseUrl.length) : path
   }
 
-  const initialPath = isBrowser ? normalizePath(stripBase(window.location.pathname)) : '/'
+  const initialPath = isBrowser
+    ? normalizePath(stripBase(window.location.pathname))
+    : normalizePath(options.initialPath ?? '/')
   const currentRoute = shallowReactive({ path: initialPath })
 
   const cache = new Map<string, State>()
@@ -78,9 +87,18 @@ export function createRouter(
     if (existing) return existing
 
     const run = async () => {
-      const html = await fetch(path).then((res) => res.text())
+      const res = await fetch(path)
+      const html = res.ok ? await res.text() : ''
       const match = html.match(/window\.state\s*=\s*(\{.+?\})<\/script>/s)?.[1]
-      const state: State = match ? JSON.parse(match) : { content: [], data: {} }
+      if (!match) {
+        // A document the SPA can't take over: an error response (a proxy's
+        // 429, a host's 404 page) or a page without Mechanica state. Hand it
+        // to the browser as a full navigation; caching an empty page under
+        // that path would leave every later visit to it blank.
+        if (isBrowser) window.location.assign(path)
+        return
+      }
+      const state: State = JSON.parse(match)
       state.page = { ...state.page, title: html.match(/<title>(.*?)<\/title>/)?.[1] }
       cache.set(path, state)
     }

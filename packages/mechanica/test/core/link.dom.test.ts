@@ -95,3 +95,35 @@ describe('<Link> locale prefixing', () => {
     expect(renderLocalized('https://x.com', { locale: 'ru' }).getAttribute('href')).toBe('https://x.com')
   })
 })
+
+/**
+ * The server has no address bar: its router starts at the page's served path
+ * (locale prefix + pagination variant), so the prerendered `is-active` is the
+ * one the client computes from `window.location` on hydration.
+ */
+describe('<Link> active state on the server', () => {
+  const ssr = async (to: string, page: PageMeta) => {
+    const { createSSRApp } = await import('vue')
+    const { renderToString } = await import('vue/server-renderer')
+    const state: State = { content: [], data: {}, locales: { default: 'en', all: ['en', 'ru'] }, page }
+    const app = createSSRApp({ render: () => h(Link, { to }, () => 'Go') }).use(
+      createMechanica({ mode: 'server', state }),
+    )
+    return renderToString(app)
+  }
+
+  it('marks the link to the page being rendered', async () => {
+    expect(await ssr('/about', { path: '/about' })).toContain('class="is-active"')
+    expect(await ssr('/', { path: '/about' })).not.toContain('is-active')
+  })
+
+  it('matches under the locale prefix of a translation', async () => {
+    expect(await ssr('/about', { path: '/about', locale: 'ru' })).toContain('class="is-active"')
+    expect(await ssr('/about', { path: '/', locale: 'ru' })).not.toContain('is-active')
+  })
+
+  it('matches the pagination variant, not its base page', async () => {
+    expect(await ssr('/blog/2', { path: '/blog', pagination: { page: 2 } })).toContain('class="is-active"')
+    expect(await ssr('/blog', { path: '/blog', pagination: { page: 2 } })).not.toContain('is-active')
+  })
+})

@@ -46,6 +46,16 @@ describe('generateClientEntry', () => {
     expect(code).toContain('.mount("#app")')
   })
 
+  it('hydrates the prerendered HTML only when asked (the production client build)', () => {
+    const lazy = generateClientEntry({ userEntry: '/src/main.ts', mount: '#app', mode: 'client', lazy: true, hydrate: true })
+    expect(lazy).toContain('createMechanicaApp(definition, { ssr: true, mode: "client", state, blocks, blockLoaders, composed: composedList })')
+    const eager = generateClientEntry({ userEntry: '/src/main.ts', mount: '#app', mode: 'client', hydrate: true })
+    expect(eager).toContain('createMechanicaApp(definition, { ssr: true, mode: "client", state, blocks: blocksMap')
+    // Dev and the editor build mount into an empty container.
+    expect(generateClientEntry({ userEntry: '/src/main.ts', mount: '#app', mode: 'dev' })).not.toContain('ssr:')
+    expect(generateClientEntry({ userEntry: '/src/main.ts', mount: '#app', mode: 'client', lazy: true })).not.toContain('ssr:')
+  })
+
   it('eager mode passes composed definitions to the app', () => {
     const code = generateClientEntry({ userEntry: '/src/main.ts', mount: '#app', mode: 'client' })
     expect(code).toContain("import { composedList } from 'virtual:mechanica/composed'")

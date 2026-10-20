@@ -424,7 +424,16 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       if (process.env.MECHANICA_EDITOR_BUILD) return
       // `meta` is absent when a test calls the hook bare.
       const label = supportsGroupDebugName(this.meta?.rolldownVersion) ? { debugName: 'mechanica:blocks' } : {}
+      // The production client hydrates the prerendered HTML, and Vue reports a
+      // hydration mismatch only in dev builds. `MECHANICA_HYDRATION_DEBUG=1`
+      // makes the production bundle log them too (block code that reads
+      // `window` during render shows up only there: dev never hydrates).
+      // This plugin runs `pre`, so plugin-vue sees the value and keeps it.
+      const define = process.env.MECHANICA_HYDRATION_DEBUG
+        ? { define: { __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'true' } }
+        : {}
       return {
+        ...define,
         build: {
           rollupOptions: {
             output: {
@@ -534,7 +543,14 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
         return lazy.code
       }
       if (id === RESOLVED_CLIENT_ID) {
-        return generateClientEntry({ userEntry, mount, mode: isDev || isEditorBuild ? 'dev' : 'client', lazy: isClientBuild })
+        return generateClientEntry({
+          userEntry,
+          mount,
+          mode: isDev || isEditorBuild ? 'dev' : 'client',
+          lazy: isClientBuild,
+          // The export prerenders every page; the client takes that DOM over.
+          hydrate: isClientBuild,
+        })
       }
       if (id === RESOLVED_SSR_ID) {
         return generateSsrEntry({

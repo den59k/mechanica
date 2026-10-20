@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.2 (unreleased)
+
+### The exported site hydrates its prerendered HTML
+
+- **The production client now hydrates instead of re-rendering.** The export prerenders every page, but the client entry mounted with `createApp`, so the browser threw that DOM away and built it again: double rendering work, lost DOM state, and every `<img>` on the page refetched at once, because an element the client creates starts its fetch before `loading="lazy"` applies. The client entry of `mechanica build` now mounts with `createSSRApp` and takes the prerendered DOM over (dev and `mechanica build --editor` still mount into an empty page). On a long page this cuts the cold-load requests roughly in half, and below-the-fold images load when scrolled to. **A block's render must now be identical on the server and in the browser:** read `window`, `document` or `matchMedia` only in `onMounted`, never in `setup` or the template. Dev never hydrates, so a mismatch shows only in the built site; **`MECHANICA_HYDRATION_DEBUG=1 mechanica build`** makes the production bundle log each mismatch to the browser console. Reported by the Nebius Academy site, whose `hydrate-client` workaround plugin now fails on purpose and can be removed.
+- **`<Link>`'s `is-active` matches on both sides of hydration.** The server router started at `/`, so only a link to the home page was active in the prerendered HTML; the browser then computed it from the address bar, and the hydrated attribute silently stayed stale. The server now starts at the page's served address, locale prefix (`/ru/about`) and pagination variant (`/blog/2`) included; the editor's in-place page switch uses the same address.
+- **`<Image>` sets `loading` before `src`**, so an image the client creates (after client-side navigation, under a `v-if`) is really lazy.
+- **Client-side navigation no longer caches a failed page as empty.** When the target answered with an error (a proxy's 429, a host's 404 page) or without Mechanica state, the router cached `{ content: [] }` under that path and showed a blank page there from then on. It now hands such a target to the browser as a full navigation and remembers nothing.
+- **A site's own `codeSplitting.groups` are a documented guarantee:** they are merged ahead of the blocks group and win at equal priority (covered by a test).
+
 ## 2.2.1 (unreleased)
 
 ### `mechanica shot`: sections in shadow DOM and blocks by id, a sturdier browser launch
