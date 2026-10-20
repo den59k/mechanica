@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.2.2 (unreleased)
+## 2.2.2
 
 ### The exported site hydrates its prerendered HTML
 
@@ -10,7 +10,7 @@
 - **Client-side navigation no longer caches a failed page as empty.** When the target answered with an error (a proxy's 429, a host's 404 page) or without Mechanica state, the router cached `{ content: [] }` under that path and showed a blank page there from then on. It now hands such a target to the browser as a full navigation and remembers nothing.
 - **A site's own `codeSplitting.groups` are a documented guarantee:** they are merged ahead of the blocks group and win at equal priority (covered by a test).
 
-## 2.2.1 (unreleased)
+## 2.2.1
 
 ### `mechanica shot`: sections in shadow DOM and blocks by id, a sturdier browser launch
 
@@ -20,7 +20,7 @@
 - **Windows: `shot` no longer fails with "browser exited early" or leaves a headless Edge running.** Started from Git Bash (or a tool that sets `__COMPAT_LAYER=RunAsInvoker`), Edge relaunched itself and exited at once while the relaunched instance kept running, once per shot. The browser now starts without that variable, and Chrome is tried before Edge (Edge ships with Windows and stays the fallback). macOS and Linux keep their order.
 - **A browser that fails to start no longer ends the shot.** When it exits before its DevTools endpoint is up, never prints it or refuses the connection, every process it started is ended (on Windows `taskkill /T`, plus any process still running on its temporary profile, which catches a relaunched instance), the profile is removed, and the next installed browser is tried. If none starts, the error names each one and why it failed (`browser exited early (code 0)`, with the last line the browser printed). `--browser <path>` still tries only that executable.
 
-## 2.2.0 (unreleased)
+## 2.2.0
 
 ### `mechanica shot`: designs, sections and scroll states
 
@@ -32,7 +32,7 @@
 - `--full` and `--no-freeze` never swallow the next argument: `mechanica shot --no-freeze design/index.html` keeps the file as the target.
 - Under Git Bash, a page path reaches the CLI rewritten into a Windows path (`/about` → `C:/Program Files/Git/about`). `shot` now says so and suggests `//about` or `MSYS_NO_PATHCONV=1`; before, it took the rewritten path for a block id.
 
-## 2.1.0 (unreleased)
+## 2.1.0
 
 Released packages: `mechanica` 2.1.0, `mechanica-shared` 2.1.0 and `create-mechanica` 0.3.3. Everything below shipped first in the `2.1.0-beta.1` – `2.1.0-beta.7` prereleases (npm's `next` tag, 2026-10-04 – 2026-10-05).
 
