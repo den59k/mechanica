@@ -1,4 +1,4 @@
-import { onScopeDispose, ref } from 'vue'
+import { onScopeDispose, ref, shallowRef, type ShallowRef } from 'vue'
 import type { EditorStore } from './store'
 
 export interface BlockRect {
@@ -66,10 +66,23 @@ export interface BlockFramesOptions {
    * followed in place).
    */
   enabled?: () => boolean
+  /**
+   * Consulted first on a click on a block of the live page, before links are
+   * followed and the block is selected. Returning `true` means the click was
+   * handled: it is swallowed (no navigation, no selection). The comment mode
+   * pins a comment this way.
+   */
+  onBlockClick?: (id: string, event: MouseEvent) => boolean
 }
 
-function rectOf(id: string): BlockRect | null {
-  const element = document.querySelector(`[data-block-id="${id}"]`)
+/** The live page element of a content block, or null when it is not rendered. */
+export function blockElement(id: string): Element | null {
+  return document.querySelector(`[data-block-id="${id}"]`)
+}
+
+/** A content block's box in the viewport right now, or null when it is not rendered. */
+export function blockRect(id: string): BlockRect | null {
+  const element = blockElement(id)
   if (!element) return null
   const r = element.getBoundingClientRect()
   return { id, top: r.top, left: r.left, width: r.width, height: r.height }
@@ -106,6 +119,12 @@ export function useBlockFrames(store: EditorStore, options: BlockFramesOptions =
     if (!active()) return
     const target = event.target as Element
     if (isEditorUI(target)) return
+    const id = findBlockId(target)
+    if (id && options.onBlockClick?.(id, event)) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
     const link = findLink(target)
     if (link) {
       if (linkClickAction(link, event) === 'native' || !options.followLink) return
@@ -114,7 +133,6 @@ export function useBlockFrames(store: EditorStore, options: BlockFramesOptions =
       options.followLink(link.pathname)
       return
     }
-    const id = findBlockId(target)
     if (!id) return
     event.preventDefault()
     event.stopPropagation()
@@ -123,8 +141,8 @@ export function useBlockFrames(store: EditorStore, options: BlockFramesOptions =
 
   let frame = 0
   const tick = () => {
-    selected.value = store.selectedId ? rectOf(store.selectedId) : null
-    hovered.value = store.hoverId ? rectOf(store.hoverId) : null
+    selected.value = store.selectedId ? blockRect(store.selectedId) : null
+    hovered.value = store.hoverId ? blockRect(store.hoverId) : null
     frame = requestAnimationFrame(tick)
   }
   frame = requestAnimationFrame(tick)
@@ -139,4 +157,37 @@ export function useBlockFrames(store: EditorStore, options: BlockFramesOptions =
   })
 
   return { hovered, selected }
+}
+
+const sameRect = (a: BlockRect | undefined, b: BlockRect): boolean =>
+  !!a && a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height
+
+/**
+ * Track the live rects of a changing set of blocks (the comment pins' blocks)
+ * with one requestAnimationFrame loop for all of them, so whatever is drawn
+ * over them follows layout and scrolling. The map is replaced only when a rect
+ * actually changed; a block that is not rendered has no entry.
+ */
+export function useBlockRects(ids: () => Iterable<string>): ShallowRef<Map<string, BlockRect>> {
+  const rects = shallowRef(new Map<string, BlockRect>())
+
+  let frame = 0
+  const tick = () => {
+    const next = new Map<string, BlockRect>()
+    let changed = false
+    for (const id of ids()) {
+      if (next.has(id)) continue
+      const rect = blockRect(id)
+      if (!rect) continue
+      next.set(id, rect)
+      if (!sameRect(rects.value.get(id), rect)) changed = true
+    }
+    if (changed || next.size !== rects.value.size) rects.value = next
+    frame = requestAnimationFrame(tick)
+  }
+  tick()
+
+  onScopeDispose(() => cancelAnimationFrame(frame))
+
+  return rects
 }

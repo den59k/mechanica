@@ -10,6 +10,7 @@ export type ShortcutAction =
   | 'paste'
   | 'deselect'
   | 'quickSwitch'
+  | 'comment'
 
 export interface ShortcutEvent {
   key: string
@@ -18,6 +19,7 @@ export interface ShortcutEvent {
   metaKey?: boolean
   ctrlKey?: boolean
   shiftKey?: boolean
+  altKey?: boolean
   /** The user is typing in an input/textarea/contenteditable. */
   typing: boolean
   /** A block is currently selected. */
@@ -43,6 +45,8 @@ export function resolveShortcut(event: ShortcutEvent): ShortcutAction | null {
   if (mod && key === 'z') return event.shiftKey ? 'redo' : 'undo'
   if (mod && key === 'y') return 'redo'
   if (mod && key === 'v') return 'paste' // paste appends even with no selection
+  // A bare C toggles the comment mode (Ctrl/Cmd+C stays copy).
+  if (!mod && !event.shiftKey && !event.altKey && key === 'c') return 'comment'
 
   if (!event.hasSelection) return null
   if (event.key === 'Delete' || event.key === 'Backspace') return 'delete'

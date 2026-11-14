@@ -40,6 +40,7 @@ import { remoteAssetsFor, uploadsIgnored } from '../cli/platform/assets'
 import { createEditorService } from '../server/service'
 import { toNodeMiddleware, toAssetMiddleware } from '../server/node-adapter'
 import { wasRecentlyMutated } from '../server/fs-utils'
+import { COMMENTS_FILE } from '../server/comments-store'
 import { buildSiteManifest, configureSite, indexGeneratedPages, type GeneratedIndex } from '../server/site'
 import { renderEditablePage } from '../server/editor-page'
 import { BLOCKS_MANIFEST_FILE } from '../cli/page-assets'
@@ -681,6 +682,18 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       server.watcher.on('add', onMechFile)
       server.watcher.on('change', onMechFile)
       server.watcher.on('unlink', onMechFile)
+
+      // Review comments are not content: a change to them never reloads a page,
+      // it only tells open editors to re-read the threads. Our own writes are
+      // announced too — another tab's editor needs them, and so does this one
+      // after the CLI (another process) answered a thread.
+      const onCommentsFile = (file: string): void => {
+        if (slash(file) !== slash(mechDir) + '/' + COMMENTS_FILE) return
+        server.ws.send({ type: 'custom', event: 'mechanica:comments-changed', data: {} })
+      }
+      server.watcher.on('add', onCommentsFile)
+      server.watcher.on('change', onCommentsFile)
+      server.watcher.on('unlink', onCommentsFile)
     },
 
     // Schema edits need a re-collect + full reload (the editor reads block

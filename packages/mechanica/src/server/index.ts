@@ -35,6 +35,13 @@ export {
   type ImageManifest,
   type ImageManifestEntry,
 } from './assets-store'
+export {
+  fsCommentStore,
+  memoryCommentStore,
+  localCommentAuthor,
+  normalizeCommentPage,
+  type CommentStore,
+} from './comments-store'
 export { buildSiteManifest, readSiteManifest, configureSite, type SiteManifestInput } from './site'
 export { renderEditablePage, readEditorTemplate, type EditablePageOptions } from './editor-page'
 export {
@@ -44,4 +51,10 @@ export {
   uploadNameOf,
   type SiteManifest,
   type EditorHostConfig,
+  type CommentThread,
+  type CommentMessage,
+  type CommentAuthor,
+  type CommentAnchor,
+  type CommentStatus,
+  type NewCommentRequest,
 } from 'mechanica-shared'

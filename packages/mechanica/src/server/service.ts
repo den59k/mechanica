@@ -1,9 +1,13 @@
 import fs from 'node:fs'
-import { resolve, sep } from 'node:path'
+import { dirname, resolve, sep } from 'node:path'
 import { Readable } from 'node:stream'
 import type {
+  CommentAuthor,
+  CommentReplyRequest,
+  CommentStatusRequest,
   ComposedBlockDefinition,
   EditorHostConfig,
+  NewCommentRequest,
   PageFormInput,
   SavePageRequest,
   SiteManifest,
@@ -27,6 +31,13 @@ import {
   harvestPageImages,
 } from './pages-store'
 import { contentTypeOf, fsAssetStore, listUploads, storeUpload, uploadResponse, type AssetStore } from './assets-store'
+import {
+  cleanCommentAnchor,
+  fsCommentStore,
+  isCommentStatus,
+  localCommentAuthor,
+  type CommentStore,
+} from './comments-store'
 import { resolveDevQuery } from './query-dev'
 import {
   mergeSiteData,
@@ -81,6 +92,16 @@ export interface EditorServiceOptions {
    * without one uploads are refused and pages carry no image info.
    */
   assets?: AssetStore
+  /**
+   * Where review comments live. Defaults to `.mech/comments/` when the service
+   * is created over a directory; without a store the comment routes answer 501.
+   */
+  comments?: CommentStore
+  /**
+   * Who is making a request — the author of the comments it writes. Defaults to
+   * the local git user (a directory) / "Anonymous".
+   */
+  author?: (request: Request) => CommentAuthor | Promise<CommentAuthor>
 }
 
 /**
@@ -163,7 +184,60 @@ export function createEditorService(mech: Mech, options: EditorServiceOptions = 
   const mechDir = typeof mech === 'string' ? mech : null
   const assets = options.assets ?? (mechDir ? fsAssetStore(mechDir) : null)
 
+  const comments = options.comments ?? (mechDir ? fsCommentStore(mechDir) : null)
+
   const asset = (encoded: string): Promise<Response | null> => uploadResponse(assets, encoded)
+
+  // The author of a comment is the host's to say, never the client's. The
+  // local default asks git once per service.
+  let localAuthor: CommentAuthor | null = null
+  const authorOf = async (request: Request): Promise<CommentAuthor> => {
+    if (options.author) return options.author(request)
+    if (!mechDir) return { name: 'Anonymous', kind: 'user' }
+    return (localAuthor ??= localCommentAuthor(dirname(mechDir)))
+  }
+
+  /** The `/comments` routes; null for a method or sub-path that is not one. */
+  const commentRoute = async (request: Request, pathname: string, query: URLSearchParams): Promise<Response | null> => {
+    const method = request.method
+    const known =
+      (pathname === '/comments' && (method === 'GET' || method === 'POST' || method === 'DELETE')) ||
+      ((pathname === '/comments/reply' || pathname === '/comments/status') && method === 'POST')
+    if (!known) return null
+    if (!comments) return json({ error: 'Comments are not available' }, 501)
+    const text = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
+
+    if (pathname === '/comments' && method === 'GET') {
+      const page = query.get('page')
+      return json(await comments.list(page ? { page } : {}))
+    }
+
+    if (pathname === '/comments' && method === 'DELETE') {
+      const id = query.get('id')
+      if (!id) return json({ error: 'Missing id' }, 400)
+      return json({ success: await comments.remove(id) })
+    }
+
+    if (pathname === '/comments') {
+      const input = (await request.json()) as Partial<NewCommentRequest> | null
+      if (!text(input?.page) || !text(input?.body)) return json({ error: 'page and body are required' }, 400)
+      if (input!.anchor != null && !cleanCommentAnchor(input!.anchor)) return json({ error: 'Invalid anchor' }, 400)
+      return json(await comments.create(input as NewCommentRequest, await authorOf(request)))
+    }
+
+    if (pathname === '/comments/reply') {
+      const input = (await request.json()) as Partial<CommentReplyRequest> | null
+      if (!text(input?.id) || !text(input?.body)) return json({ error: 'id and body are required' }, 400)
+      const thread = await comments.reply(input!.id!, input!.body!, await authorOf(request))
+      return thread ? json(thread) : json({ error: 'not found' }, 404)
+    }
+
+    const input = (await request.json()) as Partial<CommentStatusRequest> | null
+    if (!text(input?.id)) return json({ error: 'id is required' }, 400)
+    if (!isCommentStatus(input?.status)) return json({ error: 'status must be "open" or "resolved"' }, 400)
+    const thread = await comments.setStatus(input!.id!, input!.status, await authorOf(request))
+    return thread ? json(thread) : json({ error: 'not found' }, 404)
+  }
 
   // The manifest the stores are configured with, and its generated-page index
   // (routes without a file: served for `/state`, listed, rejected on writes).
@@ -259,7 +333,12 @@ export function createEditorService(mech: Mech, options: EditorServiceOptions = 
     if (pathname === '/pages' && method === 'DELETE') {
       const pathParam = query.get('path')
       if (!pathParam) return json({ error: 'Missing path' }, 400)
-      return generatedGuard(pathParam) ?? json({ success: deletePage(mech, pathParam) })
+      const blocked = generatedGuard(pathParam)
+      if (blocked) return blocked
+      const success = deletePage(mech, pathParam)
+      // A page's comments go with it.
+      if (success) await comments?.removePage(pathParam)
+      return json({ success })
     }
 
     if (pathname === '/pages/draft' && method === 'POST') {
@@ -324,6 +403,8 @@ export function createEditorService(mech: Mech, options: EditorServiceOptions = 
         try {
           const wantsMove = typeof input.path === 'string' && input.path.trim() && input.path.trim() !== pathParam
           const path = wantsMove ? movePage(mech, pathParam, input.path!).path : pathParam
+          // The page's comments follow it to the new path.
+          if (wantsMove) await comments?.movePage(pathParam, path)
           if (input.name) renamePage(mech, path, input.name)
           return json({ success: true, path })
         } catch (error) {
@@ -453,6 +534,9 @@ export function createEditorService(mech: Mech, options: EditorServiceOptions = 
       if (!id || !isValidId(id)) return json({ error: 'Missing or invalid id' }, 400)
       return json({ success: deleteComposedBlock(mech, id) })
     }
+
+    // ── Review comments ──────────────────────────────────────────────────
+    if (pathname === '/comments' || pathname.startsWith('/comments/')) return commentRoute(request, pathname, query)
 
     return null
   }

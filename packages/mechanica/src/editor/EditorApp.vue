@@ -6,12 +6,18 @@
       @toggle="collapsed = !collapsed"
     />
 
+    <!-- The hover frame also shows over the bare page while commenting there:
+         it is what a click would pin the comment to. -->
+    <BlockFrame
+      v-if="(!collapsed || commenting) && hovered && hovered.id !== selected?.id && !drag.payload"
+      :rect="hovered"
+      variant="hover"
+    />
+    <!-- Comment mode works with the panels hidden too (C toggles it there) —
+         the whole page is only visible that way. -->
+    <CommentPins v-if="commenting" :inset="collapsed ? 0 : undefined" />
+
     <template v-if="!collapsed">
-      <BlockFrame
-        v-if="hovered && hovered.id !== selected?.id && !drag.payload"
-        :rect="hovered"
-        variant="hover"
-      />
       <BlockFrame v-if="selected" :rect="selected" variant="selected" :label="selectedName" />
 
       <div
@@ -84,6 +90,18 @@
             <VIcon name="sliders" />
             <span>Page data</span>
           </button>
+          <button
+            v-if="comments.available"
+            type="button"
+            class="mech-icon-button mech-editor__comments"
+            :class="{ 'is-active': comments.mode }"
+            title="Comments (C)"
+            :aria-pressed="comments.mode"
+            @click="comments.toggleMode()"
+          >
+            <VIcon name="comment" />
+            <span v-if="comments.openCount" class="mech-editor__badge">{{ comments.openCount }}</span>
+          </button>
           <span class="mech-editor__toolbar-gap" />
           <button
             v-if="save && save.status === 'error'"
@@ -127,8 +145,12 @@
 
     <Transition name="mech-slide-right">
       <aside v-if="!collapsed" class="mech-editor__panel mech-editor__panel--right">
-        <div class="mech-editor__heading"><span>Blocks</span></div>
-        <BlockPalette />
+        <!-- Comment mode swaps the palette for the page's threads. -->
+        <CommentsPanel v-if="commenting" />
+        <template v-else>
+          <div class="mech-editor__heading"><span>Blocks</span></div>
+          <BlockPalette />
+        </template>
       </aside>
     </Transition>
 
@@ -168,6 +190,7 @@ import { resolveShortcut } from './lib/shortcuts'
 import { pushStateUpdate, runtimeLayoutNames } from './lib/bridge'
 import { editorBackend } from './lib/backend'
 import { useBlockFrames } from './lib/use-block-frames'
+import { commentOnClick, commentsKey, createCommentsStore } from './lib/comments'
 import type { BlockComponent } from './lib/block-meta'
 import { dataEntryAvailableIn } from './lib/data-meta'
 import type { EditorSnapshot, SaveController } from './lib/types'
@@ -182,6 +205,8 @@ import HierarchyTree from './components/HierarchyTree.vue'
 import BlockPalette from './components/BlockPalette.vue'
 import BlockSettings from './components/BlockSettings.vue'
 import BlockFrame from './components/BlockFrame.vue'
+import CommentPins from './components/CommentPins.vue'
+import CommentsPanel from './components/CommentsPanel.vue'
 import PageBar from './components/PageBar.vue'
 import LocaleSwitcher from './components/LocaleSwitcher.vue'
 import PanelToggle from './components/PanelToggle.vue'
@@ -245,6 +270,25 @@ provide(contextMenuKey, contextMenu)
 const history = createHistory(store)
 const { canUndo, canRedo } = history
 
+// Review comments: threads pinned to this page's blocks, kept by the host. The
+// store follows the page (its logical path — never a locale-prefixed URL — and
+// the locale it is viewed in); a host without comments leaves it unavailable
+// and every trace of the feature hidden.
+const comments = createCommentsStore(backend, { defaultLocale: store.defaultLocale })
+provide(commentsKey, comments)
+const pagePath = ref(props.state.page?.path ?? navigation.path.value)
+watch([pagePath, () => store.locale], ([path, locale]) => void comments.load(path, locale), { immediate: true })
+const commenting = computed(() => comments.available && comments.mode)
+// Commenting suspends block selection: whatever selects a block (the tree, an
+// insert) is undone at once, so the settings panel never opens over the threads.
+watch(
+  () => commenting.value && store.selectedId,
+  (selected) => {
+    if (selected) store.select(null)
+  },
+  { flush: 'sync' },
+)
+
 const onKeyDown = (event: KeyboardEvent) => {
   const target = event.target as HTMLElement | null
   const typing =
@@ -271,20 +315,28 @@ const onKeyDown = (event: KeyboardEvent) => {
     metaKey: event.metaKey,
     ctrlKey: event.ctrlKey,
     shiftKey: event.shiftKey,
+    altKey: event.altKey,
     typing,
     hasSelection: !!store.selectedId,
   })
   if (!action) return
   if (action !== 'deselect') event.preventDefault()
 
-  if (action === 'undo') history.undo()
+  if (action === 'comment') {
+    // Not under a dialog. With the panels collapsed this key is the only way
+    // in and out of the mode.
+    if (dialog.stack.length === 0) comments.toggleMode()
+  } else if (action === 'undo') history.undo()
   else if (action === 'redo') history.redo()
   else if (action === 'quickSwitch') {
     // Toggle: Cmd/Ctrl+K closes the switcher it opened; other dialogs keep focus.
     const top = dialog.stack[dialog.stack.length - 1]
     if (top?.component === QuickSwitcher) dialog.back()
     else if (dialog.stack.length === 0) dialog.open(QuickSwitcher)
-  } else if (action === 'deselect') store.select(null)
+  } else if (action === 'deselect') {
+    // Esc steps out of commenting first: the draft or open thread, then the mode.
+    if (!(commenting.value && comments.escape())) store.select(null)
+  }
   else if (action === 'paste') store.paste(store.selectedId)
   else if (store.selectedId) {
     if (action === 'delete') store.remove(store.selectedId)
@@ -297,6 +349,7 @@ document.addEventListener('keydown', onKeyDown)
 onScopeDispose(() => {
   document.removeEventListener('keydown', onKeyDown)
   history.dispose()
+  comments.dispose()
 })
 
 // Turn the selected block (and its children) into a reusable composed block —
@@ -329,8 +382,11 @@ const collapsed = ref(false)
 const { hovered, selected } = useBlockFrames(store, {
   followLink: (path) => void navigation.switchPage(path),
   // Collapse the panels to hand the live page back: with the editor out of the
-  // way, buttons/links/controls work natively (no block selection intercept).
-  enabled: () => !collapsed.value,
+  // way, buttons/links/controls work natively (no block selection intercept) —
+  // unless comments are being left on it.
+  enabled: () => !collapsed.value || commenting.value,
+  // Comment mode: a click on a block pins a comment there instead.
+  onBlockClick: (id, event) => commentOnClick(comments, store.content, id, event),
 })
 
 const selectedName = computed(() =>
@@ -424,6 +480,7 @@ watch(
       currentPagePath = nextPath
       history.reset()
     }
+    if (nextPath) pagePath.value = nextPath
     void nextTick(() => {
       applyingExternal = false
     })

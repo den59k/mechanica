@@ -35,6 +35,7 @@ Docs: [CONTRACT.md](./CONTRACT.md) (the `.page.md` format), [PREVIEW.md](./PREVI
   - Uploads go through `AssetStore`. A file is referenced as `/media/<name>`, where the name carries a content hash and never changes.
   - Parse those references with `uploadNameOf`.
   - After `buildPageState`, call `fillStateImages`.
+  - Review comments go through `CommentStore` (by default `.mech/comments/`, which gitignores itself), never through `ContentFiles` or a page file: they are workflow state, not content. `mechanica comments` (list, `reply`, `resolve --note`) is how an agent reads and answers them.
 - **The editor reaches its host only through `editor/lib/backend.ts`.** A new route needs three parts: a protocol type in `shared`, a method in `backend.ts`, and a branch in `server/service.ts`. The editor store clones `window.state`; sharing references with the runtime caused typing flicker.
 - **Composed blocks are data** (`.mech/blocks/*.block.yml`) expanded at render time. Every element setting is an inline `--el-*` CSS variable that media queries choose between; a direct inline style would beat those media queries.
 - **i18n.** `page.path` is always the logical path, with no locale prefix. A translation file only overlays the base page: the base owns which blocks exist and their order.

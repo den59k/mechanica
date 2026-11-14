@@ -6,6 +6,9 @@ import {
   findLink,
   linkClickAction,
   useBlockFrames,
+  useBlockRects,
+  blockRect,
+  type BlockFramesOptions,
 } from '@/editor/lib/use-block-frames'
 import type { EditorStore } from '@/editor/lib/store'
 
@@ -169,6 +172,87 @@ describe('useBlockFrames click handling', () => {
     on = true
     expect(click('p')).toBe(true)
     expect(store.select).toHaveBeenCalledWith('b1')
+    scope.stop()
+  })
+
+  describe('the onBlockClick hook', () => {
+    const mountWith = (store: EditorStore, options: BlockFramesOptions) => {
+      const scope = effectScope()
+      scope.run(() => useBlockFrames(store, options))
+      return scope
+    }
+
+    it('takes a block click before selection when it returns true', () => {
+      const store = fakeStore()
+      const onBlockClick = vi.fn((_id: string, _event: MouseEvent) => true)
+      const scope = mountWith(store, { onBlockClick })
+      document.body.innerHTML = '<section data-block-id="b1"><p id="p">text</p></section>'
+      expect(click('p')).toBe(true) // swallowed
+      expect(onBlockClick).toHaveBeenCalledTimes(1)
+      expect(onBlockClick.mock.calls[0]![0]).toBe('b1')
+      expect(onBlockClick.mock.calls[0]![1]).toBeInstanceOf(MouseEvent)
+      expect(store.select).not.toHaveBeenCalled()
+      scope.stop()
+    })
+
+    it('takes a click on a link inside a block before the link is followed', () => {
+      const store = fakeStore()
+      const followed: string[] = []
+      const scope = mountWith(store, { followLink: (path) => followed.push(path), onBlockClick: () => true })
+      document.body.innerHTML =
+        '<section data-block-id="b1"><a href="/blog/2"><span id="l">Read</span></a><a id="out" href="https://example.com">Out</a></section>'
+      expect(click('l')).toBe(true)
+      // Even a link the browser would otherwise handle natively is held back.
+      expect(click('out')).toBe(true)
+      expect(followed).toEqual([])
+      expect(store.select).not.toHaveBeenCalled()
+      scope.stop()
+    })
+
+    it('falls through to the usual behavior when it returns false', () => {
+      const store = fakeStore()
+      const followed: string[] = []
+      const scope = mountWith(store, { followLink: (path) => followed.push(path), onBlockClick: () => false })
+      document.body.innerHTML =
+        '<section data-block-id="b1"><p id="p">text</p><a href="/blog/2"><span id="l">Read</span></a></section>'
+      expect(click('p')).toBe(true)
+      expect(store.select).toHaveBeenCalledWith('b1')
+      expect(click('l')).toBe(true)
+      expect(followed).toEqual(['/blog/2'])
+      scope.stop()
+    })
+
+    it('is not consulted outside blocks, on editor UI, or while disabled', () => {
+      const store = fakeStore()
+      const onBlockClick = vi.fn(() => true)
+      let on = true
+      const scope = mountWith(store, { onBlockClick, enabled: () => on })
+      document.body.innerHTML =
+        '<header><span id="free">nav</span></header>' +
+        '<div data-mech-ui><section data-block-id="ui"><span id="chrome">x</span></section></div>' +
+        '<section data-block-id="b1"><p id="p">text</p></section>'
+      expect(click('free')).toBe(false)
+      expect(click('chrome')).toBe(false)
+      on = false
+      expect(click('p')).toBe(false)
+      expect(onBlockClick).not.toHaveBeenCalled()
+      scope.stop()
+    })
+  })
+})
+
+describe('useBlockRects', () => {
+  it('reads the rects of the rendered blocks at once and skips the missing ones', () => {
+    document.body.innerHTML = '<section data-block-id="b1"></section><section data-block-id="b2"></section>'
+    const box = { top: 10, left: 20, width: 300, height: 100 }
+    document.querySelector('[data-block-id="b1"]')!.getBoundingClientRect = () => box as DOMRect
+    expect(blockRect('b1')).toEqual({ id: 'b1', ...box })
+    expect(blockRect('gone')).toBeNull()
+
+    const scope = effectScope()
+    const rects = scope.run(() => useBlockRects(() => ['b1', 'b1', 'gone', 'b2']))!
+    expect([...rects.value.keys()]).toEqual(['b1', 'b2'])
+    expect(rects.value.get('b1')).toEqual({ id: 'b1', ...box })
     scope.stop()
   })
 })

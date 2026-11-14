@@ -48,4 +48,16 @@ describe('resolveShortcut', () => {
     expect(resolveShortcut(ev({ key: 'в', code: 'KeyD', ctrlKey: true, hasSelection: true }))).toBe('duplicate')
     expect(resolveShortcut(ev({ key: 'с', code: 'KeyC', metaKey: true, hasSelection: true }))).toBe('copy')
   })
+
+  it('toggles the comment mode with a bare C — never while typing or with a modifier', () => {
+    expect(resolveShortcut(ev({ key: 'c' }))).toBe('comment')
+    expect(resolveShortcut(ev({ key: 'c', hasSelection: true }))).toBe('comment')
+    expect(resolveShortcut(ev({ key: 'с', code: 'KeyC' }))).toBe('comment') // Cyrillic layout
+    expect(resolveShortcut(ev({ key: 'c', typing: true }))).toBeNull()
+    expect(resolveShortcut(ev({ key: 'C', shiftKey: true }))).toBeNull()
+    expect(resolveShortcut(ev({ key: 'c', altKey: true }))).toBeNull()
+    // Ctrl/Cmd+C stays copy (and nothing without a selection).
+    expect(resolveShortcut(ev({ key: 'c', ctrlKey: true, hasSelection: true }))).toBe('copy')
+    expect(resolveShortcut(ev({ key: 'c', metaKey: true }))).toBeNull()
+  })
 })

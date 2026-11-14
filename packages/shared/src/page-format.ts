@@ -46,6 +46,12 @@ export interface RichTextCodec {
 export interface PageCodecOptions {
   /** Rich-text ⇄ Markdown adapter; when omitted, regions stay plain strings. */
   richText?: RichTextCodec
+  /**
+   * Parse only: called for every block as its open fence is read, with the
+   * fence's 1-based line — for tools that point at a block in the file. The
+   * block's data and children are not filled in yet.
+   */
+  onBlock?: (block: ContentBlock, line: number) => void
 }
 
 /**
@@ -232,6 +238,7 @@ export function parsePage(text: string, options?: PageCodecOptions): PageDoc {
       const block: ContentBlock = { id: id ?? `auto${++counter.n}`, blockId: token.blockId, data: {} }
       if (v !== undefined) block.v = v
       attach(root, frame, block, slot, i + 1)
+      options?.onBlock?.(block, i + 1)
       stack.push({ block, headBuf: [], region: null })
     } else if (token.kind === 'field') {
       if (!frame) throw new PageParseError(`@${token.name} outside any block`, i + 1)

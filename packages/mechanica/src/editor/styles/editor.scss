@@ -174,6 +174,59 @@ button.mech-editor__save {
   }
 }
 
+// The comment-mode toggle: an icon button carrying the page's open-thread count.
+.mech-editor__comments {
+  position: relative;
+}
+.mech-editor__badge {
+  position: absolute;
+  top: -3px;
+  right: -5px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: var(--mech-radius-pill);
+  background: var(--mech-accent);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 15px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--mech-bg);
+  pointer-events: none;
+}
+
+// ── Comments ─────────────────────────────────────────────────────────────────
+// An author's initials, in the comments panel and in a thread card. People get
+// the selection blue; a coding agent a quiet neutral.
+.mech-comment-avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--mech-accent-soft);
+  color: var(--mech-accent);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  user-select: none;
+
+  &.is-agent {
+    background: var(--mech-field-bg);
+    color: var(--mech-fg-alt);
+  }
+}
+// While commenting (CommentPins sets the class) the whole live page shows a
+// crosshair: a click pins a comment instead of using the page. The editor's
+// own chrome keeps its cursors.
+html.mech-commenting :not([data-mech-ui], [data-mech-ui] *) {
+  cursor: crosshair !important;
+}
 
 // ── Panel toggle (side handle) ───────────────────────────────────────────────
 // One button docked to the left or right edge. Collapsed it sits at the screen

@@ -38,6 +38,25 @@ export {
   type ComposedBlockResponse,
 } from './editor-protocol'
 
+export {
+  blockPathOf,
+  blockAtPath,
+  anchorForBlock,
+  resolveAnchor,
+  openCommentCount,
+  type CommentAuthor,
+  type CommentMessage,
+  type CommentAnchor,
+  type CommentElement,
+  type CommentStatus,
+  type CommentThread,
+  type BlockPathSegment,
+  type ResolvedAnchor,
+  type NewCommentRequest,
+  type CommentReplyRequest,
+  type CommentStatusRequest,
+} from './comments'
+
 export { SITE_MANIFEST_FILE, EDITOR_DIST_DIR, type SiteManifest } from './site-manifest'
 
 export { normalizeClassManifest } from './composer-manifest'

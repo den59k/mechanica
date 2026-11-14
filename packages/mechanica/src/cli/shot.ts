@@ -32,6 +32,11 @@ export interface ShotOptions {
   scroll?: string
   /** Leave CSS animations and transitions running (`--no-freeze`). */
   noFreeze?: boolean
+  /**
+   * `--mark x,y`: draw a ring at that point of every `--section`, as fractions
+   * (0–1) of its width and height — "the comment is about this spot".
+   */
+  mark?: string
 }
 
 /**
@@ -61,11 +66,13 @@ export interface ShotPlan {
   data?: Record<string, unknown>
   mode: CaptureMode
   freeze: boolean
+  /** Where to draw the ring in each section (fractions of its box). */
+  mark?: { x: number; y: number }
 }
 
 const USAGE =
   'Usage: mechanica shot <blockId | /page/path | URL | file.html> [--page </path>] [--data <json|@file>] ' +
-  '[--width 1440,768] [--section <css>]… [--scroll <px[,px…]>] [--no-freeze] [--full] [--out <path>] ' +
+  '[--width 1440,768] [--section <css>]… [--mark <x,y>] [--scroll <px[,px…]>] [--no-freeze] [--full] [--out <path>] ' +
   '[--server <url>] [--browser <path>]\n' +
   '--section also looks inside open shadow roots ("host >>> inner" crosses one explicitly); ' +
   'a bare #name (or name) that matches nothing finds the Mechanica block [data-block-id="name"].'
@@ -91,6 +98,18 @@ export function parseScrolls(value: string | undefined): number[] | undefined {
     throw new Error(`Invalid --scroll value "${value}" — expected pixels from the top, e.g. 800 or 0,800,1600`)
   }
   return parts.map(Number)
+}
+
+/** Parse a `--mark` value: two 0–1 fractions, `x,y`. Undefined when absent. */
+export function parseMark(value: string | undefined): { x: number; y: number } | undefined {
+  if (value === undefined) return undefined
+  const parts = value.split(',').map((part) => part.trim())
+  const [x, y] = parts.map(Number)
+  const valid = (n: number | undefined): n is number => n !== undefined && Number.isFinite(n) && n >= 0 && n <= 1
+  if (parts.length !== 2 || parts.some((part) => part === '') || !valid(x) || !valid(y)) {
+    throw new Error(`Invalid --mark value "${value}" — expected two fractions of the section's box, e.g. 0.62,0.31`)
+  }
+  return { x, y }
 }
 
 /** Resolve `--data`: inline JSON or `@file`, validated to a JSON object. */
@@ -286,6 +305,8 @@ export function planShot(target: string | undefined, options: ShotOptions = {}, 
   }
   const slugs = sectionSlugs(selectors)
   const scrolls = parseScrolls(options.scroll)
+  const mark = parseMark(options.mark)
+  if (mark && !selectors.length) throw new Error('--mark needs a --section to be a point of')
 
   return {
     target: shotTarget,
@@ -301,6 +322,7 @@ export function planShot(target: string | undefined, options: ShotOptions = {}, 
     data: resolveDataArg(options.data),
     mode: captureMode(shotTarget.kind, { section: selectors.length > 0, full: options.full, scroll: !!scrolls }),
     freeze: !options.noFreeze,
+    ...(mark ? { mark } : {}),
   }
 }
 
@@ -364,7 +386,7 @@ export async function runShot(target: string | undefined, options: ShotOptions =
           const out = outputPath(options.out, plan.name, width, plan.widths.length > 1, shotVariant(section?.slug, scroll))
           let png: Buffer
           try {
-            png = await capture(page, plan.mode, section?.selector, previewError)
+            png = await capture(page, plan.mode, section?.selector, previewError, plan.mark)
           } catch (error) {
             if (!section) throw error
             const where = `at ${width}px` + (scroll !== undefined ? `, scrolled to ${scroll}px` : '')
@@ -428,10 +450,19 @@ async function capture(
   mode: CaptureMode,
   selector: string | undefined,
   previewError: string | null,
+  mark?: { x: number; y: number },
 ): Promise<Buffer> {
   switch (mode) {
-    case 'section':
-      return page.screenshot({ section: selector })
+    case 'section': {
+      if (!mark || !selector) return page.screenshot({ section: selector })
+      const box = await page.sectionClip(selector)
+      await page.evaluate(markSource(box.x + mark.x * box.width, box.y + mark.y * box.height))
+      try {
+        return await page.screenshot({ section: selector })
+      } finally {
+        await page.evaluate(`document.getElementById('${MARK_ID}')?.remove()`)
+      }
+    }
     case 'viewport':
       return page.screenshot()
     case 'full':
@@ -442,6 +473,32 @@ async function capture(
       return page.screenshot(clip ? { clip } : { full: true })
     }
   }
+}
+
+const MARK_ID = '__mechanica-shot-mark'
+
+/**
+ * Page script that draws the `--mark` ring centred on a document point: a
+ * magenta ring with a white halo, readable on light and dark alike. It hangs
+ * off `<html>` so no page stylesheet lays it out.
+ */
+export function markSource(x: number, y: number): string {
+  const size = 36
+  const style = [
+    'position:absolute',
+    `left:${Math.round(x - size / 2)}px`,
+    `top:${Math.round(y - size / 2)}px`,
+    `width:${size}px`,
+    `height:${size}px`,
+    'box-sizing:border-box',
+    'border:3px solid #ff2d95',
+    'border-radius:50%',
+    'box-shadow:0 0 0 2px #fff, inset 0 0 0 2px #fff',
+    'z-index:2147483647',
+    'pointer-events:none',
+    'margin:0',
+  ].join(';')
+  return `(() => { const mark = document.createElement('div'); mark.id = '${MARK_ID}'; mark.style.cssText = '${style}'; document.documentElement.appendChild(mark) })()`
 }
 
 /** Fail early with the list of real pages instead of shooting an empty 200. */

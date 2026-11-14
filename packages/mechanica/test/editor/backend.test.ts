@@ -140,4 +140,88 @@ describe('createEditorBackend', () => {
     expect(unsubscribe).toBeTypeOf('function')
     unsubscribe()
   })
+
+  const thread = {
+    id: 'c1',
+    page: '/pricing',
+    status: 'open',
+    createdAt: '2026-11-14T10:00:00.000Z',
+    messages: [{ id: 'm1', author: { name: 'Den', kind: 'user' }, body: 'Too tight', createdAt: '2026-11-14T10:00:00.000Z' }],
+  }
+
+  it('lists comments for a page or the whole site; a host without them answers null', async () => {
+    const backend = createEditorBackend()
+
+    const fetchMock = stubFetch(() => reply([thread]))
+    expect(await backend.comments.list('/pricing')).toEqual([thread])
+    expect(fetchMock).toHaveBeenCalledWith('/@mechanica/comments?page=%2Fpricing')
+    await backend.comments.list()
+    expect(fetchMock).toHaveBeenLastCalledWith('/@mechanica/comments')
+
+    stubFetch(() => reply({ error: 'Not implemented' }, 501))
+    expect(await backend.comments.list('/pricing')).toBeNull()
+    stubFetch(() => reply({}, 404))
+    expect(await backend.comments.list('/pricing')).toBeNull()
+    // Not a list (an SPA fallback answering 200) is no comments either.
+    stubFetch(() => reply({ html: true }))
+    expect(await backend.comments.list('/pricing')).toBeNull()
+
+    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))))
+    expect(await backend.comments.list('/pricing')).toBeNull()
+  })
+
+  it('comment writes send the wire shapes and return the thread the host answers with', async () => {
+    const backend = createEditorBackend()
+    const fetchMock = stubFetch(() => reply(thread))
+    const sent = (call: number) => {
+      const [url, init] = fetchMock.mock.calls[call]!
+      return { url, method: init!.method, body: init!.body ? JSON.parse(init!.body as string) : undefined }
+    }
+
+    const input = { page: '/pricing', anchor: { blockId: 'b1', blockType: 'pricing', path: [0], x: 0.5, y: 0.25 }, body: 'Too tight' }
+    expect(await backend.comments.create(input)).toEqual(thread)
+    expect(sent(0)).toEqual({ url: '/@mechanica/comments', method: 'POST', body: input })
+
+    expect(await backend.comments.reply('c1', 'Fixed')).toEqual(thread)
+    expect(sent(1)).toEqual({ url: '/@mechanica/comments/reply', method: 'POST', body: { id: 'c1', body: 'Fixed' } })
+
+    expect(await backend.comments.setStatus('c1', 'resolved')).toEqual(thread)
+    expect(sent(2)).toEqual({
+      url: '/@mechanica/comments/status',
+      method: 'POST',
+      body: { id: 'c1', status: 'resolved' },
+    })
+
+    stubFetch(() => reply({ success: true }))
+    expect(await backend.comments.remove('c1')).toBe(true)
+    const removeMock = stubFetch(() => reply({ success: false }))
+    expect(await backend.comments.remove('c 2')).toBe(false)
+    expect(removeMock).toHaveBeenCalledWith('/@mechanica/comments?id=c+2', { method: 'DELETE' })
+  })
+
+  it('comment writes fail with a BackendError carrying a showable message', async () => {
+    const backend = createEditorBackend()
+
+    stubFetch(() => reply({ error: 'Unknown thread' }, 404))
+    await expect(backend.comments.reply('nope', 'Hi')).rejects.toThrow('Unknown thread')
+    await expect(backend.comments.setStatus('nope', 'open')).rejects.toBeInstanceOf(BackendError)
+    await expect(backend.comments.remove('nope')).rejects.toThrow('Unknown thread')
+
+    stubFetch(() => reply({ error: { body: 'A comment needs some text' } }, 400))
+    await expect(backend.comments.create({ page: '/', body: '' })).rejects.toThrow('A comment needs some text')
+
+    stubFetch(() => reply({}, 501))
+    await expect(backend.comments.create({ page: '/', body: 'Hi' })).rejects.toThrow('Comment failed (501)')
+
+    // An unreachable host is a BackendError too, never a raw TypeError.
+    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))))
+    await expect(backend.comments.create({ page: '/', body: 'Hi' })).rejects.toBeInstanceOf(BackendError)
+    await expect(backend.comments.remove('c1')).rejects.toBeInstanceOf(BackendError)
+  })
+
+  it('has no live comment events outside a dev server', () => {
+    const unsubscribe = createEditorBackend().onCommentsChange(() => {})
+    expect(unsubscribe).toBeTypeOf('function')
+    unsubscribe()
+  })
 })

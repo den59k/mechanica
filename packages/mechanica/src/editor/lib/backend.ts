@@ -1,5 +1,7 @@
 import {
   EDITOR_API_BASE,
+  type CommentStatus,
+  type CommentThread,
   type ComposedBlockDefinition,
   type ComposedBlockResponse,
   type EditorCapabilities,
@@ -7,6 +9,7 @@ import {
   type EditorPageListing,
   type EditorPageState,
   type ImageListing,
+  type NewCommentRequest,
   type PageFormInput,
   type SavePageRequest,
   type SavePageResponse,
@@ -62,6 +65,16 @@ export interface EditorBackend {
     remove(id: string): Promise<void>
   }
 
+  comments: {
+    /** A page's threads (or the whole site's); null when the host has no comments — the UI then hides itself. */
+    list(page?: string): Promise<CommentThread[] | null>
+    /** Start a thread. The writes throw `BackendError`; the host names the author. */
+    create(input: NewCommentRequest): Promise<CommentThread>
+    reply(id: string, body: string): Promise<CommentThread>
+    setStatus(id: string, status: CommentStatus): Promise<CommentThread>
+    remove(id: string): Promise<boolean>
+  }
+
   urls: {
     /** A page's thumbnail (may 404 — callers need a fallback). */
     pageThumb(path: string): string
@@ -78,6 +91,12 @@ export interface EditorBackend {
    * calls back.
    */
   onStoreChange(listener: (change: { path?: string }) => void): () => void
+
+  /**
+   * Subscribe to comment changes made elsewhere (another tab, the CLI). Returns
+   * an unsubscribe; a host without live events never calls back.
+   */
+  onCommentsChange(listener: () => void): () => void
 }
 
 /** The outcome of a page create / update / duplicate: its path, or a message for the form. */
@@ -165,6 +184,22 @@ export function createEditorBackend(config: EditorHostConfig = {}): EditorBacken
     return { version: result?.version ?? null }
   }
 
+  // A comment write answers with the thread as it now is. Every failure — the
+  // host's refusal or an unreachable host — is a `BackendError` fit for showing.
+  const writeComment = async (send: () => Promise<Response>, verb: string): Promise<CommentThread> => {
+    let response: Response
+    try {
+      response = await send()
+    } catch {
+      throw new BackendError(`${verb} failed: the server could not be reached`, 0)
+    }
+    const data = await readJson<CommentThread & NonNullable<ErrorBody>>(response)
+    if (!response.ok || !data) {
+      throw new BackendError(errorMessage(data, 'body') ?? `${verb} failed (${response.status})`, response.status)
+    }
+    return data
+  }
+
   return {
     capabilities: { composer: true, ...config.capabilities },
 
@@ -229,6 +264,37 @@ export function createEditorBackend(config: EditorHostConfig = {}): EditorBacken
       },
     },
 
+    comments: {
+      list: async (page) => {
+        // A host without comments (501/404), a failing one and an unreachable
+        // one all read the same to the UI: no comments here.
+        try {
+          const response = await request(url('/comments', { page }))
+          if (!response.ok) return null
+          const threads = await readJson<CommentThread[]>(response)
+          return Array.isArray(threads) ? threads : null
+        } catch {
+          return null
+        }
+      },
+      create: (input) => writeComment(() => postJson(url('/comments'), input), 'Comment'),
+      reply: (id, body) => writeComment(() => postJson(url('/comments/reply'), { id, body }), 'Reply'),
+      setStatus: (id, status) => writeComment(() => postJson(url('/comments/status'), { id, status }), 'Update'),
+      remove: async (id) => {
+        let response: Response
+        try {
+          response = await request(url('/comments', { id }), { method: 'DELETE' })
+        } catch {
+          throw new BackendError('Delete failed: the server could not be reached', 0)
+        }
+        const data = await readJson<{ success?: boolean } & NonNullable<ErrorBody>>(response)
+        if (!response.ok) {
+          throw new BackendError(errorMessage(data, 'id') ?? `Delete failed (${response.status})`, response.status)
+        }
+        return data?.success !== false
+      },
+    },
+
     urls: {
       pageThumb: (path) => `${base}/thumbs/${pageSlug(path)}.png`,
       blockThumb: (blockId) => `${base}/thumbs/blocks/${encodeURIComponent(blockId)}.png`,
@@ -243,6 +309,17 @@ export function createEditorBackend(config: EditorHostConfig = {}): EditorBacken
       const handler = (data: { path?: string } | undefined) => listener(data ?? {})
       hot.on('mechanica:store-changed', handler)
       return () => hot.off('mechanica:store-changed', handler)
+    },
+
+    onCommentsChange(listener) {
+      // Same channel: the dev server announces every change to the comments
+      // file, whoever made it (this tab, another one, `mechanica comments`).
+      const hot = import.meta.hot
+      if (!hot) return () => {}
+      const handler = () => listener()
+      hot.on('mechanica:comments-changed', handler)
+      // `off` is optional chaining on purpose: a test runner's HMR stub has `on` only.
+      return () => hot.off?.('mechanica:comments-changed', handler)
     },
   }
 }

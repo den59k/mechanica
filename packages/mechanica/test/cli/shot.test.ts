@@ -6,6 +6,8 @@ import { pathToFileURL } from 'node:url'
 import {
   parseWidths,
   parseScrolls,
+  parseMark,
+  markSource,
   resolveDataArg,
   previewUrl,
   outputPath,
@@ -130,6 +132,33 @@ describe('shotVariant', () => {
     expect(shotVariant('hero')).toBe('-hero')
     expect(shotVariant(undefined, 0)).toBe('-y0')
     expect(shotVariant('stage-pin', 2400)).toBe('-stage-pin-y2400')
+  })
+})
+
+describe('parseMark', () => {
+  it('is undefined when absent and parses two fractions', () => {
+    expect(parseMark(undefined)).toBeUndefined()
+    expect(parseMark('0.62,0.31')).toEqual({ x: 0.62, y: 0.31 })
+    expect(parseMark(' 0 , 1 ')).toEqual({ x: 0, y: 1 })
+  })
+
+  it('rejects anything else', () => {
+    for (const bad of ['', '0.5', '0.5,', '1.2,0.5', '-0.1,0.5', 'a,b', '0.1,0.2,0.3']) {
+      expect(() => parseMark(bad), bad).toThrow(/--mark/)
+    }
+  })
+
+  it('needs a section, and rides the plan', () => {
+    expect(() => planShot('/about', { mark: '0.5,0.5' })).toThrow(/--section/)
+    expect(planShot('/about', { mark: '0.5,0.25', section: ['#hero'] }).mark).toEqual({ x: 0.5, y: 0.25 })
+    expect(planShot('/about', { section: ['#hero'] })).not.toHaveProperty('mark')
+  })
+
+  it('draws a ring centred on the point', () => {
+    const source = markSource(200, 100)
+    expect(source).toContain('left:182px')
+    expect(source).toContain('top:82px')
+    expect(source).toContain('pointer-events:none')
   })
 })
 

@@ -1,5 +1,6 @@
 import { parseArgs, flagValues } from './args'
 import { runBuild } from './build'
+import { runComments } from './comments'
 import { runExport } from './run-export'
 import { runImages } from './images'
 import { runMigrate } from './migrate'
@@ -47,6 +48,8 @@ Usage:
                              looks inside open shadow roots, "host >>> inner"
                              crosses one; #name also finds [data-block-id=name]),
                              --scroll <px[,px…]> (viewport after scrolling),
+                             --mark <x,y> (with --section: a ring at that point of
+                             the section, as 0–1 fractions of its width and height),
                              --no-freeze, --full, --out <path>, --server <url>,
                              --browser <path>)
   mechanica thumbs [/path]  Thumbnail every page (or those under /path) into
@@ -65,10 +68,21 @@ Usage:
                             or a local export)
   mechanica migrate         Bring .mech content up to the current format: uploads
                             are referenced as /media/<file> (was /@mechanica/assets/)
+  mechanica comments        List the open review comments left in the editor, with
+                            the file and line of the block each one is about
+                            (--page </path>, --all adds the resolved ones, --json)
+  mechanica comments add </path> "text"
+                            Comment on a page (--block <content-block-id> pins it
+                            to a block, --locale <code>)
+  mechanica comments reply <id> "text"
+  mechanica comments resolve <id>
+                            Mark a comment done (--note "what changed" is posted
+                            as a reply first); mechanica comments reopen <id> undoes it
+                            (--as <name> signs any of these as someone else)
 `
 
 // Flags that never take a value: `shot --no-freeze design/index.html` keeps the target positional.
-const PARSE_OPTIONS = { booleans: ['full', 'no-freeze'] }
+const PARSE_OPTIONS = { booleans: ['full', 'no-freeze', 'all', 'json'] }
 
 /** CLI entry: dispatch a command to its handler. */
 export async function run(argv: string[]): Promise<void> {
@@ -95,6 +109,16 @@ export async function run(argv: string[]): Promise<void> {
       return void (await runAssetsPull())
     case 'migrate':
       return void (await runMigrate())
+    case 'comments':
+      return runComments(args, {
+        page: str(flags.page),
+        all: flags.all === true,
+        json: flags.json === true,
+        block: str(flags.block),
+        locale: str(flags.locale),
+        note: str(flags.note),
+        as: str(flags.as),
+      })
     case 'login':
       return runLogin({
         host: str(flags.host),
@@ -116,6 +140,7 @@ export async function run(argv: string[]): Promise<void> {
         full: flags.full === true,
         section: flagValues(argv, 'section', PARSE_OPTIONS).map((value) => required(value) ?? ''),
         scroll: required(flags.scroll),
+        mark: required(flags.mark),
         noFreeze: flags['no-freeze'] === true,
       })
     case 'thumbs': {

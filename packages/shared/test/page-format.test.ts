@@ -404,3 +404,55 @@ describe('page-format: block schema versions', () => {
     expect(() => parsePage('::: hero v=two\n:::')).toThrow(/Unknown block attribute/)
   })
 })
+
+describe('page-format: onBlock', () => {
+  it('reports each block with the 1-based line of its open fence', () => {
+    const text = [
+      '---', // 1
+      'name: Home', // 2
+      '---', // 3
+      '', // 4
+      '::: hero #top', // 5
+      'title: Hello', // 6
+      ':::', // 7
+      '', // 8
+      '::: section', // 9
+      '::: card #a', // 10
+      '@body', // 11
+      'Fences look like this:', // 12
+      '', // 13
+      '```md', // 14
+      '::: not-a-block #fake', // 15
+      ':::', // 16
+      '```', // 17
+      ':::', // 18
+      '::: card', // 19
+      ':::', // 20
+      '::: /section', // 21
+      '', // 22
+      '::: footer', // 23
+      ':::', // 24
+    ].join('\n')
+
+    const seen: [id: string, blockId: string, line: number][] = []
+    const doc = parsePage(text, { onBlock: (block, line) => seen.push([block.id, block.blockId, line]) })
+
+    expect(seen).toEqual([
+      ['top', 'hero', 5],
+      ['auto1', 'section', 9],
+      ['a', 'card', 10],
+      ['auto2', 'card', 19],
+      ['auto3', 'footer', 23],
+    ])
+    // The code sample stayed text inside the region.
+    expect((doc.content[1]!.children as ContentBlock[])[0]!.data.body).toContain('::: not-a-block #fake')
+  })
+
+  it('counts lines the same in a CRLF file', () => {
+    const lines: number[] = []
+    parsePage('---\r\nname: A\r\n---\r\n\r\n::: hero\r\n:::\r\n::: cta\r\n:::\r\n', {
+      onBlock: (_block, line) => lines.push(line),
+    })
+    expect(lines).toEqual([5, 7])
+  })
+})
