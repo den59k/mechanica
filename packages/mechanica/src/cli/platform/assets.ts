@@ -8,7 +8,7 @@ import {
   type ImageManifestEntry,
   type RemoteAssets,
 } from '../../server/assets-store'
-import { parseRemoteUrl, REMOTE_NAME, request, type PlatformSite } from './api'
+import { isOutage, parseRemoteUrl, REMOTE_NAME, request, type PlatformError, type PlatformSite } from './api'
 import { getToken } from './credentials'
 import { git } from './git'
 
@@ -44,17 +44,43 @@ const ASSETS_DIR = '.mech/assets'
  * normal case for the dev server.
  */
 export async function resolveLink(cwd: string): Promise<SiteLink | null> {
+  const found = await lookupLink(cwd)
+  return found.state === 'linked' ? found.link : null
+}
+
+/**
+ * What looking for a project's site came to. `unreachable` is a project that
+ * is linked and logged in whose platform did not answer: unlike `none`, that
+ * may change by the next time it is asked.
+ */
+export type LinkLookup =
+  | { state: 'linked'; link: SiteLink }
+  | { state: 'none' }
+  | { state: 'unreachable'; origin: string; slug: string; error: PlatformError }
+
+/**
+ * {@link resolveLink}, telling "no site" from "a site that did not answer" —
+ * for a caller that must not mistake an outage for an unlinked project. Never
+ * throws.
+ */
+export async function lookupLink(cwd: string): Promise<LinkLookup> {
+  let link: { origin: string; slug: string } | null
+  let token: string | null | undefined
   try {
     const remote = await git(cwd, ['remote', 'get-url', REMOTE_NAME])
-    const link = remote.code === 0 ? parseRemoteUrl(remote.stdout) : null
-    if (!link) return null
-    const token = await getToken(link.origin)
-    if (!token) return null
+    link = remote.code === 0 ? parseRemoteUrl(remote.stdout) : null
+    if (!link) return { state: 'none' }
+    token = await getToken(link.origin)
+    if (!token) return { state: 'none' }
+  } catch {
+    return { state: 'none' }
+  }
+  try {
     const sites = await request<PlatformSite[]>(link.origin, 'GET', '/api/sites', { token })
     const site = sites.find((item) => item.slug === link.slug)
-    return site ? { ...link, uuid: site.uuid, token } : null
-  } catch {
-    return null
+    return site ? { state: 'linked', link: { ...link, uuid: site.uuid, token } } : { state: 'none' }
+  } catch (error) {
+    return isOutage(error) ? { state: 'unreachable', ...link, error } : { state: 'none' }
   }
 }
 

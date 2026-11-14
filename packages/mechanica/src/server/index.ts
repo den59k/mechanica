@@ -40,6 +40,8 @@ export {
   memoryCommentStore,
   localCommentAuthor,
   normalizeCommentPage,
+  cleanCommentAnchor,
+  isCommentStatus,
   type CommentStore,
 } from './comments-store'
 export { buildSiteManifest, readSiteManifest, configureSite, type SiteManifestInput } from './site'

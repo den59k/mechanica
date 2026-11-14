@@ -37,10 +37,11 @@ import { pageUrlOf } from '../server/pages-store'
 import { buildPageState, buildGeneratedState, fillStateImages } from '../server/page-state'
 import { fsAssetStore, withRemoteAssets, type AssetStore } from '../server/assets-store'
 import { remoteAssetsFor, uploadsIgnored } from '../cli/platform/assets'
+import { commentStoreFor } from '../cli/platform/comments'
 import { createEditorService } from '../server/service'
 import { toNodeMiddleware, toAssetMiddleware } from '../server/node-adapter'
 import { wasRecentlyMutated } from '../server/fs-utils'
-import { COMMENTS_FILE } from '../server/comments-store'
+import { COMMENTS_FILE, type CommentStore } from '../server/comments-store'
 import { buildSiteManifest, configureSite, indexGeneratedPages, type GeneratedIndex } from '../server/site'
 import { renderEditablePage } from '../server/editor-page'
 import { BLOCKS_MANIFEST_FILE } from '../cli/page-assets'
@@ -206,6 +207,12 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
           return ignored
         })),
     }))
+  // The project's review comments: the platform's for a linked project (the
+  // threads people leave in its online editor), else `.mech/comments/`. Which
+  // one is found out on the first request and kept — except while a linked
+  // project's platform does not answer: that is asked again.
+  let commentStore: CommentStore | null = null
+  const comments = (): CommentStore => (commentStore ??= commentStoreFor(root))
   let composedDir = ''
   // Absolute path + root-relative import specifier for the components manifest.
   let composerFilePath = ''
@@ -619,7 +626,11 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       // The service takes everything it knows about the code from the
       // manifest — re-read per request, so a re-collected blocks module (HMR
       // add/remove) or an edited composed block is reflected.
-      const service = createEditorService(mechDir, { site: () => loadSite(server), assets: uploads() })
+      const service = createEditorService(mechDir, {
+        site: () => loadSite(server),
+        assets: uploads(),
+        comments: comments(),
+      })
       server.middlewares.use('/@mechanica', toNodeMiddleware(service) as Connect.NextHandleFunction)
       // Uploads are served where content refers to them — and where the export
       // publishes them — `/media/<name>`. Anything else under it falls through.
@@ -686,7 +697,8 @@ export function mechanica(options: MechanicaPluginOptions = {}): Plugin {
       // Review comments are not content: a change to them never reloads a page,
       // it only tells open editors to re-read the threads. Our own writes are
       // announced too — another tab's editor needs them, and so does this one
-      // after the CLI (another process) answered a thread.
+      // after the CLI (another process) answered a thread. (A linked project's
+      // comments are not in this file; its editors re-read them on a timer.)
       const onCommentsFile = (file: string): void => {
         if (slash(file) !== slash(mechDir) + '/' + COMMENTS_FILE) return
         server.ws.send({ type: 'custom', event: 'mechanica:comments-changed', data: {} })

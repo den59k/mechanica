@@ -109,7 +109,7 @@ afterEach(() => {
 async function setup(threads: CommentThread[] = [pinned, pageLevel, orphan, resolved]) {
   const fake = fakeBackend(threads)
   const store = createEditorStore({ content: pageContent, data: {} }, components)
-  const comments = createCommentsStore(fake.backend)
+  const comments = createCommentsStore(fake.backend, { pollMs: 0 })
   await comments.load('/pricing')
   comments.toggleMode()
   return { ...fake, store, comments }

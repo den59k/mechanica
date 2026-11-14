@@ -8,6 +8,13 @@ export class PlatformError extends Error {
   }
 }
 
+/**
+ * Whether a failure says nothing about the request itself: the platform could
+ * not be reached, or broke while answering. Asking again later may well work.
+ */
+export const isOutage = (error: unknown): error is PlatformError =>
+  error instanceof PlatformError && (error.status === 0 || error.status >= 500)
+
 /** The platform answers errors as plain text or as `{ error: { field: { message } } }`. */
 function errorMessage(status: number, text: string): string {
   try {
@@ -32,6 +39,8 @@ export interface RequestOptions {
   body?: unknown
   /** …or raw bytes (a bundle). */
   raw?: Uint8Array
+  /** The `fetch` to send it with (defaults to the global one) — a test's stand-in for the platform. */
+  fetch?: typeof fetch
 }
 
 /** One request to the platform API; resolves with the parsed JSON body (or null). */
@@ -48,7 +57,7 @@ export async function request<T = any>(
 
   let response: Response
   try {
-    response = await fetch(origin + path, {
+    response = await (options.fetch ?? fetch)(origin + path, {
       method,
       headers,
       // The DOM lib's BodyInit does not list a plain Uint8Array, though fetch takes one.

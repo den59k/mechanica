@@ -1,10 +1,11 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import type { CommentAnchor, CommentThread, ContentBlock, NewCommentRequest } from 'mechanica-shared'
 import {
   agentPrompt,
   anchorFromClick,
   cardPosition,
   createCommentsStore,
+  documentVisibility,
   fieldForText,
   initials,
   pinPoint,
@@ -15,7 +16,9 @@ import {
   threadPlace,
   trimQuote,
   viewportHint,
+  COMMENTS_POLL_MS,
   QUOTE_LIMIT,
+  type VisibilitySource,
 } from '@/editor/lib/comments'
 import { BackendError, type EditorBackend } from '@/editor/lib/backend'
 
@@ -296,6 +299,10 @@ function fakeBackend(initial: CommentThread[] | null = []) {
     backend,
     comments,
     listeners,
+    /** Change the host's threads behind the store's back, announcing nothing. */
+    setThreads(next: CommentThread[]) {
+      threads = next
+    },
     /** Change the host's threads behind the store's back and announce it. */
     async changeElsewhere(next: CommentThread[]) {
       threads = next
@@ -606,6 +613,243 @@ describe('createCommentsStore', () => {
     expect(store.threads).toHaveLength(1)
     expect(store.draft).toEqual({ anchor })
     expect(store.activeId).toBeNull()
+  })
+})
+
+describe('createCommentsStore — re-reading on a timer', () => {
+  afterEach(() => vi.useRealTimers())
+
+  /** A tab that can be hidden and shown. */
+  function fakeVisibility(visible = true) {
+    const listeners = new Set<() => void>()
+    const source: VisibilitySource = {
+      visible: () => visible,
+      onChange(listener) {
+        listeners.add(listener)
+        return () => listeners.delete(listener)
+      },
+    }
+    return {
+      source,
+      listeners,
+      set(next: boolean) {
+        visible = next
+        for (const listener of listeners) listener()
+      },
+    }
+  }
+
+  /** Let the pending promise callbacks run without moving the clock. */
+  const settle = () => vi.advanceTimersByTimeAsync(0)
+
+  it('re-reads the page’s threads every pollMs once the host has comments', async () => {
+    vi.useFakeTimers()
+    const thread = makeThread()
+    const fake = fakeBackend([thread])
+    const store = createCommentsStore(fake.backend, { pollMs: 5000, visibility: fakeVisibility().source })
+
+    // Nothing is asked before the first load says the host has comments.
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(fake.comments.list).not.toHaveBeenCalled()
+
+    await store.load('/pricing')
+    expect(fake.comments.list).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(4999)
+    expect(fake.comments.list).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fake.comments.list).toHaveBeenCalledTimes(2)
+    expect(fake.comments.list).toHaveBeenLastCalledWith('/pricing')
+
+    // A comment made elsewhere — a host without live events — shows up with the next poll.
+    const another = makeThread()
+    fake.setThreads([thread, another])
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(store.threads.map((entry) => entry.id)).toEqual([thread.id, another.id])
+
+    // It follows the page.
+    await store.load('/about')
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(fake.comments.list).toHaveBeenLastCalledWith('/about')
+    store.dispose()
+  })
+
+  it('polls every 20 seconds by default', async () => {
+    vi.useFakeTimers()
+    expect(COMMENTS_POLL_MS).toBe(20_000)
+    const fake = fakeBackend([makeThread()])
+    const store = createCommentsStore(fake.backend)
+    await store.load('/pricing')
+    await vi.advanceTimersByTimeAsync(19_999)
+    expect(fake.comments.list).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fake.comments.list).toHaveBeenCalledTimes(2)
+    store.dispose()
+  })
+
+  it('never polls a host without comments', async () => {
+    vi.useFakeTimers()
+    const visibility = fakeVisibility()
+    const fake = fakeBackend(null)
+    const store = createCommentsStore(fake.backend, { pollMs: 5000, visibility: visibility.source })
+    await store.load('/pricing')
+    await vi.advanceTimersByTimeAsync(60_000)
+    visibility.set(false)
+    visibility.set(true)
+    await settle()
+    expect(fake.comments.list).toHaveBeenCalledTimes(1)
+    expect(visibility.listeners.size).toBe(0)
+    store.dispose()
+  })
+
+  it('rests while the tab is hidden, and re-reads the moment it is back', async () => {
+    vi.useFakeTimers()
+    const visibility = fakeVisibility()
+    const fake = fakeBackend([makeThread()])
+    const store = createCommentsStore(fake.backend, { pollMs: 5000, visibility: visibility.source })
+    await store.load('/pricing')
+
+    visibility.set(false)
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(fake.comments.list).toHaveBeenCalledTimes(1)
+
+    visibility.set(true)
+    await settle()
+    expect(fake.comments.list).toHaveBeenCalledTimes(2)
+    store.dispose()
+  })
+
+  it('pollMs: 0 turns it off', async () => {
+    vi.useFakeTimers()
+    const visibility = fakeVisibility()
+    const fake = fakeBackend([makeThread()])
+    const store = createCommentsStore(fake.backend, { pollMs: 0, visibility: visibility.source })
+    await store.load('/pricing')
+    await vi.advanceTimersByTimeAsync(120_000)
+    visibility.set(false)
+    visibility.set(true)
+    await settle()
+    expect(fake.comments.list).toHaveBeenCalledTimes(1)
+    expect(visibility.listeners.size).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('stops for good when disposed', async () => {
+    vi.useFakeTimers()
+    const visibility = fakeVisibility()
+    const fake = fakeBackend([makeThread()])
+    const store = createCommentsStore(fake.backend, { pollMs: 5000, visibility: visibility.source })
+    await store.load('/pricing')
+    expect(visibility.listeners.size).toBe(1)
+
+    store.dispose()
+    expect(visibility.listeners.size).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(fake.comments.list).toHaveBeenCalledTimes(1)
+
+    // A load after the fact does not bring the timer back.
+    await store.load('/about')
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('leaves the draft, the open thread and the mode alone', async () => {
+    vi.useFakeTimers()
+    const thread = makeThread()
+    const fake = fakeBackend([thread])
+    const store = createCommentsStore(fake.backend, { pollMs: 5000, visibility: fakeVisibility().source })
+    await store.load('/pricing')
+    store.toggleMode()
+
+    const anchor = anchorFromClick(content, 'b1', rect, 300, 150, 1440)!
+    store.startDraft(anchor)
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(store.draft).toEqual({ anchor })
+    expect(store.mode).toBe(true)
+
+    store.openThread(thread.id)
+    store.error = 'Could not send the reply'
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(store.activeId).toBe(thread.id)
+    expect(store.error).toBe('Could not send the reply')
+    expect(fake.comments.list.mock.calls.length).toBeGreaterThan(4)
+    store.dispose()
+  })
+
+  it('does not ask while a write is in flight', async () => {
+    vi.useFakeTimers()
+    const thread = makeThread()
+    const fake = fakeBackend([thread])
+    const store = createCommentsStore(fake.backend, { pollMs: 5000, visibility: fakeVisibility().source })
+    await store.load('/pricing')
+
+    let release!: () => void
+    const held = new Promise<void>((resolve) => (release = resolve))
+    const reply = fake.comments.reply.getMockImplementation()!
+    fake.comments.reply.mockImplementationOnce(async (id, body) => {
+      await held
+      return reply(id, body)
+    })
+    const sending = store.reply(thread.id, 'On it')
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(fake.comments.list).toHaveBeenCalledTimes(1)
+
+    release()
+    expect(await sending).toBe(true)
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(fake.comments.list).toHaveBeenCalledTimes(2)
+    expect(store.threads[0]!.messages).toHaveLength(2)
+    store.dispose()
+  })
+
+  it('a list asked for before a write landed does not take the write back out', async () => {
+    vi.useFakeTimers()
+    const fake = fakeBackend([])
+    const store = createCommentsStore(fake.backend, { pollMs: 5000, visibility: fakeVisibility().source })
+    await store.load('/pricing')
+    store.toggleMode()
+    store.startDraft(null)
+
+    // The poll's list leaves before the comment is posted and lands after it —
+    // with what the host had before.
+    let release!: (threads: CommentThread[]) => void
+    fake.comments.list.mockImplementationOnce(() => new Promise<CommentThread[]>((resolve) => (release = resolve)))
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(fake.comments.list).toHaveBeenCalledTimes(2)
+
+    const created = await store.submitDraft('Posted meanwhile')
+    expect(store.threads.map((entry) => entry.id)).toEqual([created!.id])
+    release([])
+    await settle()
+
+    // The stale answer was dropped and the list asked for again.
+    expect(fake.comments.list).toHaveBeenCalledTimes(3)
+    expect(store.threads.map((entry) => entry.id)).toEqual([created!.id])
+    expect(store.activeId).toBe(created!.id)
+    store.dispose()
+  })
+
+  it('reads the document’s visibility by default, and survives having no document', () => {
+    // This suite runs in Node: no document, so always visible and nothing to listen to.
+    expect(typeof document).toBe('undefined')
+    expect(documentVisibility.visible()).toBe(true)
+    const stop = documentVisibility.onChange(() => {})
+    expect(() => stop()).not.toThrow()
+
+    const listeners = new Map<string, () => void>()
+    vi.stubGlobal('document', {
+      visibilityState: 'hidden',
+      addEventListener: (type: string, listener: () => void) => void listeners.set(type, listener),
+      removeEventListener: (type: string) => void listeners.delete(type),
+    })
+    try {
+      expect(documentVisibility.visible()).toBe(false)
+      const off = documentVisibility.onChange(() => {})
+      expect([...listeners.keys()]).toEqual(['visibilitychange'])
+      off()
+      expect(listeners.size).toBe(0)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
 

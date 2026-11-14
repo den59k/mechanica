@@ -365,6 +365,47 @@ describe('mechanica comments', () => {
   })
 })
 
+describe('comments read from a site', () => {
+  const source = { kind: 'platform' as const, origin: 'https://mechanica.example', slug: 'acme' }
+  const locate = (item: CommentThread): CommentLocation | null => locateComment(cwd, item)
+  /** A store that says its threads are a site's, the way a linked project's does. */
+  const siteStore = (threads: CommentThread[] = []) => ({ ...memoryCommentStore(threads), describe: async () => source })
+
+  it('names the site in the first line, and in the empty one', async () => {
+    const digest = formatCommentsDigest([anchored(), thread('c_home', { page: '/' })], locate, { source })
+    expect(digest.split('\n')[0]).toBe('# Review comments — 2 open on 2 pages · from https://mechanica.example (acme)')
+    expect(formatCommentsDigest([], locate, { source })).toBe('No open comments · from https://mechanica.example (acme).')
+    // The local file is the unmarked case.
+    expect(formatCommentsDigest([anchored()], locate, { source: { kind: 'local' } }).split('\n')[0]).toBe(
+      '# Review comments — 1 open on 1 page',
+    )
+
+    await run([], siteStore([anchored()]))
+    await run([], siteStore(), { page: 'about', all: true })
+    expect(out[0]!.split('\n')[0]).toBe('# Review comments — 1 open on 1 page · from https://mechanica.example (acme)')
+    expect(out[1]).toBe('No comments on /about · from https://mechanica.example (acme).')
+  })
+
+  it('says a page without a file here has not been pulled, rather than that it is gone', () => {
+    const lost = { ...anchored(), page: '/online-only' }
+    const digest = formatCommentsDigest([lost, thread('c_page', { page: '/online-only' })], locate, { source })
+    expect(digest).toContain(
+      '`pricing` block `#plans` at position 2 › 1 — the page has no file in this checkout — pull the site’s content',
+    )
+    expect(digest).toContain('Whole page — the page has no file in this checkout — pull the site’s content')
+    expect(digest).not.toContain('any more')
+    expect(digest).not.toContain('See it:')
+    // A block that is gone from a page that is here reads as before.
+    const gone = thread('c_gone', { anchor: { blockId: 'faq1', blockType: 'faq', path: [2] } })
+    expect(formatCommentsDigest([gone], locate, { source })).toContain('Block not found on the page any more — was `faq` `#faq1`')
+  })
+
+  it('--json stays the bare array, whatever the source', async () => {
+    await run([], siteStore([thread('c_lost', { page: '/online-only' })]), { json: true })
+    expect(JSON.parse(out[0]!)).toEqual([{ ...thread('c_lost', { page: '/online-only' }), location: null }])
+  })
+})
+
 describe('cliCommentAuthor', () => {
   it('prefers --as, then a Claude Code session, then the local user', () => {
     expect(cliCommentAuthor({ as: ' Ann ', env: { CLAUDECODE: '1' } })).toEqual({ name: 'Ann', kind: 'user' })

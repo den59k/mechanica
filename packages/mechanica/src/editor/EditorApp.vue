@@ -273,7 +273,9 @@ const { canUndo, canRedo } = history
 // Review comments: threads pinned to this page's blocks, kept by the host. The
 // store follows the page (its logical path — never a locale-prefixed URL — and
 // the locale it is viewed in); a host without comments leaves it unavailable
-// and every trace of the feature hidden.
+// and every trace of the feature hidden. Comments made elsewhere arrive with
+// the host's change events, or — a host without them — with the store's own
+// periodic re-read while the tab is visible.
 const comments = createCommentsStore(backend, { defaultLocale: store.defaultLocale })
 provide(commentsKey, comments)
 const pagePath = ref(props.state.page?.path ?? navigation.path.value)

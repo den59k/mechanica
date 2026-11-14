@@ -17,12 +17,18 @@ import {
   normalizeCommentPage,
   type CommentStore,
 } from '../server/comments-store'
+import { commentStoreFor, type CommentSource, type ProjectCommentStore } from './platform/comments'
 
 export interface CommentsOptions {
   /** Project root (defaults to the current working directory). */
   cwd?: string
-  /** Where the comments are (defaults to `<cwd>/.mech/comments/`). */
-  store?: CommentStore
+  /**
+   * Where the comments are. Defaults to the project's own store: the site it
+   * is linked to, else `<cwd>/.mech/comments/` (see `commentStoreFor`).
+   */
+  store?: CommentStore | ProjectCommentStore
+  /** `--local`: use `<cwd>/.mech/comments/` even in a linked project. */
+  local?: boolean
   /** Where the output goes (defaults to `console.info`). */
   log?: (text: string) => void
   /** The environment the author is read from (defaults to `process.env`). */
@@ -59,11 +65,13 @@ export interface CommentLocation {
 }
 
 const USAGE = `Usage:
-  mechanica comments [--page </path>] [--all] [--json]
+  mechanica comments [--page </path>] [--all] [--json] [--local]
   mechanica comments add </page> "text" [--block <content-block-id>] [--locale <code>]
   mechanica comments reply <id> "text"
   mechanica comments resolve <id> [--note "what was done"]
-  mechanica comments reopen <id>`
+  mechanica comments reopen <id>
+
+In a project linked to a site the comments are the site's; --local works on .mech/comments/ instead.`
 
 /**
  * Who writes a comment from the CLI: `--as <name>`, else Claude when a Claude
@@ -150,7 +158,16 @@ function describeElement(element: NonNullable<CommentAnchor['element']>): string
   return `\`${selector}\`${element.text ? ` "${element.text.replace(/\s+/g, ' ')}"` : ''}`
 }
 
-function formatThread(thread: CommentThread, location: CommentLocation | null, showStatus: boolean): string[] {
+/** ` · from https://host (slug)` for comments read from a site; nothing for the local file. */
+const sourceSuffix = (source: CommentSource | undefined): string =>
+  source?.kind === 'platform' ? ` · from ${source.origin} (${source.slug})` : ''
+
+function formatThread(
+  thread: CommentThread,
+  location: CommentLocation | null,
+  showStatus: boolean,
+  source?: CommentSource,
+): string[] {
   const [first, ...replies] = thread.messages
   const anchor = thread.anchor
   const out: string[] = []
@@ -161,9 +178,16 @@ function formatThread(thread: CommentThread, location: CommentLocation | null, s
   if (thread.locale) heading.push(`locale ${thread.locale}`)
   out.push(`### ${heading.join(' · ')}`)
 
-  const file = location ? `\`${location.file}\`` : 'the page has no file any more'
+  // A page commented on a site may simply not have been pulled yet.
+  const remote = source?.kind === 'platform'
+  const noFile = remote
+    ? 'the page has no file in this checkout — pull the site’s content'
+    : 'the page has no file any more'
+  const file = location ? `\`${location.file}\`` : noFile
   if (!anchor) {
     out.push(`Whole page — ${file}`)
+  } else if (!location && remote) {
+    out.push(`\`${anchor.blockType}\` block \`#${anchor.blockId}\` at position ${describePath(anchor.path)} — ${noFile}`)
   } else if (location?.blockId) {
     const where = location.line ? `${location.file}:${location.line}` : location.file
     out.push(`\`${location.blockType}\` block \`#${location.blockId}\` — ${where}`)
@@ -210,15 +234,17 @@ function formatThread(thread: CommentThread, location: CommentLocation | null, s
  * needs to act on the threads without opening the editor — who said what, about
  * which block, and where that block is in the project now. `locate` answers
  * the last part (see {@link locateComment}). Statuses are shown when
- * `showStatus` is set — a listing with resolved threads in it.
+ * `showStatus` is set — a listing with resolved threads in it. `source` says
+ * where the threads were read from; a site is named in the first line.
  */
 export function formatCommentsDigest(
   threads: CommentThread[],
   locate: (thread: CommentThread) => CommentLocation | null,
-  options: { showStatus?: boolean } = {},
+  options: { showStatus?: boolean; source?: CommentSource } = {},
 ): string {
   const showStatus = options.showStatus === true
-  if (threads.length === 0) return showStatus ? 'No comments.' : 'No open comments.'
+  const from = sourceSuffix(options.source)
+  if (threads.length === 0) return `${showStatus ? 'No comments' : 'No open comments'}${from}.`
 
   const countOf = (list: CommentThread[]): string => {
     const open = list.filter((thread) => thread.status === 'open').length
@@ -232,10 +258,10 @@ export function formatCommentsDigest(
     pages.get(thread.page)!.push(thread)
   }
 
-  const out: string[] = [`# Review comments — ${countOf(threads)} on ${plural(pages.size, 'page')}`]
+  const out: string[] = [`# Review comments — ${countOf(threads)} on ${plural(pages.size, 'page')}${from}`]
   for (const [page, list] of pages) {
     out.push('', `## ${page} — ${countOf(list)}`)
-    for (const thread of list) out.push('', ...formatThread(thread, locate(thread), showStatus))
+    for (const thread of list) out.push('', ...formatThread(thread, locate(thread), showStatus, options.source))
   }
   out.push(
     '',
@@ -253,7 +279,10 @@ export function formatCommentsDigest(
 export async function runComments(args: string[], options: CommentsOptions = {}): Promise<void> {
   const cwd = options.cwd ?? process.cwd()
   const mechDir = join(cwd, '.mech')
-  const store = options.store ?? fsCommentStore(mechDir)
+  const store: CommentStore & Partial<Pick<ProjectCommentStore, 'describe'>> =
+    options.store ?? (options.local ? fsCommentStore(mechDir) : commentStoreFor(cwd))
+  // A store that cannot say where it keeps the threads is a local one.
+  const sourceOf = async (): Promise<CommentSource> => (await store.describe?.()) ?? { kind: 'local' }
   const log = options.log ?? ((text: string) => console.info(text))
   const author = (): CommentAuthor => cliCommentAuthor({ as: options.as, cwd, env: options.env })
 
@@ -278,12 +307,13 @@ export async function runComments(args: string[], options: CommentsOptions = {})
       log(JSON.stringify(threads.map((thread) => ({ ...thread, location: locate(thread) })), null, 2))
       return
     }
+    const source = await sourceOf()
     if (threads.length === 0) {
       const scope = options.page ? ` on ${normalizeCommentPage(options.page)}` : ''
-      log(options.all ? `No comments${scope}.` : `No open comments${scope}.`)
+      log(`${options.all ? 'No comments' : 'No open comments'}${scope}${sourceSuffix(source)}.`)
       return
     }
-    log(formatCommentsDigest(threads, locate, { showStatus: options.all }))
+    log(formatCommentsDigest(threads, locate, { showStatus: options.all, source }))
     return
   }
 

@@ -289,9 +289,38 @@ export interface CommentDraft {
   anchor: CommentAnchor | null
 }
 
+/** Whether the editor is on screen — what decides if comments made elsewhere are worth fetching. */
+export interface VisibilitySource {
+  visible(): boolean
+  /** Call `listener` on every change; returns an unsubscribe. */
+  onChange(listener: () => void): () => void
+}
+
+/** The tab's visibility; always visible where there is no document (a test in Node). */
+export const documentVisibility: VisibilitySource = {
+  visible: () => typeof document === 'undefined' || document.visibilityState !== 'hidden',
+  onChange(listener) {
+    if (typeof document === 'undefined') return () => {}
+    document.addEventListener('visibilitychange', listener)
+    return () => document.removeEventListener('visibilitychange', listener)
+  },
+}
+
+/** How often (ms) the current page's threads are re-read, by default. */
+export const COMMENTS_POLL_MS = 20_000
+
 export interface CommentsStoreOptions {
   /** The site's default locale: a thread made in it carries no `locale`. */
   defaultLocale?: string | null
+  /**
+   * How often (ms) the current page's threads are re-read while the editor is
+   * visible, once the host is known to have comments — not every host announces
+   * the changes made elsewhere. Defaults to {@link COMMENTS_POLL_MS}; `0` turns
+   * it off (and the re-read on becoming visible with it).
+   */
+  pollMs?: number
+  /** Where visibility comes from (defaults to the document's). */
+  visibility?: VisibilitySource
 }
 
 export interface CommentsStore {
@@ -341,7 +370,7 @@ export interface CommentsStore {
    * leave comment mode. False when there was nothing to step out of.
    */
   escape(): boolean
-  /** Stop listening for changes made elsewhere. */
+  /** Stop listening and polling for changes made elsewhere. */
   dispose(): void
 }
 
@@ -361,6 +390,15 @@ export function createCommentsStore(
   let request = 0
   // The host answered "no comments" before it ever listed any: stop asking.
   let unsupported = false
+  // Counts the writes the host answered. A list asked for before such an answer
+  // may not know about the write: letting it land would take the write's result
+  // back out of the threads, so it is asked for again instead.
+  let writes = 0
+  const pollMs = options.pollMs ?? COMMENTS_POLL_MS
+  const visibility = options.visibility ?? documentVisibility
+  let disposed = false
+  let pollTimer: ReturnType<typeof setInterval> | null = null
+  let stopVisibility: (() => void) | null = null
 
   const messageOf = (error: unknown, fallback: string): string =>
     (error instanceof Error && error.message) || fallback
@@ -369,6 +407,7 @@ export function createCommentsStore(
     const page = state.page
     if (unsupported || page == null) return
     const token = ++request
+    const written = writes
     let threads: CommentThread[] | null
     try {
       threads = await backend.comments.list(page)
@@ -376,6 +415,7 @@ export function createCommentsStore(
       threads = null
     }
     if (token !== request) return
+    if (threads && written !== writes) return fetchThreads()
     if (!threads) {
       // A host that listed comments before only hiccuped: keep what is shown.
       if (!state.available) unsupported = true
@@ -384,6 +424,25 @@ export function createCommentsStore(
     state.available = true
     state.threads = threads
     if (state.activeId && !threads.some((thread) => thread.id === state.activeId)) state.activeId = null
+    startPolling()
+  }
+
+  /**
+   * A re-read nobody asked for (the timer, the tab coming back): only while the
+   * editor is on screen, and never under a write — the write's own answer is
+   * the news then. It only replaces the threads; a draft, the open thread and
+   * the mode are left as they are.
+   */
+  function poll(): void {
+    if (disposed || !state.available || state.busy || !visibility.visible()) return
+    void fetchThreads()
+  }
+
+  /** Start re-reading on a timer — once, and only for a host that has comments. */
+  function startPolling(): void {
+    if (disposed || pollTimer !== null || pollMs <= 0) return
+    pollTimer = setInterval(poll, pollMs)
+    stopVisibility = visibility.onChange(poll)
   }
 
   /** Put the host's version of a thread in place (appending a new one). */
@@ -398,7 +457,9 @@ export function createCommentsStore(
     state.busy = true
     state.error = null
     try {
-      return await run()
+      const result = await run()
+      writes++
+      return result
     } catch (error) {
       state.error = messageOf(error, fallback)
       return null
@@ -529,11 +590,17 @@ export function createCommentsStore(
       return true
     },
     dispose() {
+      disposed = true
       stop()
+      if (pollTimer !== null) clearInterval(pollTimer)
+      pollTimer = null
+      stopVisibility?.()
+      stopVisibility = null
     },
   })
 
-  // Comments written elsewhere — another tab, `mechanica comments` — show up live.
+  // Comments written elsewhere — another tab, `mechanica comments` — show up
+  // live on a host that announces them, and with the next poll on any other.
   const stop = backend.onCommentsChange(() => void fetchThreads())
 
   return state

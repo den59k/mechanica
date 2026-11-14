@@ -70,7 +70,10 @@ Usage:
                             are referenced as /media/<file> (was /@mechanica/assets/)
   mechanica comments        List the open review comments left in the editor, with
                             the file and line of the block each one is about
-                            (--page </path>, --all adds the resolved ones, --json)
+                            (--page </path>, --all adds the resolved ones, --json).
+                            In a project linked to a site (mechanica link) these
+                            are the site's comments, the ones left in its online
+                            editor; --local reads .mech/comments/ instead
   mechanica comments add </path> "text"
                             Comment on a page (--block <content-block-id> pins it
                             to a block, --locale <code>)
@@ -78,11 +81,12 @@ Usage:
   mechanica comments resolve <id>
                             Mark a comment done (--note "what changed" is posted
                             as a reply first); mechanica comments reopen <id> undoes it
-                            (--as <name> signs any of these as someone else)
+                            (--as <name> signs any of these as someone else — in
+                            .mech/comments/ only: a site names the author itself)
 `
 
 // Flags that never take a value: `shot --no-freeze design/index.html` keeps the target positional.
-const PARSE_OPTIONS = { booleans: ['full', 'no-freeze', 'all', 'json'] }
+const PARSE_OPTIONS = { booleans: ['full', 'no-freeze', 'all', 'json', 'local'] }
 
 /** CLI entry: dispatch a command to its handler. */
 export async function run(argv: string[]): Promise<void> {
@@ -114,6 +118,7 @@ export async function run(argv: string[]): Promise<void> {
         page: str(flags.page),
         all: flags.all === true,
         json: flags.json === true,
+        local: flags.local === true,
         block: str(flags.block),
         locale: str(flags.locale),
         note: str(flags.note),
