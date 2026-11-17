@@ -1,29 +1,39 @@
 import { describe, it, expect } from 'vitest'
 import type { Block, ContentBlock } from 'mechanica-shared'
-import { standalonePageBlockId, applyPageBlock } from '@/editor/lib/page-setup'
+import { pageTemplateBlock, dropsBesideTemplate, applyPageBlock } from '@/editor/lib/page-setup'
 
 const hero: Block = { id: 'hero', name: 'Hero' }
 const notFound: Block = {
   id: 'not-found',
   name: 'Not found page',
-  standalone: true,
+  page: true,
   props: {
     type: 'object',
     required: ['code'],
     properties: { code: { type: 'string', default: '404' } },
   },
 }
-const feedback: Block = { id: 'feedback', name: 'Feedback form', standalone: true }
+const feedback: Block = { id: 'feedback', name: 'Feedback form', page: true }
 const blocksById = new Map<string, Block>([['hero', hero], ['not-found', notFound], ['feedback', feedback]])
 
 const placed = (blockId: string): ContentBlock => ({ id: `id-${blockId}`, blockId, data: {} })
 
-describe('standalonePageBlockId', () => {
+describe('pageTemplateBlock', () => {
   it('reports the block only when it is the whole page', () => {
-    expect(standalonePageBlockId([placed('not-found')], blocksById)).toBe('not-found')
-    expect(standalonePageBlockId([], blocksById)).toBeUndefined()
-    expect(standalonePageBlockId([placed('hero')], blocksById)).toBeUndefined()
-    expect(standalonePageBlockId([placed('not-found'), placed('hero')], blocksById)).toBeUndefined()
+    expect(pageTemplateBlock([placed('not-found')], blocksById)?.blockId).toBe('not-found')
+    expect(pageTemplateBlock([], blocksById)).toBeUndefined()
+    expect(pageTemplateBlock([placed('hero')], blocksById)).toBeUndefined()
+    expect(pageTemplateBlock([placed('not-found'), placed('hero')], blocksById)).toBeUndefined()
+  })
+})
+
+describe('dropsBesideTemplate', () => {
+  it('refuses the root level and allows the template slots', () => {
+    const template = placed('not-found')
+    expect(dropsBesideTemplate(template, { anchorId: null, position: 'after' })).toBe(true)
+    expect(dropsBesideTemplate(template, { anchorId: template.id, position: 'before' })).toBe(true)
+    expect(dropsBesideTemplate(template, { anchorId: template.id, position: 'inside' })).toBe(false)
+    expect(dropsBesideTemplate(template, { anchorId: 'child', position: 'after' })).toBe(false)
   })
 })
 
@@ -38,7 +48,7 @@ describe('applyPageBlock', () => {
     expect(content[0]!.data.code).toBe('404')
   })
 
-  it('swaps one standalone block for another silently', () => {
+  it('swaps one page template for another silently', () => {
     const content = [placed('not-found')]
     applyPageBlock(content, feedback, blocksById, () => {
       throw new Error('should not confirm')

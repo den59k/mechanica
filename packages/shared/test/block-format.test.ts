@@ -62,14 +62,25 @@ describe('block-format: round-trip', () => {
     expect(parseComposedBlock('id: x\nname: X\nhidden: false\ntemplate: []').hidden).toBeUndefined()
   })
 
-  it('round-trips the standalone flag, emitting it only when true', () => {
-    const pageBlock: ComposedBlockDefinition = { id: 'coming-soon', name: 'Coming soon', standalone: true, template: [] }
-    const text = serializeComposedBlock(pageBlock)
-    expect(text).toContain('standalone: true')
-    expect(parseComposedBlock(text).standalone).toBe(true)
+  it('round-trips the page flag, emitting it only when true', () => {
+    const pageTemplate: ComposedBlockDefinition = { id: 'coming-soon', name: 'Coming soon', page: true, template: [] }
+    const text = serializeComposedBlock(pageTemplate)
+    expect(text).toContain('page: true')
+    expect(text).not.toContain('standalone')
+    expect(parseComposedBlock(text).page).toBe(true)
 
-    expect(serializeComposedBlock(sample)).not.toContain('standalone')
-    expect(parseComposedBlock('id: x\nname: X\nstandalone: false\ntemplate: []').standalone).toBeUndefined()
+    expect(serializeComposedBlock(sample)).not.toMatch(/^page:/m)
+    expect(parseComposedBlock('id: x\nname: X\npage: false\ntemplate: []').page).toBeUndefined()
+  })
+
+  it('reads the legacy standalone flag as page and writes it back as page', () => {
+    const legacy = parseComposedBlock('id: x\nname: X\nstandalone: true\ntemplate: []')
+    expect(legacy.page).toBe(true)
+    expect('standalone' in legacy).toBe(false)
+    const text = serializeComposedBlock(legacy)
+    expect(text).toContain('page: true')
+    expect(text).not.toContain('standalone')
+    expect(parseComposedBlock('id: x\nname: X\nstandalone: false\ntemplate: []').page).toBeUndefined()
   })
 })
 

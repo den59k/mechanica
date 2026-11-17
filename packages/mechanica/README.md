@@ -152,7 +152,7 @@ const props = defineBlock({
 
 The block's id is its kebab-cased file name (`Hero.vue` → `hero`). Props use [compact-json-schema](https://www.npmjs.com/package/compact-json-schema): the JSON types (`string`, `number`, `boolean`, `object`, `array`) plus Mechanica's field types `text`, `richText`, `image`, `color`, `smartLink` and `multiselect`. The object form takes `default`, `label`, `description`, `placeholder` and `enum` (rendered as a select).
 
-Other `defineBlock` options: `icon`, `description` and `order` for the palette; `hidden` and `devOnly`; `standalone`, `folders` and `layouts` to control where the palette offers the block; `chunk` for code splitting; `slots` for named slots. A block whose template contains `<slot />` becomes a container, and other blocks nest inside it in the editor.
+Other `defineBlock` options: `icon`, `description` and `order` for the palette; `hidden` and `devOnly`; `page` (a page template, see [Layouts and page templates](#layouts-and-page-templates)), `folders` and `layouts` to control where the palette offers the block; `chunk` for code splitting; `slots` for named slots. A block whose template contains `<slot />` becomes a container, and other blocks nest inside it in the editor.
 
 Give every block meaningful `previewData`: it drives the palette's hover preview, the standalone preview route and `mechanica shot`. A `$slots` key fills slots with child blocks, e.g. `$slots: { default: [{ blockId: 'card', data: { title: 'One' } }] }`.
 
@@ -230,7 +230,7 @@ Values are edited in the editor's **Page data** window, where each entry can be 
 
 `{{ page.path }}`, `{{ site.url }}` and `{{ site.name }}` are available too, and the triple-brace form `{{{ expr }}}` emits raw JSON for `<script type="application/ld+json">` blocks.
 
-## Layouts and whole-page blocks
+## Layouts and page templates
 
 Give pages different shells by declaring named layouts. Each layout component renders `<Content />` inside its own chrome, and the root renders `<Layout />`:
 
@@ -244,7 +244,7 @@ export default defineMechanicaApp({
 
 A page picks its layout with `layout: bare` in its frontmatter, or in the editor's **Page setup** pane. Pages without one get the first layout, and `useLayout().name` tells a component which layout is active.
 
-Blocks with `standalone: true` are whole pages in one block, such as a 404 or a contact form. The palette offers them only on empty pages ("Start this page"), so they don't clutter it elsewhere.
+A block with `page: true` is a page template: a whole page in one block, such as a 404 or a contact form. The palette offers page templates only on empty pages ("Start this page") and in **Page setup**, so they don't clutter it elsewhere. A page whose only block is a page template is edited as that page: the block can't be selected, moved or removed, and its props are the page's properties. Composed blocks get the same flag from the composer's **Page template** switch (`page: true` in the `.block.yml`). `standalone: true` is the old name of `page: true` and still works.
 
 ## Images
 

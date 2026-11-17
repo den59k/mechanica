@@ -62,14 +62,20 @@ describe('blockAvailableForLayout', () => {
 })
 
 describe('toBlockMeta', () => {
-  it('extracts standalone and layouts from the compiled schema', () => {
+  it('extracts page and layouts from the compiled schema', () => {
     const meta = toBlockMeta({
       blockId: 'feedback',
       __name: 'Feedback',
-      blockSchema: { name: 'Feedback form', standalone: true, layouts: ['site'], props: {} },
+      blockSchema: { name: 'Feedback form', page: true, layouts: ['site'], props: {} },
     })
-    expect(meta.standalone).toBe(true)
+    expect(meta.page).toBe(true)
     expect(meta.layouts).toEqual(['site'])
+  })
+
+  it('reads the deprecated standalone flag as page', () => {
+    const meta = toBlockMeta({ blockId: 'not-found', blockSchema: { name: 'Not found', standalone: true } })
+    expect(meta.page).toBe(true)
+    expect('standalone' in meta).toBe(false)
   })
 
   it('extracts folders from the compiled schema', () => {
@@ -100,10 +106,10 @@ describe('composedBlockMeta', () => {
     expect(composedBlockMeta({ id: 'card', name: 'Card', template: [] }).hidden).toBeUndefined()
   })
 
-  it('carries the standalone flag so designer-built page blocks reach "Start this page"', () => {
-    const meta = composedBlockMeta({ id: 'coming-soon', name: 'Coming soon', standalone: true, template: [] })
-    expect(meta.standalone).toBe(true)
-    expect(composedBlockMeta({ id: 'card', name: 'Card', template: [] }).standalone).toBeUndefined()
+  it('carries the page flag so designer-built page templates reach "Start this page"', () => {
+    const meta = composedBlockMeta({ id: 'coming-soon', name: 'Coming soon', page: true, template: [] })
+    expect(meta.page).toBe(true)
+    expect(composedBlockMeta({ id: 'card', name: 'Card', template: [] }).page).toBeUndefined()
   })
 })
 

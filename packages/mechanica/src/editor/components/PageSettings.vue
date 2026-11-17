@@ -28,18 +28,18 @@
       </p>
     </div>
 
-    <!-- Page block: turn the page into (or between) single-block pages. -->
-    <div v-if="standaloneBlocks.length" class="mech-page-setup__field">
-      <span class="mech-page-setup__label">Page block</span>
+    <!-- Page template: turn the page into (or between) single-block pages. -->
+    <div v-if="pageTemplates.length" class="mech-page-setup__field">
+      <span class="mech-page-setup__label">Page template</span>
       <VSelect
         :model-value="currentBlockId"
         :options="blockOptions"
         :placeholder="blockPlaceholder"
-        aria-label="Page block"
+        aria-label="Page template"
         @update:model-value="pickBlock($event as string)"
       />
       <p class="mech-page-setup__hint">
-        Whole-page blocks — a form, a 404. Picking one becomes this page's entire content.
+        A whole page, like a form or a 404. Picking one replaces this page's content.
       </p>
     </div>
   </div>
@@ -49,13 +49,13 @@
 import { computed, inject } from 'vue'
 import { editorStoreKey } from '../lib/store'
 import { runtimeLayoutNames } from '../lib/bridge'
-import { standalonePageBlockId, applyPageBlock } from '../lib/page-setup'
+import { pageTemplateBlock, applyPageBlock } from '../lib/page-setup'
 import { humanize } from '../props-panel/humanize'
 import VSelect, { type SelectOption } from './VSelect.vue'
 
 /**
  * The "Page setup" pane of the Page data dialog: the page's layout and its
- * standalone (whole-page) block. Both are set-once page properties, so they
+ * page template. Both are set-once page properties, so they
  * live here rather than in the always-visible sidebar. Edits flow through the
  * editor store — undoable, live-previewed, saved like any other change.
  */
@@ -75,14 +75,14 @@ function pickLayout(name: string) {
   store.layout = name === layoutNames[0] ? null : name
 }
 
-// ── Page block (standalone) ───────────────────────────────────────────────
-const standaloneBlocks = computed(() => store.blocks.filter((block) => block.standalone && !block.hidden))
+// ── Page template ─────────────────────────────────────────────────────────
+const pageTemplates = computed(() => store.blocks.filter((block) => block.page && !block.hidden))
 const blockOptions = computed<SelectOption[]>(() =>
-  standaloneBlocks.value.map((block) => ({ value: block.id, label: block.name })),
+  pageTemplates.value.map((block) => ({ value: block.id, label: block.name })),
 )
 
-/** The page's current standalone block — only when it IS the whole page. */
-const currentBlockId = computed(() => standalonePageBlockId(store.content, store.blocksById))
+/** The page's current page template — only when it IS the whole page. */
+const currentBlockId = computed(() => pageTemplateBlock(store.content, store.blocksById)?.blockId)
 const blockPlaceholder = computed(() => (store.content.length ? 'Custom blocks' : 'Choose a block…'))
 
 function pickBlock(id: string) {

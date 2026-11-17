@@ -505,15 +505,15 @@ describe('composer store: snapshot / replace', () => {
     expect(store.def.icon).toBe('star')
   })
 
-  it('setMeta toggles hidden and standalone, deleting the keys when off', () => {
+  it('setMeta toggles hidden and page, deleting the keys when off', () => {
     const store = createComposerStore(base())
-    store.setMeta({ hidden: true, standalone: true })
+    store.setMeta({ hidden: true, page: true })
     expect(store.def.hidden).toBe(true)
-    expect(store.def.standalone).toBe(true)
+    expect(store.def.page).toBe(true)
 
-    store.setMeta({ hidden: false, standalone: false })
+    store.setMeta({ hidden: false, page: false })
     expect('hidden' in store.def).toBe(false)
-    expect('standalone' in store.def).toBe(false)
+    expect('page' in store.def).toBe(false)
   })
 })
 

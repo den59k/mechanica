@@ -56,19 +56,19 @@ describe('editor sidebar', () => {
   })
 
   it('palette leads an empty page with the starter group, gone once content exists', async () => {
-    const withStandalone = [
+    const withPageTemplate = [
       ...components,
-      { blockId: 'not-found', __name: 'NotFound', blockSchema: { name: 'Not found page', standalone: true } },
+      { blockId: 'not-found', __name: 'NotFound', blockSchema: { name: 'Not found page', page: true } },
     ]
-    const store = createEditorStore({ content: [], data: {} }, withStandalone)
+    const store = createEditorStore({ content: [], data: {} }, withPageTemplate)
     const el = mount(BlockPalette, store)
 
-    // Empty page: "Start this page" leads with the design card + standalone blocks.
+    // Empty page: "Start this page" leads with the design card + page templates.
     expect(el.textContent).toContain('Start this page')
     expect(el.querySelector('.mech-palette__item--action')).not.toBeNull()
     expect(el.textContent).toContain('Not found page')
 
-    // With content placed, the starter group and its whole-page blocks retire.
+    // With content placed, the starter group and its page templates retire.
     store.addBlock('hero')
     await nextTick()
     expect(el.textContent).not.toContain('Start this page')

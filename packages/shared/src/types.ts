@@ -58,12 +58,12 @@ export interface Block {
   /** Available only in dev, stripped from production output. */
   devOnly?: boolean
   /**
-   * A block that *is* a whole page (a feedback form, a 404, a legal page).
-   * Offered under a "Pages" palette group only while the page is still empty,
-   * and never on a page that already has content — so page-shaped blocks stop
-   * polluting the palette everywhere else. Placed blocks always keep rendering.
+   * A page template: a block that is a whole page (a 404, a feedback form). A
+   * page whose only root block is a page template is edited as that page: the
+   * block cannot be selected, moved or removed, and its props are the page's
+   * properties. Offered only on an empty page and in Page setup.
    */
-  standalone?: boolean
+  page?: boolean
   /**
    * Restrict the block to pages using these layouts (keys of the app's
    * `layouts` map). Omitted = offered on every layout. Like `folders`, this
@@ -230,12 +230,14 @@ export interface ComposedBlockDefinition {
    */
   hidden?: boolean
   /**
-   * A whole-page block (like `Block.standalone`): offered in the empty page's
-   * "Start this page" palette group and the Page setup pane's Page-block
-   * select, never alongside content blocks. Toggled in the composer settings —
-   * a designer-built 404 or coming-soon page.
+   * A page template (like `Block.page`): a block that is a whole page (a 404,
+   * a feedback form). A page whose only root block is a page template is edited
+   * as that page: the block cannot be selected, moved or removed, and its props
+   * are the page's properties. Offered only on an empty page and in Page setup.
+   * Toggled in the composer settings. Written as `page: true` in the
+   * `.block.yml`; the legacy `standalone: true` is read as this flag.
    */
-  standalone?: boolean
+  page?: boolean
   /**
    * compact-json-schema for the props exposed out of the template (§ prop
    * bindings). Placed instances get an auto-generated settings form from this,

@@ -2,7 +2,7 @@
   <div class="mech-editor" :class="{ 'is-collapsed': collapsed }" data-mech-ui>
     <PanelToggle
       :collapsed="collapsed"
-      :right-panel="store.selected ? 380 : 300"
+      :right-panel="settingsOpen ? 380 : 300"
       @toggle="collapsed = !collapsed"
     />
 
@@ -20,29 +20,33 @@
     <template v-if="!collapsed">
       <BlockFrame v-if="selected" :rect="selected" variant="selected" :label="selectedName" />
 
+      <!-- A template page's root block stays where it is: no grip, moves,
+           duplicate, save-as or delete — and no toolbar once nothing is left. -->
       <div
-        v-if="selected"
+        v-if="selected && toolbarHasActions"
         class="mech-toolbar"
         :style="{ left: `${toolbarLeft}px`, top: `${toolbarTop}px` }"
       >
-        <button
-          type="button"
-          class="mech-icon-button mech-toolbar__grip"
-          title="Drag to move"
-          @pointerdown="drag.begin({ kind: 'move', id: selected.id, label: selectedName ?? '' }, $event)"
-        >
-          <VIcon name="grip" />
-        </button>
-        <button type="button" class="mech-icon-button" title="Move up" @click="store.move(selected.id, -1)"><VIcon name="arrow-up" /></button>
-        <button type="button" class="mech-icon-button" title="Move down" @click="store.move(selected.id, 1)"><VIcon name="arrow-down" /></button>
-        <button type="button" class="mech-icon-button" title="Duplicate" @click="store.duplicate(selected.id)"><VIcon name="copy" /></button>
+        <template v-if="!selectedIsPage">
+          <button
+            type="button"
+            class="mech-icon-button mech-toolbar__grip"
+            title="Drag to move"
+            @pointerdown="drag.begin({ kind: 'move', id: selected.id, label: selectedName ?? '' }, $event)"
+          >
+            <VIcon name="grip" />
+          </button>
+          <button type="button" class="mech-icon-button" title="Move up" @click="store.move(selected.id, -1)"><VIcon name="arrow-up" /></button>
+          <button type="button" class="mech-icon-button" title="Move down" @click="store.move(selected.id, 1)"><VIcon name="arrow-down" /></button>
+          <button type="button" class="mech-icon-button" title="Duplicate" @click="store.duplicate(selected.id)"><VIcon name="copy" /></button>
+        </template>
         <!-- A composed block is edited in the composer (the only entry point for
              palette-hidden one-off page designs); anything else can become one. -->
         <template v-if="canCompose">
           <button v-if="selectedComposed" type="button" class="mech-icon-button" title="Edit in the composer" @click="editInComposer"><VIcon name="pencil" /></button>
-          <button v-else type="button" class="mech-icon-button" title="Save as a reusable block" @click="saveAsBlock"><VIcon name="frame" /></button>
+          <button v-else-if="!selectedIsPage" type="button" class="mech-icon-button" title="Save as a reusable block" @click="saveAsBlock"><VIcon name="frame" /></button>
         </template>
-        <button type="button" class="mech-icon-button is-danger" title="Delete" @click="store.remove(selected.id)"><VIcon name="trash" /></button>
+        <button v-if="!selectedIsPage" type="button" class="mech-icon-button is-danger" title="Delete" @click="store.remove(selected.id)"><VIcon name="trash" /></button>
       </div>
 
       <div
@@ -84,7 +88,7 @@
             v-if="hasPageDialog"
             type="button"
             class="mech-editor__data"
-            title="Edit this page's data and setup (layout, page block)"
+            title="Edit this page's data and setup (layout, page template)"
             @click="openData"
           >
             <VIcon name="sliders" />
@@ -138,13 +142,24 @@
           <button type="button" class="mech-icon-button" :disabled="!canRedo" title="Redo (Ctrl+Shift+Z)" @click="history.redo()"><VIcon name="redo" /></button>
         </div>
 
-        <HierarchyTree v-if="store.content.length" />
+        <!-- A slotless template is the whole page: no tree, just what it is. -->
+        <PageTemplateNote
+          v-if="pinnedTemplate"
+          :can-change="hasPageDialog"
+          :can-compose="canCompose"
+          @change="openData"
+          @compose="editInComposer"
+        />
+        <HierarchyTree v-else-if="store.content.length" />
         <p v-else class="mech-tree__empty">No blocks yet — add one from the right.</p>
       </aside>
     </Transition>
 
+    <!-- Nothing can be added to a slotless template page, so it has no palette
+         (the settings panel would only cover it); comment mode still needs this
+         panel for its threads. -->
     <Transition name="mech-slide-right">
-      <aside v-if="!collapsed" class="mech-editor__panel mech-editor__panel--right">
+      <aside v-if="!collapsed && (commenting || !pinnedTemplate)" class="mech-editor__panel mech-editor__panel--right">
         <!-- Comment mode swaps the palette for the page's threads. -->
         <CommentsPanel v-if="commenting" />
         <template v-else>
@@ -156,12 +171,14 @@
 
     <Transition name="mech-slide-right">
       <aside
-        v-if="!collapsed && store.selected"
+        v-if="!collapsed && settingsOpen"
         class="mech-editor__panel mech-editor__panel--settings"
       >
         <div class="mech-editor__settings-head">
           <span class="mech-editor__settings-title">{{ selectedName }}</span>
+          <!-- A slotless template's props are the page's: nothing to close to. -->
           <button
+            v-if="!pinnedTemplate"
             type="button"
             class="mech-icon-button"
             title="Close"
@@ -210,6 +227,7 @@ import CommentsPanel from './components/CommentsPanel.vue'
 import PageBar from './components/PageBar.vue'
 import LocaleSwitcher from './components/LocaleSwitcher.vue'
 import PanelToggle from './components/PanelToggle.vue'
+import PageTemplateNote from './components/PageTemplateNote.vue'
 import VIcon from './components/VIcon.vue'
 
 const props = defineProps<{
@@ -252,13 +270,13 @@ provide(dragKey, drag)
 const dialog = createDialogStore()
 provide(dialogKey, dialog)
 const openData = () => dialog.open(DataDialog)
-// The dialog also hosts the page-setup section (layout, page block), so it
+// The dialog also hosts the page-setup section (layout, page template), so it
 // opens even on sites without any defineData entries.
 const hasPageDialog = computed(
   () =>
     store.dataEntries.some((entry) => dataEntryAvailableIn(entry, store.folder)) ||
     runtimeLayoutNames().length > 1 ||
-    store.blocks.some((block) => block.standalone && !block.hidden),
+    store.blocks.some((block) => block.page && !block.hidden),
 )
 
 const navigation = props.navigation ?? fallbackNavigation()
@@ -339,7 +357,9 @@ const onKeyDown = (event: KeyboardEvent) => {
     // Esc steps out of commenting first: the draft or open thread, then the mode.
     if (!(commenting.value && comments.escape())) store.select(null)
   }
-  else if (action === 'paste') store.paste(store.selectedId)
+  // With a template page's root selected, a paste goes inside it (its first
+  // slot): the store refuses one beside it.
+  else if (action === 'paste') store.paste(selectedIsPage.value ? null : store.selectedId)
   else if (store.selectedId) {
     if (action === 'delete') store.remove(store.selectedId)
     else if (action === 'duplicate') store.duplicate(store.selectedId)
@@ -397,6 +417,17 @@ const selectedName = computed(() =>
 const selectedComposed = computed(
   () => !!store.selected && store.blocksById.get(store.selected.blockId)?.composed === true,
 )
+
+// Template pages. A slotless template is the whole page ("pinned"): the store
+// never selects it but keeps it as the settings target, so the settings panel
+// stays open with its props, the tree gives way to a note and the palette goes.
+// With slots the root stays selectable, but is locked in place.
+const pinnedTemplate = computed(() => (store.pagePinned ? store.pageBlock : null))
+const selectedIsPage = computed(() => store.selectedId != null && store.selectedId === store.pageBlock?.id)
+const toolbarHasActions = computed(() => !selectedIsPage.value || (canCompose && selectedComposed.value))
+// Comment mode keeps the right side for the threads, even on a pinned template
+// page (elsewhere entering the mode already clears the selection).
+const settingsOpen = computed(() => !!store.selected && !commenting.value)
 // Leaving for the composer flushes pending edits via the beforeunload beacon.
 function editInComposer(): void {
   if (!store.selected) return

@@ -42,17 +42,17 @@
           <span class="mech-composer__switch-knob" />
         </span>
       </button>
-      <!-- A whole-page block (a designer-built 404, coming-soon): offered when
+      <!-- A page template (a designer-built 404, coming-soon): offered when
            starting a page and in Page setup, never alongside content blocks. -->
       <button
         type="button"
         class="mech-composer__row mech-composer__meta-switch"
-        :aria-pressed="store.def.standalone === true"
-        :title="store.def.standalone ? 'Offered when starting a page — never alongside content blocks' : 'A regular content block, offered on any page'"
-        @click="store.setMeta({ standalone: !store.def.standalone })"
+        :aria-pressed="store.def.page === true"
+        :title="store.def.page ? 'Offered when starting a page — never alongside content blocks' : 'A regular content block, offered on any page'"
+        @click="store.setMeta({ page: !store.def.page })"
       >
-        <span>Whole-page block</span>
-        <span class="mech-composer__switch" :class="{ 'is-on': store.def.standalone === true }" aria-hidden="true">
+        <span>Page template</span>
+        <span class="mech-composer__switch" :class="{ 'is-on': store.def.page === true }" aria-hidden="true">
           <span class="mech-composer__switch-knob" />
         </span>
       </button>

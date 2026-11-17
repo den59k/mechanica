@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Template pages in the editor
+
+- **A page built from one page template is edited as that page.** The template's properties stay open on the right, the block list and palette step aside, and the block can't be selected, moved, duplicated or deleted. "Change template" in the left panel opens Page setup.
+- **A page template with slots** keeps the tree and palette for the blocks inside it; the template itself stays locked in place, and new blocks land in its slot.
+
+### Page templates: `standalone` is now `page`
+
+- **The block flag `standalone` is renamed to `page`.** A whole-page block (a 404, a feedback form) is declared with `defineBlock({ page: true })`, or `page: true` in a composed `.block.yml`, and the editor calls it a page template (the composer switch and the Page setup select both read "Page template"). `standalone: true` keeps working as a deprecated alias in both places; a composed block that used it is written back as `page: true` the next time the composer saves it.
+
 ## 2.2.2
 
 ### The exported site hydrates its prerendered HTML

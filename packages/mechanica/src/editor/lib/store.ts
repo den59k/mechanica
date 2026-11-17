@@ -20,6 +20,7 @@ import {
 } from './content-tree'
 import { toBlockMeta, createContentBlock, type BlockComponent } from './block-meta'
 import { getRecents, recordRecent } from './recents'
+import { pageTemplateBlock, dropsBesideTemplate, templateSlot } from './page-setup'
 
 /** The editable, undo-able slice of state (content + the three data scope buckets). */
 export interface EditableState {
@@ -72,10 +73,30 @@ export interface EditorStore {
    * editing a translation — for per-field override detection and reset.
    */
   baseDataOf(id: string): Record<string, unknown> | null
+  /**
+   * The explicitly selected block. Never the page template block: that one
+   * cannot be selected, so it gets no frame, toolbar or shortcuts.
+   */
   selectedId: string | null
+  /**
+   * The page template block when this is a template page (its only root block
+   * is a `page: true` block), else null. It is locked: the store refuses to
+   * move, duplicate, cut or remove it, or to place anything beside it. Without
+   * slots it cannot be selected or hovered either, since the whole page is this
+   * one block. With slots it stays selectable (that is how its props are
+   * reached next to its children), and the blocks inside are ordinary.
+   */
+  readonly pageBlock: ContentBlock | null
+  /** Whether the page block is the slotless kind: never selected, always the settings target. */
+  readonly pagePinned: boolean
   /** The block currently hovered on *either* surface (page or tree), kept in sync. */
   hoverId: string | null
   setHover(id: string | null): void
+  /**
+   * The block whose settings are shown: the selected one, or on a template
+   * page with nothing selected the slotless template block, whose props are
+   * the page's.
+   */
   readonly selected: ContentBlock | null
   readonly selectedSchema: Record<string, any> | null
   /** Whether a block is on the clipboard (for enabling a Paste action). */
@@ -196,7 +217,28 @@ export function createEditorStore(
     Object.fromEntries(dataEntries.map((entry) => [entry.id, effectiveValue(entry.id)])),
   )
 
-  const selected = computed(() => (ui.selectedId ? findBlock(content, ui.selectedId) : null))
+  const pageBlock = computed(() => pageTemplateBlock(content, blocksById) ?? null)
+  const isPageBlock = (id: string | null) => id != null && pageBlock.value?.id === id
+  /** A drop the template page refuses: at the root, beside the template block. */
+  const refused = (drop: DropPosition) => !!pageBlock.value && dropsBesideTemplate(pageBlock.value, drop)
+  /** Where a block added without a target goes: the root, or the template's first slot. */
+  function appendDrop(): DropPosition | null {
+    const template = pageBlock.value
+    if (!template) return { anchorId: null, position: 'after' }
+    const slot = templateSlot(template, blocksById)
+    return slot ? { anchorId: template.id, position: 'inside', slot } : null
+  }
+
+  /** The slotless template block: the whole page, so never selected and always the settings target. */
+  const pinned = computed(() =>
+    pageBlock.value && !templateSlot(pageBlock.value, blocksById) ? pageBlock.value : null,
+  )
+  const isPinned = (id: string | null) => id != null && pinned.value?.id === id
+
+  const selected = computed(() => {
+    if (isPinned(ui.selectedId)) return pinned.value
+    return ui.selectedId ? findBlock(content, ui.selectedId) : pinned.value
+  })
   const selectedSchema = computed(() =>
     selected.value ? (blocksById.get(selected.value.blockId)?.props as Record<string, any>) ?? null : null,
   )
@@ -234,7 +276,9 @@ export function createEditorStore(
     setScope,
     dataValue,
     get selectedId() {
-      return ui.selectedId
+      // A block selected before it became the page (its siblings were removed)
+      // stops counting as selected.
+      return isPinned(ui.selectedId) ? null : ui.selectedId
     },
     set selectedId(value: string | null) {
       ui.selectedId = value
@@ -243,7 +287,7 @@ export function createEditorStore(
       return ui.hoverId
     },
     setHover(id: string | null) {
-      ui.hoverId = id
+      ui.hoverId = isPinned(id) ? null : id
     },
     get layout() {
       return ui.layout
@@ -253,22 +297,28 @@ export function createEditorStore(
     },
     selected,
     selectedSchema,
+    pageBlock,
+    get pagePinned() {
+      return pinned.value != null
+    },
     get canPaste() {
       return ui.clipboard != null
     },
 
     select(id: string | null) {
-      ui.selectedId = id
+      ui.selectedId = isPinned(id) ? null : id
     },
     addBlock(blockId: string) {
       const meta = blocksById.get(blockId)
-      if (!meta) return
+      const drop = appendDrop()
+      if (!meta || !drop) return
       const block = createContentBlock(meta)
-      content.push(block)
+      placeBlock(content, block, drop)
       ui.selectedId = block.id
       markBlockUsed(blockId)
     },
     remove(id: string) {
+      if (isPageBlock(id)) return
       removeBlock(content, id)
       if (ui.selectedId === id) ui.selectedId = null
     },
@@ -277,16 +327,18 @@ export function createEditorStore(
     },
     addBlockAt(blockId: string, drop: DropPosition) {
       const meta = blocksById.get(blockId)
-      if (!meta) return
+      if (!meta || refused(drop)) return
       const block = createContentBlock(meta)
       placeBlock(content, block, drop)
       ui.selectedId = block.id
       markBlockUsed(blockId)
     },
     relocate(id: string, drop: DropPosition) {
+      if (isPageBlock(id) || refused(drop)) return
       relocateBlock(content, id, drop)
     },
     duplicate(id: string) {
+      if (isPageBlock(id)) return
       const copy = duplicateBlock(content, id)
       if (copy) ui.selectedId = copy.id
     },
@@ -296,19 +348,17 @@ export function createEditorStore(
     },
     cut(id: string) {
       const block = findBlock(content, id)
-      if (!block) return
+      if (!block || isPageBlock(id)) return
       ui.clipboard = cloneBlock(block)
       removeBlock(content, id)
       if (ui.selectedId === id) ui.selectedId = null
     },
     paste(afterId: string | null) {
       if (!ui.clipboard) return
+      const drop: DropPosition | null = afterId ? { anchorId: afterId, position: 'after' } : appendDrop()
+      if (!drop || refused(drop)) return
       const block = cloneBlock(ui.clipboard)
-      placeBlock(
-        content,
-        block,
-        afterId ? { anchorId: afterId, position: 'after' } : { anchorId: null, position: 'after' },
-      )
+      placeBlock(content, block, drop)
       ui.selectedId = block.id
     },
     snapshot(): EditableState {

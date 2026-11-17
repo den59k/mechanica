@@ -2,7 +2,7 @@
   <div class="mech-data">
     <!-- Left rail: page setup (pinned), then one row per data entry. -->
     <nav class="mech-data__rail">
-      <!-- Set-once page properties (layout, page block) live in their own pinned
+      <!-- Set-once page properties (layout, page template) live in their own pinned
            section — page metadata, not a defineData entry. -->
       <template v-if="hasPageSetup">
         <button
@@ -99,10 +99,10 @@ const localeConfig = ((window as { state?: State }).state?.locales ?? null) as L
 const localeName = (code: string | null) => (code ? localeLabel(localeConfig, code) : '')
 
 // The pinned page-setup section exists when the app gives it something to
-// offer: several layouts, or standalone (whole-page) blocks.
+// offer: several layouts, or page templates.
 const PAGE_SETUP = '$page-setup'
 const hasPageSetup =
-  runtimeLayoutNames().length > 1 || store.blocks.some((block) => block.standalone && !block.hidden)
+  runtimeLayoutNames().length > 1 || store.blocks.some((block) => block.page && !block.hidden)
 
 // Folder-pinned entries (`defineData({ folder })`) are only drawn on pages under
 // that folder — the value's scope is unaffected, this just filters the rail.

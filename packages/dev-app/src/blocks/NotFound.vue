@@ -8,11 +8,11 @@
 </template>
 
 <script setup lang="ts">
-// A standalone (whole-page) block: it only appears in the palette's "Pages"
-// group while the page is still empty — never alongside content blocks.
+// A page template: the palette offers it only on an empty page ("Start this
+// page") and in Page setup, never alongside content blocks.
 const props = defineBlock({
   name: 'Not found page',
-  standalone: true,
+  page: true,
   icon: 'frame',
   props: {
     code: { type: 'string', default: '404' },

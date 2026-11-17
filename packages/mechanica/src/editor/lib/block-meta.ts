@@ -28,7 +28,9 @@ export function toBlockMeta(component: BlockComponent): Block {
     order: schema.order,
     hidden: schema.hidden,
     devOnly: schema.devOnly,
-    standalone: schema.standalone,
+    // `standalone` is the deprecated name of `page`; this is the only place
+    // the alias resolves, so everything downstream reads `block.page`.
+    page: schema.page ?? schema.standalone,
     folders: schema.folders,
     layouts: schema.layouts,
     version: schema.version,
@@ -55,7 +57,7 @@ export function composedBlockMeta(def: ComposedBlockDefinition): Block {
     category: def.category ?? 'Site blocks',
     icon: def.icon,
     hidden: def.hidden,
-    standalone: def.standalone,
+    page: def.page,
     previewData: def.previewData,
     composed: true,
     props: def.props

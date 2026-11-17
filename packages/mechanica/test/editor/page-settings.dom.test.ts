@@ -10,7 +10,7 @@ const RUNTIME_KEY = '__MECHANICA_RUNTIME__'
 
 const components = [
   { blockId: 'hero', __name: 'Hero', blockSchema: { name: 'Hero', props: { title: 'string' } } },
-  { blockId: 'not-found', __name: 'NotFound', blockSchema: { name: 'Not found page', standalone: true } },
+  { blockId: 'not-found', __name: 'NotFound', blockSchema: { name: 'Not found page', page: true } },
 ]
 
 function mount(store: EditorStore) {
@@ -60,12 +60,12 @@ describe('PageSettings (page setup pane)', () => {
     expect(el.textContent).toContain('translations follow it')
   })
 
-  it('offers the page-block select with standalone blocks only', () => {
+  it('offers the page-template select with page templates only', () => {
     const store = createEditorStore({ content: [], data: {} }, components)
     const el = mount(store)
-    // The select renders with the empty-page placeholder; hero (not standalone)
-    // is not an option — only the standalone page block is.
-    expect(el.textContent).toContain('Page block')
+    // The select renders with the empty-page placeholder; hero (not a page
+    // template) is not an option — only the page template is.
+    expect(el.textContent).toContain('Page template')
     expect(el.textContent).toContain('Choose a block…')
   })
 

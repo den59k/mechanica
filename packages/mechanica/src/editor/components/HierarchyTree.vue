@@ -36,12 +36,7 @@
         @focus="onRowFocus(block.id)"
         @blur="onRowBlur"
         @keydown="onRowKeydown(block, $event)"
-        @pointerdown="
-          $event.button !== 2 &&
-            drag.begin({ kind: 'move', id: block.id, label: labelOf(block) }, $event, () =>
-              store.select(block.id),
-            )
-        "
+        @pointerdown="onRowPointerDown(block, $event)"
         @contextmenu="onContext(block, $event)"
       >
         <button
@@ -159,6 +154,20 @@ const drag = inject(dragKey)!
 const contextMenu = inject(contextMenuKey, null)
 
 const items = computed(() => props.blocks ?? store.content)
+
+/** A template page's root block: it stays where it is, so it neither drags nor moves. */
+const isLocked = (block: ContentBlock) => store.pageBlock?.id === block.id
+
+// A press on a row starts a potential drag, and selects the block on release
+// without one. The locked root just selects.
+function onRowPointerDown(block: ContentBlock, event: PointerEvent) {
+  if (event.button === 2) return
+  if (isLocked(block)) {
+    store.select(block.id)
+    return
+  }
+  drag.begin({ kind: 'move', id: block.id, label: labelOf(block) }, event, () => store.select(block.id))
+}
 
 const labelOf = (block: ContentBlock) => store.blocksById.get(block.blockId)?.name ?? block.blockId
 // Only show an icon the block author actually chose — no generic filler glyph.
@@ -322,6 +331,15 @@ const blockMenu = (block: ContentBlock): ContextMenuItem[] => {
   const items: ContextMenuItem[] = []
   if (expandable(block)) {
     items.push({ label: isCollapsed(id) ? 'Expand' : 'Collapse', onClick: () => toggleCollapsed(id) })
+  }
+  if (isLocked(block)) {
+    // The template root offers no cut, duplicate, move or delete, and a paste
+    // goes inside it (its first slot): nothing can sit beside it.
+    items.push(
+      { label: 'Copy', separatorBefore: items.length > 0, onClick: () => store.copy(id) },
+      { label: 'Paste', disabled: !store.canPaste, onClick: () => store.paste(null) },
+    )
+    return items
   }
   items.push(
     { label: 'Copy', separatorBefore: items.length > 0, onClick: () => store.copy(id) },

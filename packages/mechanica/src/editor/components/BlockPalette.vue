@@ -118,10 +118,10 @@ const currentLayout = computed(() => store.layout ?? layoutNames[0] ?? null)
 const inScope = (block: Block) =>
   blockAvailableIn(block, store.folder) && blockAvailableForLayout(block, currentLayout.value)
 
-// What the palette could ever offer here: no hidden blocks, and standalone
-// (whole-page) blocks only while the page is still empty.
+// What the palette could ever offer here: no hidden blocks, and page templates
+// only while the page is still empty.
 const offerable = computed(() =>
-  store.blocks.filter((block) => !block.hidden && (!block.standalone || pageEmpty.value)),
+  store.blocks.filter((block) => !block.hidden && (!block.page || pageEmpty.value)),
 )
 const available = computed(() => offerable.value.filter(inScope))
 const scopedOut = computed(() => offerable.value.length - available.value.length)
@@ -143,10 +143,10 @@ const START_GROUP = 'Start this page'
 
 const groups = computed<PaletteGroup[]>(() => {
   const byCategory = new Map<string, Block[]>()
-  // Standalone (whole-page) blocks group under the empty page's starter section
+  // Page templates group under the empty page's starter section
   // (`offerable` already dropped them on non-empty pages).
   for (const block of filtered.value) {
-    const category = block.standalone ? START_GROUP : (block.category ?? '')
+    const category = block.page ? START_GROUP : (block.category ?? '')
     if (!byCategory.has(category)) byCategory.set(category, [])
     byCategory.get(category)!.push(block)
   }
@@ -158,8 +158,8 @@ const groups = computed<PaletteGroup[]>(() => {
   const at = list.findIndex((group) => group.name === START_GROUP)
   const start = at === -1 ? undefined : list.splice(at, 1)[0]
   // An empty page always opens with the starter group — the "Design this page"
-  // card plus the site's standalone page blocks. While searching, only matching
-  // page blocks remain (relevance rules; the action card steps back).
+  // card plus the site's page templates. While searching, only matching page
+  // templates remain (relevance rules; the action card steps back).
   if (pageEmpty.value && !search.value) {
     list.unshift({ name: START_GROUP, blocks: start?.blocks ?? [], action: true })
   } else if (start) {
@@ -174,7 +174,7 @@ const recent = computed(() => {
   if (search.value) return []
   return store.recentBlockIds
     .map((id) => store.blocksById.get(id))
-    .filter((block): block is Block => !!block && !block.hidden && !block.standalone && inScope(block))
+    .filter((block): block is Block => !!block && !block.hidden && !block.page && inScope(block))
     .slice(0, 6)
 })
 

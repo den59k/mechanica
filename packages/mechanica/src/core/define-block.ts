@@ -19,10 +19,13 @@ declare global {
     /** Available only in dev; stripped from production output. */
     devOnly?: boolean
     /**
-     * A block that *is* a whole page (a feedback form, a 404, a legal page).
-     * Offered under a "Pages" palette group only while the page is empty —
-     * page-shaped blocks stop polluting the palette on every other page.
+     * A page template: a block that is a whole page (a 404, a feedback form).
+     * A page whose only root block is a page template is edited as that page:
+     * the block cannot be selected, moved or removed, and its props are the
+     * page's properties. Offered only on an empty page and in Page setup.
      */
+    page?: boolean
+    /** @deprecated Use `page`. */
     standalone?: boolean
     /**
      * Offer this block only on pages under these folders (paths relative to
