@@ -147,7 +147,7 @@
           v-if="pinnedTemplate"
           :can-change="hasPageDialog"
           :can-compose="canCompose"
-          @change="openData"
+          @change="openPageSetup"
           @compose="editInComposer"
         />
         <HierarchyTree v-else-if="store.content.length" />
@@ -270,6 +270,8 @@ provide(dragKey, drag)
 const dialog = createDialogStore()
 provide(dialogKey, dialog)
 const openData = () => dialog.open(DataDialog)
+// "Change template" lands on the section that holds the template select.
+const openPageSetup = () => dialog.open(DataDialog, { setup: true })
 // The dialog also hosts the page-setup section (layout, page template), so it
 // opens even on sites without any defineData entries.
 const hasPageDialog = computed(

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { createApp, h } from 'vue'
+import { createApp, h, nextTick } from 'vue'
 import { registerFieldSchemas } from 'mechanica-shared'
 import { createEditorStore, editorStoreKey, type EditorStore } from '@/editor/lib/store'
 import PageSettings from '@/editor/components/PageSettings.vue'
@@ -66,7 +66,17 @@ describe('PageSettings (page setup pane)', () => {
     // The select renders with the empty-page placeholder; hero (not a page
     // template) is not an option — only the page template is.
     expect(el.textContent).toContain('Page template')
-    expect(el.textContent).toContain('Choose a block…')
+    expect(el.textContent).toContain('Choose a template…')
+  })
+
+  it('leads with the way out of a template only on a template page', async () => {
+    const store = createEditorStore({ content: [{ id: 'root', blockId: 'not-found', data: {} }], data: {} }, components)
+    const el = mount(store)
+    document.body.appendChild(el)
+    el.querySelector<HTMLElement>('.mech-select__trigger')!.click()
+    await nextTick()
+    expect(document.body.textContent).toContain('No template (build from blocks)')
+    el.remove()
   })
 
   it('shows "Custom blocks" for a page with regular content', () => {

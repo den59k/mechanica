@@ -4,7 +4,7 @@
 
 ### Template pages in the editor
 
-- **A page built from one page template is edited as that page.** The template's properties stay open on the right, the block list and palette step aside, and the block can't be selected, moved, duplicated or deleted. "Change template" in the left panel opens Page setup.
+- **A page built from one page template is edited as that page.** The template's properties stay open on the right, the block list and palette step aside, and the block can't be selected, moved, duplicated or deleted. "Change template" in the left panel opens Page setup, where "No template" turns the page back into one built from blocks.
 - **A page template with slots** keeps the tree and palette for the blocks inside it; the template itself stays locked in place, and new blocks land in its slot.
 
 ### Page templates: `standalone` is now `page`

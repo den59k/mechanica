@@ -36,6 +36,27 @@ export function templateSlot(template: ContentBlock, blocksById: Map<string, Blo
 }
 
 /**
+ * Take the template off the page, leaving it empty and ready for blocks. This
+ * is the only way out of a template page, since its block cannot be deleted.
+ * Asks first (the template's values go with it; undoable). Returns whether
+ * the page changed.
+ */
+export function clearPageTemplate(
+  content: ContentBlock[],
+  blocksById: Map<string, Block>,
+  confirmClear: (message: string) => boolean,
+): boolean {
+  const current = pageTemplateBlock(content, blocksById)
+  if (!current) return false
+  const name = blocksById.get(current.blockId)?.name ?? current.blockId
+  if (!confirmClear(`Remove the “${name}” template? The page becomes empty, ready for blocks (undoable).`)) {
+    return false
+  }
+  content.splice(0, content.length)
+  return true
+}
+
+/**
  * Make `meta` the page's entire content (a fresh block with schema defaults).
  * Filling an empty page or swapping one template for another applies silently;
  * replacing hand-arranged content goes through `confirmReplace` first

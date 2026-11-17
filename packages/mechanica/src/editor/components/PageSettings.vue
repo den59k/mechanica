@@ -49,7 +49,7 @@
 import { computed, inject } from 'vue'
 import { editorStoreKey } from '../lib/store'
 import { runtimeLayoutNames } from '../lib/bridge'
-import { pageTemplateBlock, applyPageBlock } from '../lib/page-setup'
+import { pageTemplateBlock, applyPageBlock, clearPageTemplate } from '../lib/page-setup'
 import { humanize } from '../props-panel/humanize'
 import VSelect, { type SelectOption } from './VSelect.vue'
 
@@ -77,15 +77,23 @@ function pickLayout(name: string) {
 
 // ── Page template ─────────────────────────────────────────────────────────
 const pageTemplates = computed(() => store.blocks.filter((block) => block.page && !block.hidden))
-const blockOptions = computed<SelectOption[]>(() =>
-  pageTemplates.value.map((block) => ({ value: block.id, label: block.name })),
-)
+// A template page can only leave its template here (the block itself cannot
+// be deleted), so the select then leads with the way out.
+const NO_TEMPLATE = '$none'
+const blockOptions = computed<SelectOption[]>(() => [
+  ...(currentBlockId.value ? [{ value: NO_TEMPLATE, label: 'No template (build from blocks)' }] : []),
+  ...pageTemplates.value.map((block) => ({ value: block.id, label: block.name })),
+])
 
 /** The page's current page template — only when it IS the whole page. */
 const currentBlockId = computed(() => pageTemplateBlock(store.content, store.blocksById)?.blockId)
-const blockPlaceholder = computed(() => (store.content.length ? 'Custom blocks' : 'Choose a block…'))
+const blockPlaceholder = computed(() => (store.content.length ? 'Custom blocks' : 'Choose a template…'))
 
 function pickBlock(id: string) {
+  if (id === NO_TEMPLATE) {
+    clearPageTemplate(store.content, store.blocksById, (message) => window.confirm(message))
+    return
+  }
   const meta = store.blocksById.get(id)
   if (!meta) return
   const block = applyPageBlock(store.content, meta, store.blocksById, (message) => window.confirm(message))

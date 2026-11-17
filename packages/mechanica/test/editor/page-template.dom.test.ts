@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createApp, h, nextTick, type App } from 'vue'
-import { registerFieldSchemas, type ContentBlock } from 'mechanica-shared'
+import { registerFieldSchemas, type ContentBlock, type DataEntry } from 'mechanica-shared'
 import { createEditorStore, editorStoreKey, type EditorStore } from '@/editor/lib/store'
 import { dragKey, type DragController } from '@/editor/lib/drag-controller'
 import { createContextMenu, contextMenuKey } from '@/editor/lib/context-menu'
@@ -33,10 +33,10 @@ afterEach(() => {
 })
 
 /** Mount the whole editor on a page with this content. */
-function mountEditor(content: ContentBlock[]) {
+function mountEditor(content: ContentBlock[], dataEntries: DataEntry[] = []) {
   const el = document.createElement('div')
   document.body.appendChild(el)
-  const app = createApp(EditorApp, { state: { content, data: {}, page: { path: '/404' } }, components })
+  const app = createApp(EditorApp, { state: { content, data: {}, page: { path: '/404' } }, components, dataEntries })
   app.mount(el)
   apps.push(app)
   return el
@@ -95,8 +95,10 @@ describe('a pinned template page (a slotless page template is the whole page)', 
     expect(el.querySelector('.mech-toolbar')).toBeNull()
   })
 
-  it('"Change template" opens the Page data dialog', async () => {
-    const el = mountEditor(page)
+  it('"Change template" opens the Page data dialog on Page setup', async () => {
+    // A data entry would otherwise be the section the dialog opens on.
+    const seo: DataEntry = { id: 'seo', title: 'SEO', props: { type: 'object', properties: { title: { type: 'string' } } } }
+    const el = mountEditor(page, [seo])
     expect(el.querySelector('.mech-editor__data')!.getAttribute('title')).toBe(
       "Edit this page's data and setup (layout, page template)",
     )
@@ -108,6 +110,9 @@ describe('a pinned template page (a slotless page template is the whole page)', 
     // The dialog is teleported to <body>.
     expect(document.querySelector('.mech-data')).not.toBeNull()
     expect(document.body.textContent).toContain('Page setup')
+    // …on the Page setup section, where the template select lives.
+    expect(document.querySelector('.mech-data__entry--setup')!.classList.contains('is-active')).toBe(true)
+    expect(document.querySelector('.mech-page-setup')).not.toBeNull()
   })
 
   it('offers the composer for a composed template', () => {

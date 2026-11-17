@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Block, ContentBlock } from 'mechanica-shared'
-import { pageTemplateBlock, dropsBesideTemplate, applyPageBlock } from '@/editor/lib/page-setup'
+import { pageTemplateBlock, dropsBesideTemplate, applyPageBlock, clearPageTemplate } from '@/editor/lib/page-setup'
 
 const hero: Block = { id: 'hero', name: 'Hero' }
 const notFound: Block = {
@@ -34,6 +34,23 @@ describe('dropsBesideTemplate', () => {
     expect(dropsBesideTemplate(template, { anchorId: template.id, position: 'before' })).toBe(true)
     expect(dropsBesideTemplate(template, { anchorId: template.id, position: 'inside' })).toBe(false)
     expect(dropsBesideTemplate(template, { anchorId: 'child', position: 'after' })).toBe(false)
+  })
+})
+
+describe('clearPageTemplate', () => {
+  it('empties a template page after asking, and leaves other pages alone', () => {
+    const content = [placed('not-found')]
+    expect(clearPageTemplate(content, blocksById, () => false)).toBe(false)
+    expect(content).toHaveLength(1)
+
+    const messages: string[] = []
+    expect(clearPageTemplate(content, blocksById, (message) => (messages.push(message), true))).toBe(true)
+    expect(content).toHaveLength(0)
+    expect(messages[0]).toContain('Not found page')
+
+    const custom = [placed('hero')]
+    expect(clearPageTemplate(custom, blocksById, () => true)).toBe(false)
+    expect(custom).toHaveLength(1)
   })
 })
 

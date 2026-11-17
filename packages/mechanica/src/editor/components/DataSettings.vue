@@ -92,6 +92,9 @@ import VSegmented, { type SegmentedOption } from './VSegmented.vue'
 import VIcon from './VIcon.vue'
 import PageSettings from './PageSettings.vue'
 
+/** Open on the Page setup section instead of the first data entry. */
+const props = defineProps<{ setup?: boolean }>()
+
 const store = inject(editorStoreKey)!
 
 // Locale labels for the i18n context note (config is static for the session).
@@ -108,7 +111,9 @@ const hasPageSetup =
 // that folder — the value's scope is unaffected, this just filters the rail.
 const entries = computed(() => store.dataEntries.filter((entry) => dataEntryAvailableIn(entry, store.folder)))
 
-const activeId = ref<string | null>(entries.value[0]?.id ?? (hasPageSetup ? PAGE_SETUP : null))
+const activeId = ref<string | null>(
+  props.setup && hasPageSetup ? PAGE_SETUP : (entries.value[0]?.id ?? (hasPageSetup ? PAGE_SETUP : null)),
+)
 const active = computed(() =>
   activeId.value === PAGE_SETUP
     ? null
